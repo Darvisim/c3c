@@ -1,0 +1,19 @@
+name: Sync Fork
+
+on:
+  schedule:
+    - cron: '0 0 * * *'   # run daily at midnight UTC
+  workflow_dispatch:       # allow manual trigger
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: tgymnich/fork-sync@v1.2.1
+        with:
+          owner: c3lang                # upstream repo owner
+          base: master                   # upstream branch
+          head: master                   # your fork branch
+          github_token: ${{ secrets.PERSONAL_TOKEN }}
+          merge_method: merge          # or 'rebase' if you prefer linear history
