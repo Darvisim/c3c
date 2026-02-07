@@ -215,6 +215,10 @@ if(C3_WITH_LLVM)
             set(CMAKE_SYSTEM_PREFIX_PATH ${llvm_dir} ${CMAKE_SYSTEM_PREFIX_PATH})
         endif()
 
+        if (${CMAKE_SYSTEM_NAME} STREQUAL "iOS")
+            find_package(Zstd REQUIRED)
+        endif()
+
         find_package(LLVM REQUIRED CONFIG NO_DEFAULT_PATH)
         find_package(LLD REQUIRED CONFIG NO_DEFAULT_PATH)
     else()
