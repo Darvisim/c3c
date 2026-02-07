@@ -467,11 +467,8 @@ jobs:
             -DCMAKE_SYSTEM_NAME=iOS \
             -DCMAKE_OSX_SYSROOT=$SDK_PATH \
             -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }} \
-            -DLLVM_DIR=$LLVM_DIR \
-            -DLLD_DIR=$LLD_DIR \
-            -DCMAKE_PREFIX_PATH=$Zstd_DIR \
-            -DZstd_DIR=$Zstd_DIR \
-            -DC3_LLD_INCLUDE_DIR=$C3_LLD_INCLUDE_DIR
+            -DC3_FETCH_LLVM=ON \
+            -DZstd_DIR=$Zstd_DIR
           cmake --build build
 
       - name: Run Unified Tests
