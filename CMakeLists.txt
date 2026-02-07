@@ -366,7 +366,7 @@ if(C3_WITH_LLVM)
             ${LLD_COMMON}
     )
 
-    if (APPLE)
+    if (APPLE AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
         set(lld_libs ${lld_libs} xar)
         if (llvm_dir)
             file(GLOB_RECURSE RT_ASAN_DYNAMIC "${llvm_dir}/*libclang_rt.asan_osx_dynamic.dylib")

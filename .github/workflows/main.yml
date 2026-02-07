@@ -453,7 +453,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          brew install llvm lld curl zstd libffi libedit xar
+          brew install llvm lld curl zstd libffi libedit
           echo "LLVM_DIR=$(brew --prefix llvm)/lib/cmake/llvm" >> $GITHUB_ENV
           echo "LLD_DIR=$(brew --prefix lld)/lib/cmake/lld" >> $GITHUB_ENV
           echo "Zstd_DIR=$(brew --prefix zstd)/lib/cmake/zstd" >> $GITHUB_ENV
