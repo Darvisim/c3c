@@ -2369,7 +2369,7 @@ void target_setup(BuildTarget *target)
 		if (sysroot)
 		{
 			INFO_LOG("iOS SDK: %s", sysroot);
-			compiler.build.ios.sdk = macos_sysroot_sdk_information(sysroot);
+			compiler.build.ios.sdk = ios_sysroot_sdk_information(sysroot);
 			if (compiler.platform.arch == ARCH_TYPE_AARCH64)
 			{
 				if (compiler.build.ios.sdk->ios_min_deploy_target.major < 11)
