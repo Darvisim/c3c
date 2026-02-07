@@ -20,9 +20,6 @@ else
     C3C_BIN="$(realpath "$1")"
 fi
 
-if [[ -d "$(dirname "$C3C_BIN")/c3c.app" && -x "$(dirname "$C3C_BIN")/c3c.app/c3c" ]]; then
-    C3C_BIN="$(realpath "$(dirname "$C3C_BIN")/c3c.app/c3c")"
-fi
 # Detect OS
 SYSTEM_NAME="$(uname -s)"
 if [ -n "$2" ]; then

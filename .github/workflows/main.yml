@@ -472,11 +472,11 @@ jobs:
           cmake --build build
 
       - name: Run Unified Tests
-        run: ./scripts/tools/ci_tests.sh "./build/c3c"
+        run: ./scripts/tools/ci_tests.sh "./build/c3c.app/c3c"
 
       - name: Bundle (iOS)
         run: |
-          bash ./scripts/tools/package_build.sh "./build/c3c" "c3-ios-${{ matrix.arch }}-${{ matrix.build_type }}" "tar"
+          bash ./scripts/tools/package_build.sh "./build/c3c.app/c3c" "c3-ios-${{ matrix.arch }}-${{ matrix.build_type }}" "tar"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v6
