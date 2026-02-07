@@ -434,7 +434,7 @@ jobs:
       fail-fast: false
       matrix:
         build_type: [ Release, Debug ]
-        sdk: [ iphoneos, iphonesimulator ]
+        arch: [ aarch64, x86_64 ]
     steps:
       - uses: actions/checkout@v6
 
@@ -443,21 +443,28 @@ jobs:
             sudo xcode-select --switch /Applications/Xcode.app
             xcodebuild -version
 
-      - name: Set Arch
+      - name: Set SDK
         run: |
-          if [ "${{ matrix.sdk }}" = "iphonesimulator" ]; then
-            echo "ARCH=x86_64" >> $GITHUB_ENV
+          if [ "${{ matrix.arch }}" = "x86_64" ]; then
+            echo "SDK=iphonesimulator" >> $GITHUB_ENV
           else
-            echo "ARCH=arm64" >> $GITHUB_ENV
+            echo "SDK=iphoneos" >> $GITHUB_ENV
           fi
-        
+
+      - name: Install dependencies
+        run: |
+          brew install llvm curl
+          echo "LLVM_DIR=$(brew --prefix llvm)/lib/cmake/llvm" >> $GITHUB_ENV
+
       - name: Build for iOS
         run: |
-          SDK_PATH=$(xcrun --sdk ${{ matrix.sdk }} --show-sdk-path)
-          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+          SDK_PATH=$(xcrun --sdk $SDK --show-sdk-path)
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
             -DCMAKE_SYSTEM_NAME=iOS \
             -DCMAKE_OSX_SYSROOT=$SDK_PATH \
-            -DCMAKE_OSX_ARCHITECTURES=$ARCH
+            -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }} \
+            -DLLVM_DIR=$LLVM_DIR
           cmake --build build
 
       - name: Run Unified Tests
@@ -465,13 +472,13 @@ jobs:
 
       - name: Bundle (iOS)
         run: |
-          bash ./scripts/tools/package_build.sh "./build/c3c" "c3-ios-${ARCH}-${{ matrix.build_type }}" "tar"
+          bash ./scripts/tools/package_build.sh "./build/c3c" "c3-ios-${{ matrix.arch }}-${{ matrix.build_type }}" "tar"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v6
         with:
-          name: c3-ios-${ARCH}-${{ matrix.build_type }}
-          path: c3-ios-${ARCH}-${{ matrix.build_type }}.tar.gz
+          name: c3-ios-${{ matrix.arch }}-${{ matrix.build_type }}
+          path: c3-ios-${{ matrix.arch }}-${{ matrix.build_type }}.tar.gz
       
   release:
     runs-on: ubuntu-22.04
@@ -495,6 +502,8 @@ jobs:
           mv c3-netbsd-Release/c3-netbsd-Release.tar.gz c3-netbsd.tar.gz || true
           mv c3-android-aarch64-Release/c3-android-aarch64-Release.tar.gz c3-android-aarch64.tar.gz
           mv c3-android-x86_64-Release/c3-android-x86_64-Release.tar.gz c3-android-x86_64.tar.gz
+          mv c3-ios-aarch64-Release/c3-ios-aarch64-Release.tar.gz c3-ios-aarch64.tar.gz
+          mv c3-ios-x86_64-Release/c3-ios-x86_64-Release.tar.gz c3-ios-x86_64.tar.gz
 
           # --- Debug Assets ---
           mv c3-windows-Debug/c3-windows-Debug.zip c3-windows-debug.zip
@@ -506,6 +515,8 @@ jobs:
           mv c3-netbsd-Debug/c3-netbsd-Debug.tar.gz c3-netbsd-debug.tar.gz || true
           mv c3-android-aarch64-Debug/c3-android-aarch64-Debug.tar.gz c3-android-aarch64-debug.tar.gz
           mv c3-android-x86_64-Debug/c3-android-x86_64-Debug.tar.gz c3-android-x86_64-debug.tar.gz
+          mv c3-ios-aarch64-Debug/c3-ios-aarch64-Debug.tar.gz c3-ios-aarch64-debug.tar.gz
+          mv c3-ios-x86_64-Debug/c3-ios-x86_64-Debug.tar.gz c3-ios-x86_64-debug.tar.gz
 
       - run: gh release delete latest-prerelease-tag --cleanup-tag -y || true
       - run: echo "RELEASE_NAME=latest-prerelease-$(date +'%Y%m%d-%H%M')" >> $GITHUB_ENV
@@ -524,7 +535,7 @@ jobs:
             c3-netbsd.tar.gz
             c3-android-aarch64.tar.gz
             c3-android-x86_64.tar.gz
-            c3-ios-arm64.tar.gz
+            c3-ios-aarch64.tar.gz
             c3-ios-x86_64.tar.gz
             # --- Debug Artifacts ---
             c3-windows-debug.zip
@@ -535,5 +546,5 @@ jobs:
             c3-netbsd-debug.tar.gz
             c3-android-aarch64-debug.tar.gz
             c3-android-x86_64-debug.tar.gz
-            c3-ios-arm64-debug.tar.gz
+            c3-ios-aarch64-debug.tar.gz
             c3-ios-x86_64-debug.tar.gz

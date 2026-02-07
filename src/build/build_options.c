@@ -1851,6 +1851,7 @@ const char *arch_os_target[ARCH_OS_TARGET_LAST + 1] = {
 		[FREEBSD_X86] = "freebsd-x86",
 		[FREEBSD_X64] = "freebsd-x64",
 		[IOS_AARCH64] = "ios-aarch64",
+		[IOS_X86_64] = "ios-x86_64",
 		[LINUX_AARCH64] = "linux-aarch64",
 		[LINUX_RISCV32] = "linux-riscv32",
 		[LINUX_RISCV64] = "linux-riscv64",
