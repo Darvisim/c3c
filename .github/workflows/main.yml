@@ -457,7 +457,7 @@ jobs:
           echo "LLVM_DIR=$(brew --prefix llvm)/lib/cmake/llvm" >> $GITHUB_ENV
           echo "LLD_DIR=$(brew --prefix lld)/lib/cmake/lld" >> $GITHUB_ENV
 
-      - name: Build for iOS
+      - name: CMake Build
         run: |
           SDK_PATH=$(xcrun --sdk $SDK --show-sdk-path)
           cmake -B build -G Ninja \
