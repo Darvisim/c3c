@@ -471,7 +471,7 @@ jobs:
             -DLLD_DIR=$LLD_DIR \
             -DCMAKE_PREFIX_PATH=$Zstd_DIR \
             -DZstd_DIR=$Zstd_DIR \
-            -DC3_LLD_INCLUDE_DIR=$C3_LLD_INCLUDED_DIR
+            -DC3_LLD_INCLUDE_DIR=$C3_LLD_INCLUDE_DIR
           cmake --build build
 
       - name: Run Unified Tests
