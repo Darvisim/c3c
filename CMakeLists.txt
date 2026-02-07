@@ -313,11 +313,13 @@ if(C3_WITH_LLVM)
         # These don't seem to be reliable on windows.
         if (NOT ${CMAKE_SYSTEM_NAME} STREQUAL "iOS")
             find_library(LLD_COFF NAMES liblldCOFF.dylib lldCOFF.lib lldCOFF.a liblldCOFF.dll.a liblldCOFF.a PATHS ${LLVM_LIBRARY_DIRS} NO_DEFAULT_PATH REQUIRED)
+            find_library(LLD_COMMON NAMES liblldCommon.dylib lldCommon.lib lldCommon.a liblldCommon.dll.a liblldCommon.a PATHS ${LLVM_LIBRARY_DIRS} NO_DEFAULT_PATH REQUIRED)
+            find_library(LLD_ELF NAMES liblldELF.dylib lldELF.lib lldELF.a liblldELF.dll.a liblldELF.a PATHS ${LLVM_LIBRARY_DIRS} NO_DEFAULT_PATH REQUIRED)
         else()
             set(LLD_COFF "")
+            set(LLD_COMMON "")
+            set(LLD_ELF "")
         endif()
-        find_library(LLD_COMMON NAMES liblldCommon.dylib lldCommon.lib lldCommon.a liblldCommon.dll.a liblldCommon.a PATHS ${LLVM_LIBRARY_DIRS} NO_DEFAULT_PATH REQUIRED)
-        find_library(LLD_ELF NAMES liblldELF.dylib lldELF.lib lldELF.a liblldELF.dll.a liblldELF.a PATHS ${LLVM_LIBRARY_DIRS} NO_DEFAULT_PATH REQUIRED)
         
         if (NOT ${CMAKE_SYSTEM_NAME} STREQUAL "OpenBSD")
             find_library(LLD_MACHO NAMES liblldMachO.dylib lldMachO.lib lldMachO.a liblldMachO.dll.a liblldMachO.a PATHS ${LLVM_LIBRARY_DIRS} NO_DEFAULT_PATH REQUIRED)
@@ -474,6 +476,7 @@ add_executable(c3c
         src/compiler/decltable.c
         src/compiler/methodtable.c
         src/compiler/mac_support.c
+        src/compiler/ios_support.c
         src/utils/fetch_msvc.c
         src/compiler/windows_support.c
         src/compiler/codegen_asm.c
