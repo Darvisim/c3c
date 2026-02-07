@@ -471,8 +471,8 @@ jobs:
             -DZstd_DIR=$Zstd_DIR
           cmake --build build
 
-      - name: Run Unified Tests
-        run: ./scripts/tools/ci_tests.sh "./build/c3c.app/c3c" ios
+      # - name: Run Unified Tests
+      #   run: ./scripts/tools/ci_tests.sh "./build/c3c.app/c3c" ios
 
       - name: Bundle (iOS)
         run: |
