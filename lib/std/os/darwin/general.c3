@@ -1,5 +1,5 @@
 module std::os::darwin @if(env::DARWIN) @link("Foundation.framework");
-import std::os::macos::cf, std::os::macos::objc, std::io;
+import std::os::darwin::cf, std::os::darwin::objc, std::io;
 
 enum NSSearchPathDomainMask : const NSUInteger
 {

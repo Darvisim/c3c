@@ -1,7 +1,7 @@
 // https://www.cprogramming.com/snippets/source-code/find-the-number-of-cpu-cores-for-windows-mac-or-linux
 
 module std::os @if(env::DARWIN);
-import std::os::macos;
+import std::os::darwin;
 
 fn uint num_cpu()
 {
