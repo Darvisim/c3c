@@ -159,6 +159,9 @@ if(C3_ENABLE_CLANGD_LSP)
 endif(C3_ENABLE_CLANGD_LSP)
 
 if(C3_WITH_LLVM)
+    if (${CMAKE_SYSTEM_NAME} STREQUAL "iOS")
+        find_package(Zstd REQUIRED)
+    endif()
     if(C3_FETCH_LLVM)
         # 1. Determine local platform ID
         if (WIN32)
@@ -213,10 +216,6 @@ if(C3_WITH_LLVM)
         # TEST: For Windows, we might need to add the bin dir to prefix path for find_package to work well
         if (WIN32)
             set(CMAKE_SYSTEM_PREFIX_PATH ${llvm_dir} ${CMAKE_SYSTEM_PREFIX_PATH})
-        endif()
-
-        if (${CMAKE_SYSTEM_NAME} STREQUAL "iOS")
-            find_package(Zstd REQUIRED)
         endif()
 
         find_package(LLVM REQUIRED CONFIG NO_DEFAULT_PATH)
