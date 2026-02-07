@@ -456,7 +456,7 @@ jobs:
           brew install llvm lld curl zstd libffi libedit
           echo "LLVM_DIR=$(brew --prefix llvm)/lib/cmake/llvm" >> $GITHUB_ENV
           echo "LLD_DIR=$(brew --prefix lld)/lib/cmake/lld" >> $GITHUB_ENV
-          echo "ZSTD_DIR=$(brew --prefix zstd)/lib/cmake/zstd" >> $GITHUB_ENV
+          echo "Zstd_DIR=$(brew --prefix zstd)/lib/cmake/zstd" >> $GITHUB_ENV
 
       - name: CMake Build
         run: |
@@ -468,8 +468,8 @@ jobs:
             -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }} \
             -DLLVM_DIR=$LLVM_DIR \
             -DLLD_DIR=$LLD_DIR \
-            -DZSTD_DIR=$ZSTD_DIR \
-            -DCMAKE_PREFIX_PATH=$ZSTD_DIR
+            -DCMAKE_PREFIX_PATH=$Zstd_DIR \
+            -DZstd_DIR=$Zstd_DIR
           cmake --build build
 
       - name: Run Unified Tests
