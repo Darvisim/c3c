@@ -468,7 +468,8 @@ jobs:
             -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }} \
             -DLLVM_DIR=$LLVM_DIR \
             -DLLD_DIR=$LLD_DIR \
-            -DZSTD_DIR=$ZSTD_DIR
+            -DZSTD_DIR=$ZSTD_DIR \
+            -DCMAKE_PREFIX_PATH=$ZSTD_DIR
           cmake --build build
 
       - name: Run Unified Tests
