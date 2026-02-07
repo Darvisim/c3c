@@ -158,7 +158,7 @@ if(C3_ENABLE_CLANGD_LSP)
     )
 endif(C3_ENABLE_CLANGD_LSP)
 
-if(C3_WITH_LLVM)
+if(C3_WITH_LLVM AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
     if(C3_FETCH_LLVM)
         # 1. Determine local platform ID
         if (WIN32)

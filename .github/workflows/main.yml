@@ -467,7 +467,7 @@ jobs:
             -DCMAKE_SYSTEM_NAME=iOS \
             -DCMAKE_OSX_SYSROOT=$SDK_PATH \
             -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }} \
-            -DC3_FETCH_LLVM=ON \
+            -DC3_WITH_LLVM=OFF \
             -DZstd_DIR=$Zstd_DIR
           cmake --build build
 

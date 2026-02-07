@@ -1072,12 +1072,10 @@ void platform_linker(const char *output_file, const char **files, unsigned file_
 	linker_setup(&parts, files, file_count, output_file, linker_type, &compiler.linking);
 	const char *output = assemble_linker_command(parts, PLATFORM_WINDOWS);
 	if (compiler.build.print_linking) puts(output);
-	#if !(defined(__APPLE__) && defined(TARGET_OS_IPHONE))
-		if (system(output) != 0)
-		{
-			error_exit("Failed to link executable '%s' using command '%s'.\n", output_file, output);
-		}
-	#endif
+	if (system(output) != 0)
+	{
+		error_exit("Failed to link executable '%s' using command '%s'.\n", output_file, output);
+	}
 	if (os_is_apple(compiler.platform.os) && compiler.build.debug_info == DEBUG_INFO_FULL)
 	{
 		// Create .dSYM
@@ -1086,12 +1084,10 @@ void platform_linker(const char *output_file, const char **files, unsigned file_
 		scratch_buffer_append_in_quote(output_file);
 		scratch_buffer_append("\"");
 		if (compiler.build.print_linking) puts(scratch_buffer_to_string());
-		#if !(defined(__APPLE__) && defined(TARGET_OS_IPHONE))
-			if (system(scratch_buffer_to_string()) != 0)
-			{
-				OUTN("Failed to create .dSYM files, debugging will be impacted.");
-			}
-		#endif
+		if (system(scratch_buffer_to_string()) != 0)
+		{
+			OUTN("Failed to create .dSYM files, debugging will be impacted.");
+		}
 	}
 	OUTF("Program linked to executable '%s'.\n", output_file);
 }
@@ -1169,12 +1165,10 @@ const char *cc_compiler(const char *cc, const char *file, const char *flags, con
 
 	const char *output = assemble_linker_command(parts, PLATFORM_WINDOWS);
 	DEBUG_LOG("Compiling c sources using '%s'", output);
-	#if !(defined(__APPLE__) && defined(TARGET_OS_IPHONE))
-		if (system(output) != 0)
-		{
-			error_exit("Failed to compile c sources using command '%s'.\n", output);
-		}
-	#endif
+	if (system(output) != 0)
+	{
+		error_exit("Failed to compile c sources using command '%s'.\n", output);
+	}
 	return out_name;
 }
 
@@ -1191,12 +1185,10 @@ bool dynamic_lib_linker(const char *output_file, const char **files, unsigned fi
 		const char *command = assemble_linker_command(args, PLATFORM_WINDOWS);
 		if (compiler.build.print_linking) puts(command);
 		DEBUG_LOG("Linker arguments: %s to %d", command, compiler.platform.object_format);
-		#if !(defined(__APPLE__) && defined(TARGET_OS_IPHONE))
-			if (system(command) != 0)
-			{
-				error_exit("Failed to create a dynamic library using command '%s'.", command);
-			}
-		#endif
+		if (system(command) != 0)
+		{
+			error_exit("Failed to create a dynamic library using command '%s'.", command);
+		}
 		return true;
 	}
 	bool success;
