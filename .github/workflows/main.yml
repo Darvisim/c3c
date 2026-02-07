@@ -434,7 +434,7 @@ jobs:
       fail-fast: false
       matrix:
         build_type: [ Release, Debug ]
-        arch: [ aarch64, x86_64 ]
+        arch: [ arm64, x86_64 ]
     steps:
       - uses: actions/checkout@v6
 
@@ -453,8 +453,9 @@ jobs:
 
       - name: Install dependencies
         run: |
-          brew install llvm curl
+          brew install llvm lld curl
           echo "LLVM_DIR=$(brew --prefix llvm)/lib/cmake/llvm" >> $GITHUB_ENV
+          echo "LLD_DIR=$(brew --prefix lld)/lib/cmake/lld" >> $GITHUB_ENV
 
       - name: Build for iOS
         run: |
@@ -464,7 +465,8 @@ jobs:
             -DCMAKE_SYSTEM_NAME=iOS \
             -DCMAKE_OSX_SYSROOT=$SDK_PATH \
             -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }} \
-            -DLLVM_DIR=$LLVM_DIR
+            -DLLVM_DIR=$LLVM_DIR \
+            -DLLD_DIR=$LLD_DIR
           cmake --build build
 
       - name: Run Unified Tests
@@ -502,7 +504,7 @@ jobs:
           mv c3-netbsd-Release/c3-netbsd-Release.tar.gz c3-netbsd.tar.gz || true
           mv c3-android-aarch64-Release/c3-android-aarch64-Release.tar.gz c3-android-aarch64.tar.gz
           mv c3-android-x86_64-Release/c3-android-x86_64-Release.tar.gz c3-android-x86_64.tar.gz
-          mv c3-ios-aarch64-Release/c3-ios-aarch64-Release.tar.gz c3-ios-aarch64.tar.gz
+          mv c3-ios-arm64-Release/c3-ios-arm64-Release.tar.gz c3-ios-arm64.tar.gz
           mv c3-ios-x86_64-Release/c3-ios-x86_64-Release.tar.gz c3-ios-x86_64.tar.gz
 
           # --- Debug Assets ---
@@ -515,7 +517,7 @@ jobs:
           mv c3-netbsd-Debug/c3-netbsd-Debug.tar.gz c3-netbsd-debug.tar.gz || true
           mv c3-android-aarch64-Debug/c3-android-aarch64-Debug.tar.gz c3-android-aarch64-debug.tar.gz
           mv c3-android-x86_64-Debug/c3-android-x86_64-Debug.tar.gz c3-android-x86_64-debug.tar.gz
-          mv c3-ios-aarch64-Debug/c3-ios-aarch64-Debug.tar.gz c3-ios-aarch64-debug.tar.gz
+          mv c3-ios-arm64-Debug/c3-ios-arm64-Debug.tar.gz c3-ios-arm64-debug.tar.gz
           mv c3-ios-x86_64-Debug/c3-ios-x86_64-Debug.tar.gz c3-ios-x86_64-debug.tar.gz
 
       - run: gh release delete latest-prerelease-tag --cleanup-tag -y || true
@@ -535,7 +537,7 @@ jobs:
             c3-netbsd.tar.gz
             c3-android-aarch64.tar.gz
             c3-android-x86_64.tar.gz
-            c3-ios-aarch64.tar.gz
+            c3-ios-arm64.tar.gz
             c3-ios-x86_64.tar.gz
             # --- Debug Artifacts ---
             c3-windows-debug.zip
@@ -546,5 +548,5 @@ jobs:
             c3-netbsd-debug.tar.gz
             c3-android-aarch64-debug.tar.gz
             c3-android-x86_64-debug.tar.gz
-            c3-ios-aarch64-debug.tar.gz
+            c3-ios-arm64-debug.tar.gz
             c3-ios-x86_64-debug.tar.gz

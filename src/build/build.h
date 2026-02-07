@@ -392,7 +392,7 @@ typedef enum
 	ELF_XTENSA,
 	FREEBSD_X86,
 	FREEBSD_X64,
-	IOS_AARCH64,
+	IOS_ARM64,
 	IOS_X86_64,
 	LINUX_AARCH64,
 	LINUX_RISCV32,
@@ -823,6 +823,13 @@ typedef struct
 		const char *sdk_version;
 		MacSDK *sdk;
 	} macos;
+	struct
+	{
+		const char *sysroot;
+		const char *min_version;
+		const char *sdk_version;
+		iosSDK *sdk;
+	} ios;
 	struct
 	{
 		const char *sdk;

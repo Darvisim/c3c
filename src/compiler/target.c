@@ -1193,7 +1193,7 @@ static char *arch_to_target_triple(ArchOsTarget target, LinuxLibc linux_libc)
 		case ANDROID_AARCH64: return "aarch64-linux-android";
 		case ANDROID_X86_64: return "x86_64-linux-android";
 		case LINUX_AARCH64: return linux_libc == LINUX_LIBC_MUSL ? "aarch64-unknown-linux-musl" : "aarch64-unknown-linux-gnu";
-		case IOS_AARCH64: return "aarch64-apple-ios";
+		case IOS_ARM64: return "arm64-apple-ios";
 		case IOS_X86_64: return "x86_64-apple-ios";
 		case MACOS_AARCH64: return "aarch64-apple-macosx";
 		case ELF_AARCH64: return "aarch64-unknown-elf";
@@ -1889,6 +1889,30 @@ static bool arch_os_pic_default_forced(ArchType arch, OsType os)
 	UNREACHABLE
 }
 
+INLINE const char *llvm_ios_target_triple(const char *triple)
+{
+	if (compiler.build.ios.min_version)
+	{
+		scratch_buffer_clear();
+		scratch_buffer_append(triple);
+		scratch_buffer_append(compiler.build.ios.min_version);
+		return scratch_buffer_to_string();
+	}
+	iosSDK *ios_sdk = compiler.build.ios.sdk;
+
+	if (!ios_sdk)
+	{
+		scratch_buffer_clear();
+		scratch_buffer_append(triple);
+		scratch_buffer_append("10.15.0");
+		return scratch_buffer_to_string();
+	}
+	scratch_buffer_clear();
+	scratch_buffer_append(triple);
+	scratch_buffer_printf("%d.%d.0", ios_sdk->ios_min_deploy_target.major, ios_sdk->ios_min_deploy_target.minor);
+	return scratch_buffer_to_string();
+}
+
 INLINE const char *llvm_macos_target_triple(const char *triple)
 {
 	if (compiler.build.macos.min_version)
@@ -2338,7 +2362,27 @@ void target_setup(BuildTarget *target)
 
 	if (compiler.platform.os == OS_TYPE_IOS)
 	{
-		WARNING("iOS not properly supported yet.");
+		if (!compiler.build.ios.sysroot) compiler.build.ios.sysroot = ios_sysroot();
+		const char *sysroot = compiler.build.ios.sysroot ? compiler.build.ios.sysroot : ios_sysroot();
+
+		compiler.build.ios.sdk = NULL;
+		if (sysroot)
+		{
+			INFO_LOG("iOS SDK: %s", sysroot);
+			compiler.build.ios.sdk = macos_sysroot_sdk_information(sysroot);
+			if (compiler.platform.arch == ARCH_TYPE_AARCH64)
+			{
+				if (compiler.build.ios.sdk->ios_min_deploy_target.major < 11)
+				{
+					compiler.build.ios.sdk->ios_min_deploy_target = (Version) { 11, 0 };
+				}
+				if (compiler.build.ios.sdk->ios_deploy_target.major < 11)
+				{
+					compiler.build.ios.sdk->ios_deploy_target = (Version) { 11, 0 };
+				}
+			}
+		}
+		compiler.platform.target_triple = strdup(llvm_ios_target_triple(compiler.platform.target_triple));
 	}
 	if (compiler.platform.os == OS_TYPE_MACOSX)
 	{

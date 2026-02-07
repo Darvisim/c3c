@@ -186,7 +186,7 @@ const char* DEFAULT_TARGETS[] = {
 		"linux-x64",
 		"macos-aarch64",
 		"macos-x64",
-		"ios-aarch64",
+		"ios-arm64",
 		"netbsd-aarch64",
 		"netbsd-x64",
 		"openbsd-x64",

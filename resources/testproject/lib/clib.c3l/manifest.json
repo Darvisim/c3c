@@ -7,7 +7,7 @@
   "targets": {
     "macos-x64": {},
     "macos-aarch64": {},
-    "ios-aarch64": {},
+    "ios-arm64": {},
     "ios-x86_64": {},
     "netbsd-x64": {},
     "netbsd-aarch64": {},

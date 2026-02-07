@@ -2639,6 +2639,9 @@ bool arch_is_wasm(ArchType type);
 
 const char *macos_sysroot(void);
 MacSDK *macos_sysroot_sdk_information(const char *sdk_path);
+const char *ios_sysroot(void);
+iosSDK *ios_sysroot_sdk_information(const char *sdk_path);
+
 WindowsSDK *windows_get_sdk(void);
 // This string may be in the scratch buffer
 const char *windows_cross_compile_library(void);
