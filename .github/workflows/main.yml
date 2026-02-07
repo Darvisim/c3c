@@ -457,6 +457,7 @@ jobs:
           echo "LLVM_DIR=$(brew --prefix llvm)/lib/cmake/llvm" >> $GITHUB_ENV
           echo "LLD_DIR=$(brew --prefix lld)/lib/cmake/lld" >> $GITHUB_ENV
           echo "Zstd_DIR=$(brew --prefix zstd)/lib/cmake/zstd" >> $GITHUB_ENV
+          echo "C3_LLD_INCLUDE_DIR=$(brew --prefix llvm)/include" >> $GITHUB_ENV
 
       - name: CMake Build
         run: |
@@ -469,7 +470,8 @@ jobs:
             -DLLVM_DIR=$LLVM_DIR \
             -DLLD_DIR=$LLD_DIR \
             -DCMAKE_PREFIX_PATH=$Zstd_DIR \
-            -DZstd_DIR=$Zstd_DIR
+            -DZstd_DIR=$Zstd_DIR \
+            -DC3_LLD_INCLUDE_DIR=$C3_LLD_INCLUDED_DIR
           cmake --build build
 
       - name: Run Unified Tests
