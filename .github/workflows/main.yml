@@ -440,8 +440,8 @@ jobs:
 
       - name: Select Xcode
         run: |
-            xcode-select --switch/Applications/Xcode.app
-            xcodebuid -version
+            xcode-select --switch /Applications/Xcode.app
+            xcodebuild -version
 
       - name: Set Arch
         run: |
