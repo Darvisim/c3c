@@ -580,7 +580,7 @@ jobs:
       - name: Install dependencies
         run: |
           export HOMEBREW_NO_AUTO_UPDATE=1
-          PACKAGES="llvm lld curl zstd libffi libedit ninja"
+          PACKAGES="cmake curl zstd libffi libedit ninja"
           for pkg in $PACKAGES; do
             if ! brew list --versions "$pkg" >/dev/null; then
               echo "Installing $pkg..."
@@ -589,9 +589,33 @@ jobs:
               echo "$pkg is already installed, skipping."
             fi
           done
-          echo "LLVM_DIR=$(brew --prefix llvm)/lib/cmake/llvm" >> $GITHUB_ENV
-          echo "Zstd_DIR=$(brew --prefix zstd)/lib/cmake/zstd" >> $GITHUB_ENV
           echo "/opt/homebrew/bin" >> $GITHUB_PATH
+
+      - name: Cache LLVM + LLD Build
+        uses: actions/cache@v5
+        with:
+          path: llvm-project/build-ios
+          key: llvm-ios-${{ env.LLVM_RELEASE_VERSION }}
+          restore-keys: |
+            llvm-ios-
+      
+      - name: Build LLVM + LLD
+        run: |
+          git clone https://github.com/llvm/llvm-project.git
+          mkdir llvm-project/build-ios && cd llvm-project/build-ios
+          cmake ../llvm \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_SYSROOT=$(xcrun --sdk iphoneos --show-sdk-path) \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DLLVM_ENABLE_PROJECTS="clang;lld" \
+            -DLLVM_TARGETS_TO_BUILD="AArch64;X86;ARM;RISCV;WebAssembly" \
+            -DLLVM_ENABLE_RTTI=ON
+          ninja lld
+          echo "LLVM_DIR=$PWD/lib/cmake/llvm" >> $GITHUB_ENV
+          echo "LLD_DIR=$PWD/lib/cmake/lld" >> $GITHUB_ENV
+          echo "Zstd_DIR=$(brew --prefix zstd)/lib/cmake/zstd" >> $GITHUB_ENV
 
       - name: CMake Build (LLVM + CLang)
         run: |
@@ -606,6 +630,7 @@ jobs:
             -DCMAKE_CXX_COMPILER=$(brew --prefix llvm)/bin/clang++ \
             -DC3_WITH_LLVM=ON \
             -DLLVM_DIR=$LLVM_DIR \
+            -DLLD_DIR=$LLD_DIR \
             -DZstd_DIR=$Zstd_DIR
           cmake --build build
 
