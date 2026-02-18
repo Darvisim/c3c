@@ -223,6 +223,10 @@ static void usage(bool full)
 		print_opt("--macos-min-version <ver>", "Set the minimum MacOS version to compile for.");
 		print_opt("--macos-sdk-version <ver>", "Set the MacOS SDK compiled for.");
 		PRINTF("");
+		print_opt("--iossdk <dir>", "Set the directory for the iOS SDK for cross compilation.");
+		print_opt("--ios-min-version <ver>", "Set the minimum iOS version to compiler for.");
+		print_opt("--ios-sdk-version <ver>", "Set the iOS SDK compiled for.");
+		PRINTF("");
 		print_opt("--linux-libc=<host|gnu|musl>", "Set the libc to use on Linux, defaults to host.");
 		print_opt("--linux-crt <dir>", "Set the directory to use for finding crt1.o and related files.");
 		print_opt("--linux-crtbegin <dir>", "Set the directory to use for finding crtbegin.o and related files.");
@@ -1330,6 +1334,12 @@ static void parse_option(BuildOptions *options)
 				options->benchfn = next_arg();
 				return;
 			}
+			if (match_longopt("iossdk"))
+			{
+				if (at_end() || next_is_opt()) error_exit("error: --iossdk needs a directory path.");
+				options->ios.sysroot = next_arg();
+				return;
+			}
 			if (match_longopt("macossdk"))
 			{
 				if (at_end() || next_is_opt()) error_exit("error: --macossdk needs a directory.");
@@ -1375,6 +1385,18 @@ static void parse_option(BuildOptions *options)
 			if ((argopt = match_argopt("sanitize")))
 			{
 				options->sanitize_mode = parse_opt_select(SanitizeMode, argopt, sanitize_modes);
+				return;
+			}
+			if (match_longopt("ios-min-version"))
+			{
+				if (at_end() || next_is_opt()) error_exit("error: --ios-min-version needs a version string.");
+				options->ios.min_version = next_arg();
+				return;
+			}
+			if (match_longopt("ios-sdk-version"))
+			{
+				if (at_end() || next_is_opt()) error_exit("error: --ios-sdk-version needs a version string.");
+				options->ios.sdk_version = next_arg();
 				return;
 			}
 			if (match_longopt("macos-sdk-version"))
@@ -1873,7 +1895,7 @@ const char *arch_os_target[ARCH_OS_TARGET_LAST + 1] = {
 		[ELF_XTENSA] = "elf-xtensa",
 		[FREEBSD_X86] = "freebsd-x86",
 		[FREEBSD_X64] = "freebsd-x64",
-		[IOS_AARCH64] = "ios-aarch64",
+		[IOS_ARM64] = "ios-arm64",
 		[LINUX_AARCH64] = "linux-aarch64",
 		[LINUX_RISCV32] = "linux-riscv32",
 		[LINUX_RISCV64] = "linux-riscv64",

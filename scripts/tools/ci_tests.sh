@@ -103,6 +103,7 @@ run_examples() {
 }
 
 run_cli_tests() {
+    if [[ "$OS_MODE" == "ios" ]]; then return; fi
     echo "--- Running CLI Tests (init/vendor) ---"
     
     # Test init
@@ -136,7 +137,7 @@ run_dynlib_tests() {
 
     if [[ "$OS_MODE" == "windows" ]]; then
         "$C3C_BIN" -vv compile-run test.c3 -l ./add.lib
-    elif [[ "$OS_MODE" == "mac" ]]; then
+    elif [[ "$OS_MODE" == "mac" || "$OS_MODE" == "ios" ]]; then
         "$C3C_BIN" -vv compile-run test.c3 -l ./add.dylib
     else 
         if [ -f add.so ]; then mv add.so libadd.so; fi

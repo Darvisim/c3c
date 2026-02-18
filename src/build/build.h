@@ -174,6 +174,12 @@ typedef struct BuildOptions_
 		const char *sysroot;
 		const char *min_version;
 		const char *sdk_version;
+	} ios;
+	struct
+	{
+		const char *sysroot;
+		const char *min_version;
+		const char *sdk_version;
 	} macos;
 	struct
 	{
@@ -480,6 +486,13 @@ typedef struct
 		PanicLevel panic_level;
 		X86CpuSet x86_cpu_set;
 	} feature;
+	struct
+	{
+		const char *sysroot;
+		const char *min_version;
+		const char *sdk_version;
+		MacSDK *sdk;
+	} ios;
 	struct
 	{
 		const char *sysroot;

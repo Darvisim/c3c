@@ -28,12 +28,15 @@ typedef struct
 {
 	int major;
 	int minor;
+	int patch;
 } Version;
 
 typedef struct
 {
 	Version macos_deploy_target;
 	Version macos_min_deploy_target;
+	Version ios_deploy_target;
+	Version ios_min_deploy_target;
 } MacSDK;
 
 typedef struct {

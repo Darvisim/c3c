@@ -24,7 +24,7 @@
       "c-sources": [
         "./csource/**"
       ],
-      "reloc": "PIE",
+      "reloc": "PIE"
     },
     "hello_world_win32": {
       "type": "executable",
@@ -40,7 +40,7 @@
       ]
     },
     "hello_world_win32_lib": {
-      "type": "static-lib",
+      "type": "static-lib"
     }
-  },
+  }
 }

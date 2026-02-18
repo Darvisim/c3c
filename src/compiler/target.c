@@ -375,6 +375,12 @@ static inline void target_setup_aarch64_abi(void)
 	cpu_features_add_feature_single(&features, AARCH64_FEAT_NEON);
 	update_cpu_features(compiler.build.cpu_flags, &features, aarch64_feature_name, AARCH64_FEATURE_LAST);
 	cpu_features_set_to_features(features, cpu_feature_zero, NULL, aarch64_feature_name, AARCH64_FEATURE_LAST);
+
+	if(compiler.platform.os == OS_TYPE_IOS)
+	{
+		compiler.platform.object_format = OBJ_FORMAT_MACHO;
+		compiler.platform.environment_type = ENV_TYPE_EABI;
+	}
 }
 
 static inline void target_setup_arm_abi(void)
@@ -1193,7 +1199,7 @@ static char *arch_to_target_triple(ArchOsTarget target, LinuxLibc linux_libc)
 		case ANDROID_AARCH64: return "aarch64-linux-android";
 		case ANDROID_X86_64: return "x86_64-linux-android";
 		case LINUX_AARCH64: return linux_libc == LINUX_LIBC_MUSL ? "aarch64-unknown-linux-musl" : "aarch64-unknown-linux-gnu";
-		case IOS_AARCH64: return "aarch64-apple-ios";
+		case IOS_ARM64: return "arm64-apple-ios";
 		case MACOS_AARCH64: return "aarch64-apple-macosx";
 		case ELF_AARCH64: return "aarch64-unknown-elf";
 		case WINDOWS_AARCH64: return "aarch64-pc-windows-msvc";
@@ -1355,7 +1361,7 @@ static EnvironmentType environment_type_from_llvm_string(StringSlice env)
 	STRCASE("macabi", ENV_TYPE_MACABI)
 		return ENV_TYPE_UNKNOWN;
 #undef STRCASE
-	}
+}
 
 static OsType os_from_llvm_string(StringSlice os_string)
 {
@@ -1432,9 +1438,6 @@ static VendorType vendor_from_llvm_string(StringSlice slice)
 	return VENDOR_UNKNOWN;
 #undef STRCASE
 }
-
-
-
 
 static unsigned arch_pointer_bit_width(OsType os, ArchType arch)
 {
@@ -2338,7 +2341,9 @@ void target_setup(BuildTarget *build_target)
 
 	if (compiler.platform.os == OS_TYPE_IOS)
 	{
-		WARNING("iOS not properly supported yet.");
+		compiler.platform.object_format = OBJ_FORMAT_MACHO;
+		compiler.platform.environment_type = ENV_TYPE_EABI;
+		compiler.platform.target_triple = "arm64-apple-ios";
 	}
 	if (compiler.platform.os == OS_TYPE_MACOSX)
 	{

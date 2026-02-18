@@ -308,6 +308,64 @@ static void linker_setup_macos(const char ***args_ref, Linker linker_type)
 	}
 }
 
+static void linker_setup_ios(const char ***args_ref, Linker linker_type)
+{
+	if(linker_type == LINKER_CC)
+	{
+		add_plain_arg("-target");
+		add_plain_arg(compiler.platform.target_triple);
+		return;
+	}
+
+	add_plain_arg("-arch");
+	add_plain_arg(arch_to_linker_arch(compiler.platform.arch));
+
+	if(strip_unused() && compiler.build.type == TARGET_TYPE_EXECUTABLE)
+	{
+		add_plain_arg("-dead_strip");
+	}
+
+	if(!link_libc()) return;
+
+	if(!compiler.build.ios.sdk)
+	{
+		error_exit("Cannot crosslink iOS without providing --iossdk.");
+	}
+
+	linking_add_link(&compiler.linking, "System");
+	if(compiler.linking.link_math) linking_add_link(&compiler.linking, "m");
+
+	add_plain_arg("-syslibroot");
+	add_quote_arg(compiler.build.ios.sysroot);
+
+	if(is_no_pie(compiler.platform.reloc_model)) add_plain_arg("-no_pie");
+	if(is_pie(compiler.platform.reloc_model)) add_plain_arg("-pie");
+
+	add_plain_arg("-platform_version");
+	add_plain_arg("ios");
+
+	if(compiler.build.ios.min_version)
+	{
+		add_plain_arg(compiler.build.ios.min_version);
+	}
+	else
+	{
+		add_plain_arg(str_printf("%d.%d.0",
+			compiler.build.ios.sdk->ios_min_deploy_target.major,
+			compiler.build.ios.sdk->ios_min_deploy_target.minor));
+	}
+
+	if(compiler.build.ios.sdk_version)
+	{
+		add_plain_arg(compiler.build.ios.sdk_version);
+	}
+	else
+	{
+		add_plain_arg(str_printf("%d.%d",
+			compiler.build.ios.sdk->ios_deploy_target.major,
+			compiler.build.ios.sdk->ios_deploy_target.minor));
+	}
+}
 
 static const char *find_bsd_crt(void)
 {
@@ -780,6 +838,8 @@ static bool linker_setup(const char ***args_ref, const char **files_to_link, uns
 			break;
 		case OS_TYPE_WATCHOS:
 		case OS_TYPE_IOS:
+			linker_setup_ios(args_ref, linker_type);
+			break;
 		case OS_TYPE_TVOS:
 		case OS_TYPE_WASI:
 			break;

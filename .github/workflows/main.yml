@@ -560,9 +560,75 @@ jobs:
           name: c3-android-${{matrix.architecture}}-${{matrix.build_type}}
           path: c3-android-${{matrix.architecture}}-${{matrix.build_type}}.tar.gz
 
+  build-ios:
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: [ Release, Debug ]
+        arch: [ arm64 ]
+        include:
+          - arch: arm64
+            runner: macos-15
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v6
+      
+      - name: Select Xcode
+        run: |
+          sudo xcode-select --switch /Applications/Xcode_16.app
+          xcodebuild -version
+      - name: Install dependencies
+        run: |
+          export HOMEBREW_NO_AUTO_UPDATE=1
+          PACKAGES="llvm lld curl zstd libffi libedit ninja"
+          for pkg in $PACKAGES; do
+            if ! brew list --versions "$pkg" >/dev/null; then
+              echo "Installing $pkg..."
+              brew install "$pkg"
+            else
+              echo "$pkg is already installed, skipping."
+            fi
+          done
+          echo "LLVM_DIR=$(brew --prefix llvm)/lib/cmake/llvm" >> $GITHUB_ENV
+          echo "Zstd_DIR=$(brew --prefix zstd)/lib/cmake/zstd" >> $GITHUB_ENV
+          echo "/opt/homebrew/bin" >> $GITHUB_PATH
+
+      - name: CMake Build (LLVM + CLang)
+        run: |
+          SDK_PATH=$(xcrun --sdk iphoneos --show-sdk-path)
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_SYSROOT=$SDK_PATH \
+            -DCMAKE_OSX_ARCHITECTURES="${{ matrix.arch }}" \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 \
+            -DCMAKE_C_COMPILER=$(brew --prefix llvm)/bin/clang \
+            -DCMAKE_CXX_COMPILER=$(brew --prefix llvm)/bin/clang++ \
+            -DC3_WITH_LLVM=ON \
+            -DLLVM_DIR=$LLVM_DIR \
+            -DZstd_DIR=$Zstd_DIR
+          cmake --build build
+
+      - name: Codesign (iOS)
+        run: |
+          codesign -s - ./build/c3c
+          codesign -dv ./build/c3c || true
+
+      - name: Run Unified Tests
+        run: ./scripts/tools/ci_tests.sh "./build/c3c" ios
+      
+      - name: Bundle (iOS)
+        run: bash ./scripts/tools/package_build.sh "./build/c3c" "c3-ios-${{ matrix.arch }}-${{ matrix.build_type }}" "tar"
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: c3-ios-${{ matrix.arch }}-${{ matrix.build_type }}
+          path: c3-ios-${{ matrix.arch }}-${{ matrix.build_type }}.tar.gz
+
   release:
     runs-on: ubuntu-22.04
-    needs: [build-msvc, build-linux, build-mac, build-linux-alpine, build-openbsd, build-netbsd, build-android]
+    needs: [build-msvc, build-linux, build-mac, build-linux-alpine, build-openbsd, build-netbsd, build-android, build-ios]
     if: github.ref == 'refs/heads/master'
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -582,6 +648,7 @@ jobs:
           mv c3-netbsd-Release/c3-netbsd-Release.tar.gz c3-netbsd.tar.gz || true
           mv c3-android-aarch64-Release/c3-android-aarch64-Release.tar.gz c3-android-aarch64.tar.gz
           mv c3-android-x86_64-Release/c3-android-x86_64-Release.tar.gz c3-android-x86_64.tar.gz
+          mv c3-ios-arm64-Release/c3-ios-arm64-Release.tar.gz c3-ios-arm64.tar.gz
 
           # --- Debug Assets ---
           mv c3-windows-Debug/c3-windows-Debug.zip c3-windows-debug.zip
@@ -593,6 +660,7 @@ jobs:
           mv c3-netbsd-Debug/c3-netbsd-Debug.tar.gz c3-netbsd-debug.tar.gz || true
           mv c3-android-aarch64-Debug/c3-android-aarch64-Debug.tar.gz c3-android-aarch64-debug.tar.gz
           mv c3-android-x86_64-Debug/c3-android-x86_64-Debug.tar.gz c3-android-x86_64-debug.tar.gz
+          mv c3-ios-arm64-Debug/c3-ios-arm64-Debug.tar.gz c3-ios-arm64-debug.tar.gz
 
       - run: gh release delete latest-prerelease-tag --cleanup-tag -y || true
       - run: echo "RELEASE_NAME=latest-prerelease-$(date +'%Y%m%d-%H%M')" >> $GITHUB_ENV
@@ -611,6 +679,7 @@ jobs:
             c3-netbsd.tar.gz
             c3-android-aarch64.tar.gz
             c3-android-x86_64.tar.gz
+            c3-android-arm64.tar.gz
             # --- Debug Artifacts ---
             c3-windows-debug.zip
             c3-macos-debug.zip
@@ -620,3 +689,4 @@ jobs:
             c3-netbsd-debug.tar.gz
             c3-android-aarch64-debug.tar.gz
             c3-android-x86_64-debug.tar.gz
+            c3-android-arm64-debug.tar.gz
