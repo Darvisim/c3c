@@ -31,7 +31,7 @@ void parse_version(const char *version_string, Version *version)
 	StringSlice second = slice_next_token(&slice, '.');
 	version->minor = atoi(second.ptr);
 
-	if (!slice_empty(&slice))
+	if (slice.len > 0)
 	{
 		version->patch = atoi(slice.ptr);
 	}
