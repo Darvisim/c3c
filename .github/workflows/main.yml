@@ -608,8 +608,7 @@ jobs:
             -DCMAKE_CXX_COMPILER=/usr/bin/clang++ \
             -DC3_WITH_LLVM=ON \
             -DC3_FETCH_LLVM=ON \
-            -DC3_LINK_DYNAMIC=ON \
-            -DLibEdit_INCLUDE_DIR=$LibEdit_INCLUDE_DIR \
+            -DLibEdit_INCLUDE_DIRS=$LibEdit_INCLUDE_DIRS \
             -DLibEdit_LIBRARIES=$LibEdit_LIBRARIES \
             -DZstd_DIR=$Zstd_DIR
           cmake --build build
