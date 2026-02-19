@@ -3510,6 +3510,8 @@ END:
 	return decl;
 }
 
+ContractDescription EMPTY_CONTRACT;
+
 
 /**
  * top_level_statement ::= struct_declaration | enum_declaration | fault_declaration | const_declaration
