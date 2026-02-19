@@ -620,7 +620,9 @@ jobs:
             -DLLVM_INSTALL_TOOLCHAIN_ONLY=ON \
             -DLLVM_BUILD_TOOLS=OFF \
             -DLLVM_INSTALL_UTILS=OFF \
-            -DLLVM_SKIP_INSTALL=ON
+            -DLLVM_SKIP_INSTALL=ON \
+            -DCLANG_ENABLE_INSTALL=OFF \
+            -DLLD_ENABLE_INSTALL=OFF
           ninja lld
           echo "LLVM_DIR=$PWD/lib/cmake/llvm" >> $GITHUB_ENV
           echo "LLD_DIR=$PWD/lib/cmake/lld" >> $GITHUB_ENV
