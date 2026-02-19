@@ -3363,7 +3363,7 @@ static bool parse_contracts(ParseContext *c, ContractDescription *contracts_ref)
 		const char *name = symstr(c);
 		if (name == kw_at_require)
 		{
-			puts("REQUIRE"):
+			puts("REQUIRE");
 			if (!contracts_ref->has_contracts)
 			{
 				contracts_ref->first_contract = c->span;
