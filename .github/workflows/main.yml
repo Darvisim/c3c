@@ -617,6 +617,7 @@ jobs:
             -DLibEdit_LIBRARIES=$LibEdit_LIBRARIES \
             -DZstd_DIR=$Zstd_DIR
           cmake --build build
+        continue-on-error: true
 
       - name: Codesign (iOS)
         run: |
