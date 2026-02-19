@@ -612,6 +612,7 @@ jobs:
             -DCMAKE_OSX_SYSROOT=$(xcrun --sdk iphoneos --show-sdk-path) \
             -DCMAKE_OSX_ARCHITECTURES=arm64 \
             -DLLVM_TARGETS_TO_BUILD="AArch64" \
+            -DLLVM_ENABLE_PROJECTS="lld" \
             -DLLVM_ENABLE_RTTI=ON \
             -DLLVM_INCLUDE_TESTS=OFF \
             -DLLVM_INCLUDE_EXAMPLES=OFF \
