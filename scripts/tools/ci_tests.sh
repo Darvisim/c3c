@@ -64,6 +64,7 @@ cd "$ROOT_DIR/resources"
 
 run_examples() {
     echo "--- Running Standard Examples ---"
+    "$C3C_BIN" compile-only -vv examples/base64.c3 --target linux-x64
     "$C3C_BIN" compile -vv examples/base64.c3
     "$C3C_BIN" compile -vv examples/binarydigits.c3
     "$C3C_BIN" compile -vv examples/brainfk.c3
