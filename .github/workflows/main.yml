@@ -613,12 +613,6 @@ jobs:
             -DLibEdit_LIBRARIES=$LibEdit_LIBRARIES \
             -DZstd_DIR=$Zstd_DIR
           cmake --build build
-        continue-on-error: true
-        
-      - name: Inspect LLVM artifact
-        run: |
-          ls -lh build/_deps/llvm_artifact-src/lib || true
-          ls -lh build/_deps/llvm_artifact-src/lib | grep -E "libLLVM|liblld" || true
 
       - name: Codesign (iOS)
         run: |
@@ -690,7 +684,7 @@ jobs:
             c3-netbsd.tar.gz
             c3-android-aarch64.tar.gz
             c3-android-x86_64.tar.gz
-            c3-android-arm64.tar.gz
+            c3-ios-arm64.tar.gz
             # --- Debug Artifacts ---
             c3-windows-debug.zip
             c3-macos-debug.zip
@@ -700,4 +694,4 @@ jobs:
             c3-netbsd-debug.tar.gz
             c3-android-aarch64-debug.tar.gz
             c3-android-x86_64-debug.tar.gz
-            c3-android-arm64-debug.tar.gz
+            c3-ios-arm64-debug.tar.gz
