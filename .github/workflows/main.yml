@@ -610,6 +610,8 @@ jobs:
             -DC3_FETCH_LLVM=ON \
             -DLibEdit_INCLUDE_DIRS=$LibEdit_INCLUDE_DIRS \
             -DLibEdit_LIBRARIES=$LibEdit_LIBRARIES \
+            -DCMAKE_INCLUDE_PATH=$LibEdit_INCLUDE_DIRS \
+            -DCMAKE_LIBRARY_PATH=$(brew --prefix libedit)/lib \
             -DZstd_DIR=$Zstd_DIR
           cmake --build build
 
