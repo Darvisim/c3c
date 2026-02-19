@@ -308,7 +308,7 @@ if(C3_WITH_LLVM)
         message(STATUS "Looking for static lld libraries in ${LLVM_LIBRARY_DIRS}")
 
         # These don't seem to be reliable on windows.
-        if(${CMAKE_SYSTEM_NAME} STREQUAL "ios")
+        if(${CMAKE_SYSTEM_NAME} STREQUAL "iOS")
             find_library(LLD_COFF NAMES liblldCOFF.a PATHS ${LLVM_LIBRARY_DIRS} NO_DEFAULT_PATH REQUIRED)
             find_library(LLD_COMMON NAMES liblldCommon.a PATHS ${LLVM_LIBRARY_DIRS} NO_DEFAULT_PATH REQUIRED)
             find_library(LLD_ELF NAMES liblldELF.a PATHS ${LLVM_LIBRARY_DIRS} NO_DEFAULT_PATH REQUIRED)
