@@ -601,7 +601,9 @@ jobs:
       
       - name: Build LLVM + LLD
         run: |
-          git clone https://github.com/llvm/llvm-project.git
+          if [ ! -d llvm-project ]; then
+            git clone https://github.com/llvm/llvm-project.git
+          fi
           mkdir llvm-project/build-ios && cd llvm-project/build-ios
           cmake ../llvm \
             -G Ninja \
@@ -615,7 +617,9 @@ jobs:
             -DLLVM_INCLUDE_TESTS=OFF \
             -DLLVM_INCLUDE_EXAMPLES=OFF \
             -DLLVM_INCLUDE_DOCS=OFF \
-            -DLLVM_INSTALL_TOOLCHAIN_ONLY=ON
+            -DLLVM_INSTALL_TOOLCHAIN_ONLY=ON \
+            -DLLVM_BUILD_TOOLS=OFF \
+            -DLLVM_INSTALL_UTILS=OFF
           ninja lld
           echo "LLVM_DIR=$PWD/lib/cmake/llvm" >> $GITHUB_ENV
           echo "LLD_DIR=$PWD/lib/cmake/lld" >> $GITHUB_ENV
