@@ -595,14 +595,14 @@ jobs:
         uses: actions/cache@v5
         with:
           path: llvm-project
-          key: llvm-src-${{ env.LLVM_RELEASE_VERSION }}
+          key: llvm-src-21.0.0
           restore-keys: |
             llvm-src-
       
       - name: Build LLVM + LLD
         run: |
           if [ ! -d llvm-project ]; then
-            git clone --depth=1 https://github.com/llvm/llvm-project.git
+            git clone --depth=1 --branch llvmorg-21.0.0 https://github.com/llvm/llvm-project.git
           fi
           mkdir llvm-project/build-ios && cd llvm-project/build-ios
           cmake ../llvm \
