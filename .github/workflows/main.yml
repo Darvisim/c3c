@@ -577,6 +577,7 @@ jobs:
         run: |
           sudo xcode-select --switch /Applications/Xcode_16.app
           xcodebuild -version
+
       - name: Install dependencies
         run: |
           export HOMEBREW_NO_AUTO_UPDATE=1
@@ -593,11 +594,6 @@ jobs:
           echo "LibEdit_LIBRARIES=$(brew --prefix libedit)/lib/libedit.dylib" >> $GITHUB_ENV
           echo "Zstd_DIR=$(brew --prefix zstd)/lib/cmake/zstd" >> $GITHUB_ENV
           echo "/opt/homebrew/bin" >> $GITHUB_PATH
-
-      - name: Inspect LLVM artifact
-        run: |
-          ls -lh build/_deps/llvm_artifact-src/lib || true
-          ls -lh build/_deps/llvm_artifact-src/lib | grep -E "libLLVM|liblld" || true
 
       - name: CMake Build (LLVM + CLang)
         run: |
@@ -618,6 +614,11 @@ jobs:
             -DZstd_DIR=$Zstd_DIR
           cmake --build build
         continue-on-error: true
+        
+      - name: Inspect LLVM artifact
+        run: |
+          ls -lh build/_deps/llvm_artifact-src/lib || true
+          ls -lh build/_deps/llvm_artifact-src/lib | grep -E "libLLVM|liblld" || true
 
       - name: Codesign (iOS)
         run: |
