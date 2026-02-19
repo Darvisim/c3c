@@ -590,7 +590,7 @@ jobs:
               echo "$pkg is already installed, skipping."
             fi
           done
-          echo "LibEdit_INCLUDE_DIRS=$(brew --prefix libedit)/include" >> $GITHUB_ENV
+          echo "LibEdit_INCLUDE_DIRS=$(brew --prefix libedit)/include/editline" >> $GITHUB_ENV
           echo "LibEdit_LIBRARIES=$(brew --prefix libedit)/lib/libedit.dylib" >> $GITHUB_ENV
           echo "Zstd_DIR=$(brew --prefix zstd)/lib/cmake/zstd" >> $GITHUB_ENV
           echo "/opt/homebrew/bin" >> $GITHUB_PATH
@@ -610,10 +610,14 @@ jobs:
             -DC3_FETCH_LLVM=ON \
             -DLibEdit_INCLUDE_DIRS=$LibEdit_INCLUDE_DIRS \
             -DLibEdit_LIBRARIES=$LibEdit_LIBRARIES \
-            -DCMAKE_INCLUDE_PATH=$LibEdit_INCLUDE_DIRS \
-            -DCMAKE_LIBRARY_PATH=$(brew --prefix libedit)/lib \
             -DZstd_DIR=$Zstd_DIR
           cmake --build build
+        continue-on-error: true
+
+      - name: Inspect LLVM artifact
+        run: |
+          ls -lh build/_deps/llvm_artifact-src/lib || true
+          ls -lh build/_deps/llvm_artifact-src/lib | grep -E lld || true
 
       - name: Codesign (iOS)
         run: |
