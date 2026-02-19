@@ -3337,7 +3337,6 @@ void sema_append_contract_asserts(AstId assert_first, Ast* compound_stmt)
 
 bool sema_analyse_contracts(SemaContext *context, Decl *contract, Expr **requires, Expr **ensures, AstId **asserts, SourceSpan call_span, bool *has_ensures)
 {
-
 	context->call_env.opt_returns = NULL;
 	if (has_ensures)
 	{

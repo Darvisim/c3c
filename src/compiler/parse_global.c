@@ -2339,15 +2339,13 @@ static inline void decl_add_type(Decl *decl, TypeKind kind)
 static DeclId decl_from_contract_description(ContractDescription *description)
 {
 	if (!description->has_contracts) return 0;
-	return 0;
-	/*
 	Decl *decl = decl_new(DECL_CONTRACT, "contract", description->first);
 	decl->contracts_decl.ensures = description->ensures;
 	decl->contracts_decl.requires = description->requires;
 	decl->contracts_decl.pure = description->pure;
 	decl->contracts_decl.params = description->params;
 	decl->contracts_decl.opt_returns = description->opt_returns;
-	return declid(decl);*/
+	return declid(decl);
 }
 
 /**
