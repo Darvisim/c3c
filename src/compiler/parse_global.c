@@ -3343,6 +3343,7 @@ static bool parse_contracts(ParseContext *c, ContractDescription *contracts_ref)
 {
 	if (!tok_is(c, TOKEN_DOCS_START)) return true;
 
+	puts("BEGIN_CONTRACTS");
 	if (c->data.strlen > 0)
 	{
 		contracts_ref->comment = symstr(c);
@@ -3362,6 +3363,7 @@ static bool parse_contracts(ParseContext *c, ContractDescription *contracts_ref)
 		const char *name = symstr(c);
 		if (name == kw_at_require)
 		{
+			puts("REQUIRE"):
 			if (!contracts_ref->has_contracts)
 			{
 				contracts_ref->first_contract = c->span;
@@ -3377,6 +3379,7 @@ static bool parse_contracts(ParseContext *c, ContractDescription *contracts_ref)
 		}
 		if (name == kw_at_param)
 		{
+			puts("PARAM");
 			if (!contracts_ref->has_contracts)
 			{
 				contracts_ref->first_contract = c->span;
@@ -3386,6 +3389,7 @@ static bool parse_contracts(ParseContext *c, ContractDescription *contracts_ref)
 		}
 		else if (name == kw_at_return)
 		{
+			puts("RETURN");
 			advance(c);
 			if (tok_is(c, TOKEN_QUESTION))
 			{
@@ -3409,6 +3413,7 @@ static bool parse_contracts(ParseContext *c, ContractDescription *contracts_ref)
 		}
 		else if (name == kw_at_deprecated)
 		{
+			puts("DEPRECATED");
 			advance(c);
 			if (contracts_ref->deprecated)
 			{
@@ -3437,6 +3442,7 @@ static bool parse_contracts(ParseContext *c, ContractDescription *contracts_ref)
 		}
 		else if (name == kw_at_ensure)
 		{
+			puts("ENSURE");
 			if (!contracts_ref->has_contracts)
 			{
 				contracts_ref->first_contract = c->span;
@@ -3447,6 +3453,7 @@ static bool parse_contracts(ParseContext *c, ContractDescription *contracts_ref)
 		}
 		else if (name == kw_at_pure)
 		{
+			puts("PURE");
 			if (contracts_ref->pure)
 			{
 				RETURN_PRINT_ERROR_HERE("Multiple '@pure' declarations, please remove one.");
@@ -3472,6 +3479,7 @@ END:
 		PRINT_ERROR_HERE("Expected the end of the contract here.");
 		return false;
 	}
+	puts("END_CONTRACTS");
 	return true;
 }
 
