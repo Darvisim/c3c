@@ -2159,7 +2159,6 @@ bool ast_is_not_empty(Ast *ast);
 
 bool ast_is_compile_time(Ast *ast);
 bool ast_supports_continue(Ast *stmt);
-bool decl_contract_has_any(Decl *contracts);
 INLINE void ast_append(AstId **succ, Ast *next);
 INLINE void ast_prepend(AstId *first, Ast *ast);
 INLINE bool ast_ok(Ast *ast);
