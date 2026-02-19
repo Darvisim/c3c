@@ -580,7 +580,7 @@ jobs:
       - name: Install dependencies
         run: |
           export HOMEBREW_NO_AUTO_UPDATE=1
-          PACKAGES="cmake curl zstd libffi libedit ninja"
+          PACKAGES="llvm cmake curl zstd libffi libedit ninja"
           for pkg in $PACKAGES; do
             if ! brew list --versions "$pkg" >/dev/null; then
               echo "Installing $pkg..."
