@@ -32,7 +32,7 @@ typedef struct
 	Attr *deprecated;
 } ContractDescription;
 
-extern ContractDescription EMPTY_CONTRACT;
+#define EMPTY_CONTRACT ((ContractDescription){ NULL })
 #define EXPECT_IDENT_FOR_OR(_name, _res) do { if (!expect_ident(c, _name)) return _res; } while(0)
 #define EXPECT_OR_RET(_tok, _res) do { if (!expect(c, _tok)) return _res; } while(0)
 #define CONSUME_OR_RET(_tok, _res) do { if (!expect(c, _tok)) return _res; advance(c); } while(0)

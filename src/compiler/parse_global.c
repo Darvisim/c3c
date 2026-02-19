@@ -1945,7 +1945,7 @@ static bool parse_struct_body(ParseContext *c, Decl *parent)
 	ArrayIndex index = 0;
 	while (!tok_is(c, TOKEN_RBRACE))
 	{
-		ContractDescription contracts = EMPTY_CONTRACT;
+		ContractDescription contracts = { NULL };
 		if (!parse_element_contract(c, &contracts, "struct/union members")) return decl_poison(parent);
 		TokenType token_type = c->tok;
 		if (token_type == TOKEN_STRUCT || token_type == TOKEN_UNION || token_type == TOKEN_BITSTRUCT)
@@ -2152,7 +2152,7 @@ static inline bool parse_bitstruct_body(ParseContext *c, Decl *decl)
 	bool is_consecutive = false;
 	while (!try_consume(c, TOKEN_RBRACE))
 	{
-		ContractDescription contracts = EMPTY_CONTRACT;
+		ContractDescription contracts = { NULL };
 		if (!parse_element_contract(c, &contracts, "bitstruct members")) return decl_poison(decl);
 		ASSIGN_TYPE_OR_RET(TypeInfo *type, parse_base_type(c), false);
 		Decl *member_decl = decl_new_var_current(c, type, VARDECL_BITMEMBER);
@@ -2218,7 +2218,7 @@ INLINE bool parse_interface_body(ParseContext *c, Decl *interface)
 	Decl **fns = NULL;
 	while (!try_consume(c, TOKEN_RBRACE))
 	{
-		ContractDescription contracts_desc = EMPTY_CONTRACT;
+		ContractDescription contracts_desc = { NULL };
 		if (!parse_contracts(c, &contracts_desc)) return poisoned_decl;
 		if (!tok_is(c, TOKEN_FN))
 		{
@@ -2722,7 +2722,7 @@ static inline Decl *parse_macro_declaration(ParseContext *c, ContractDescription
 
 static inline Decl *parse_fault(ParseContext *c)
 {
-	ContractDescription contracts = EMPTY_CONTRACT;
+	ContractDescription contracts = { NULL };
 	if (!parse_element_contract(c, &contracts, "faults")) return poisoned_decl;
 	Decl *decl = decl_new(DECL_FAULT, symstr(c), c->span);
 	if (!consume_const_name(c, "fault")) return poisoned_decl;
@@ -2806,7 +2806,7 @@ static bool parse_enum_values(ParseContext *c, Decl*** values_ref, Visibility vi
 	bool deprecate_warn = true;
 	while (!try_consume(c, TOKEN_RBRACE))
 	{
-		ContractDescription contracts = EMPTY_CONTRACT;
+		ContractDescription contracts = { NULL };
 		if (!parse_element_contract(c, &contracts, "enum values")) return false;
 		Decl *enum_const = decl_new(DECL_ENUM_CONSTANT, symstr(c), c->span);
 		if (is_constdef) enum_const->enum_constant.is_raw = is_constdef;
@@ -3509,8 +3509,6 @@ END:
 	CONSUME_EOS_OR_RET(poisoned_decl);
 	return decl;
 }
-
-ContractDescription EMPTY_CONTRACT;
 
 
 /**
