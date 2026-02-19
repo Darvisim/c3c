@@ -3368,7 +3368,6 @@ static bool parse_contracts(ParseContext *c, ContractDescription *contracts_ref)
 				contracts_ref->has_contracts = true;
 			}
 			if (!parse_doc_contract(c, &contracts_ref->requires, "@require")) return false;
-			contracts_ref->requires = NULL;
 			goto END;
 		}
 		if (contracts_ref->first_non_require.a == 0)
@@ -3383,7 +3382,6 @@ static bool parse_contracts(ParseContext *c, ContractDescription *contracts_ref)
 				contracts_ref->has_contracts = true;
 			}
 			if (!parse_contract_param(c, &contracts_ref->params)) return false;
-			contracts_ref->params = NULL;
 		}
 		else if (name == kw_at_return)
 		{
@@ -3396,7 +3394,6 @@ static bool parse_contracts(ParseContext *c, ContractDescription *contracts_ref)
 					contracts_ref->has_contracts = true;
 				}
 				if (!parse_doc_optreturn(c, &contracts_ref->opt_returns)) return false;
-				contracts_ref->opt_returns = NULL;
 			}
 			else
 			{
@@ -3410,7 +3407,6 @@ static bool parse_contracts(ParseContext *c, ContractDescription *contracts_ref)
 		}
 		else if (name == kw_at_deprecated)
 		{
-			puts("DEPRECATED");
 			advance(c);
 			if (contracts_ref->deprecated)
 			{
@@ -3435,7 +3431,6 @@ static bool parse_contracts(ParseContext *c, ContractDescription *contracts_ref)
 				vec_add(attr->exprs, e);
 			}
 			contracts_ref->deprecated = attr;
-			contracts_ref->deprecated = NULL;
 		}
 		else if (name == kw_at_ensure)
 		{
@@ -3445,7 +3440,6 @@ static bool parse_contracts(ParseContext *c, ContractDescription *contracts_ref)
 				contracts_ref->has_contracts = true;
 			}
 			if (!parse_doc_contract(c, &contracts_ref->ensures, "@ensure")) return false;
-			contracts_ref->ensures = NULL;
 		}
 		else if (name == kw_at_pure)
 		{
@@ -3474,6 +3468,7 @@ END:
 		PRINT_ERROR_HERE("Expected the end of the contract here.");
 		return false;
 	}
+	*contracts_ref = EMPTY_CONTRACT;
 	return true;
 }
 
