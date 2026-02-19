@@ -23,7 +23,6 @@ static bool parse_attributes_for_global(ParseContext *c, Decl *decl);
 INLINE bool parse_decl_initializer(ParseContext *c, Decl *decl);
 INLINE Decl *decl_new_var_current(ParseContext *c, TypeInfo *type, VarDeclKind kind);
 static bool parse_contracts(ParseContext *c, ContractDescription *contracts_ref);
-static Ast *contracts_first_real(AstId contracts);
 
 INLINE Decl *decl_new_var_current(ParseContext *c, TypeInfo *type, VarDeclKind kind)
 {
@@ -3468,7 +3467,6 @@ END:
 		PRINT_ERROR_HERE("Expected the end of the contract here.");
 		return false;
 	}
-	*contracts_ref = EMPTY_CONTRACT;
 	return true;
 }
 

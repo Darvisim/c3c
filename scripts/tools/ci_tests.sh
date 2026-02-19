@@ -64,7 +64,7 @@ cd "$ROOT_DIR/resources"
 
 run_examples() {
     echo "--- Running Standard Examples ---"
-    "$C3C_BIN" compile examples/base64.c3
+    "$C3C_BIN" compile -vvv examples/base64.c3
     "$C3C_BIN" compile examples/binarydigits.c3
     "$C3C_BIN" compile examples/brainfk.c3
     "$C3C_BIN" compile examples/factorial_macro.c3
