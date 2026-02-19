@@ -589,40 +589,8 @@ jobs:
               echo "$pkg is already installed, skipping."
             fi
           done
-          echo "/opt/homebrew/bin" >> $GITHUB_PATH
-
-      - name: Cache LLVM + LLD Build
-        uses: actions/cache@v5
-        with:
-          path: llvm-project
-          key: llvm-src-${{ env.LLVM_RELEASE_VERSION }}
-          restore-keys: |
-            llvm-src-
-      
-      - name: Build LLVM + LLD
-        run: |
-          if [ ! -d llvm-project ]; then
-            git clone --depth=1 https://github.com/llvm/llvm-project.git
-          fi
-          mkdir llvm-project/build-ios && cd llvm-project/build-ios
-          cmake ../llvm \
-            -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_SYSTEM_NAME=iOS \
-            -DCMAKE_OSX_SYSROOT=$(xcrun --sdk iphoneos --show-sdk-path) \
-            -DCMAKE_OSX_ARCHITECTURES=arm64 \
-            -DLLVM_TARGETS_TO_BUILD="AArch64" \
-            -DLLVM_ENABLE_RTTI=ON \
-            -DLLVM_INCLUDE_TESTS=OFF \
-            -DLLVM_INCLUDE_EXAMPLES=OFF \
-            -DLLVM_INCLUDE_DOCS=OFF \
-            -DLLVM_INSTALL_TOOLCHAIN_ONLY=ON \
-            -DLLVM_BUILD_TOOLS=OFF \
-            -DLLVM_INSTALL_UTILS=OFF \
-            -DLLVM_SKIP_INSTALL=ON
-          echo "LLVM_DIR=$PWD/lib/cmake/llvm" >> $GITHUB_ENV
-          echo "LLD_DIR=$PWD/lib/cmake/lld" >> $GITHUB_ENV
           echo "Zstd_DIR=$(brew --prefix zstd)/lib/cmake/zstd" >> $GITHUB_ENV
+          echo "/opt/homebrew/bin" >> $GITHUB_PATH
 
       - name: CMake Build (LLVM + CLang)
         run: |
@@ -635,9 +603,8 @@ jobs:
             -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 \
             -DCMAKE_C_COMPILER=/usr/bin/clang \
             -DCMAKE_CXX_COMPILER=/usr/bin/clang++ \
-            -DC3_LLVM_VERSION=auto \
-            -DC3_LLVM_MAX_VERSION=99 \
             -DC3_WITH_LLVM=ON \
+            -DC3_FETCH_LLVM=ON \
             -DLLVM_DIR=$LLVM_DIR \
             -DLLD_DIR=$LLD_DIR \
             -DZstd_DIR=$Zstd_DIR
