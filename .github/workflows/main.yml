@@ -615,7 +615,9 @@ jobs:
             -DLLVM_TARGETS_TO_BUILD="AArch64" \
             -DLLVM_INCLUDE_TESTS=OFF \
             -DLLVM_INCLUDE_EXAMPLES=OFF \
-            -DLLVM_INCLUDE_DOCS=OFF
+            -DLLVM_INCLUDE_DOCS=OFF \
+            -DLLVM_BUILD_TOOLS=ON \
+            -DLLVM_INCLUDE_TOOLS=ON
           ninja llvm-tblgen
           echo "LLVM_TABLEGEN_PATH=$PWD/bin/llvm-tblgen" >> $GITHUB_ENV
 
@@ -642,7 +644,8 @@ jobs:
             -DLLVM_ENABLE_THREADS=OFF \
             -DLLVM_BUILD_LLVM_DYLIB=ON \
             -DLLVM_LINK_LLVM_DYLIB=ON \
-            -DLLVM_TABLEGEN=$LLVM_TABLEGEN_PATH
+            -DLLVM_TABLEGEN=$LLVM_TABLEGEN_PATH \
+            -DLLVM_NATIVE_TOOL_DIR=$(dirname $LLVM_TABLEGEN_PATH)
           ninja
           echo "LLVM_DIR=$PWD/lib/cmake/llvm" >> $GITHUB_ENV
           echo "Zstd_DIR=$(brew --prefix zstd)/lib/cmake/zstd" >> $GITHUB_ENV
