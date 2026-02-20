@@ -607,6 +607,7 @@ jobs:
               --branch llvmorg-21.1.8 \
               https://github.com/llvm/llvm-project.git
           fi
+          rm -rf llvm-project/build-host
           mkdir -p llvm-project/build-host
           cd llvm-project/build-host
           cmake ../llvm \
@@ -623,6 +624,7 @@ jobs:
 
       - name: Build LLVM for iOS
         run: |
+          rm -rf llvm-project/build-ios
           mkdir -p llvm-project/build-ios
           cd llvm-project/build-ios
           IOS_SDK=$(xcrun --sdk iphoneos --show-sdk-path)
