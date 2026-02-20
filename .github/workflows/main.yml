@@ -577,7 +577,6 @@ jobs:
         run: |
           sudo xcode-select --switch /Applications/Xcode_16.app
           xcodebuild -version
-
       - name: Install dependencies
         run: |
           export HOMEBREW_NO_AUTO_UPDATE=1
@@ -590,10 +589,46 @@ jobs:
               echo "$pkg is already installed, skipping."
             fi
           done
-          echo "LibEdit_INCLUDE_DIRS=$(brew --prefix libedit)/include/editline" >> $GITHUB_ENV
-          echo "LibEdit_LIBRARIES=$(brew --prefix libedit)/lib/libedit.dylib" >> $GITHUB_ENV
-          echo "Zstd_DIR=$(brew --prefix zstd)/lib/cmake/zstd" >> $GITHUB_ENV
           echo "/opt/homebrew/bin" >> $GITHUB_PATH
+
+      - name: Cache LLVM + LLD Build
+        uses: actions/cache@v5
+        with:
+          path: |
+            llvm-project
+            llvm-project/build-ios
+          key: llvm-build-ios-${{ matrix.arch }}-${{ matrix.build_type }}-21.1.8
+          restore-keys: |
+            llvm-build-ios
+            llvm-src-
+      
+      - name: Build LLVM + LLD
+        run: |
+          if [ ! -d llvm-project ]; then
+            git clone --depth=1 --branch llvmorg-21.1.8 https://github.com/llvm/llvm-project.git
+          fi
+          mkdir llvm-project/build-ios && cd llvm-project/build-ios
+          cmake ../llvm \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_SYSROOT=$(xcrun --sdk iphoneos --show-sdk-path) \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DLLVM_TARGETS_TO_BUILD="AArch64" \
+            -DLLVM_ENABLE_RTTI=ON \
+            -DLLVM_INCLUDE_TESTS=OFF \
+            -DLLVM_INCLUDE_EXAMPLES=OFF \
+            -DLLVM_INCLUDE_DOCS=OFF \
+            -DLLVM_INSTALL_TOOLCHAIN_ONLY=ON \
+            -DLLVM_BUILD_TOOLS=OFF \
+            -DLLVM_INSTALL_UTILS=OFF \
+            -DLLVM_SKIP_INSTALL=ON
+          echo "LLVM_DIR=$PWD/lib/cmake/llvm" >> $GITHUB_ENV
+          echo "LLD_DIR=$PWD/lib/cmake/lld" >> $GITHUB_ENV
+          echo "Zstd_DIR=$(brew --prefix zstd)/lib/cmake/zstd" >> $GITHUB_ENV
+
+      - name: Inspect LLVM Artifact
+        run: ls -lh $PWD/lib | grep dylib || true
 
       - name: CMake Build (LLVM + CLang)
         run: |
@@ -607,17 +642,11 @@ jobs:
             -DCMAKE_C_COMPILER=/usr/bin/clang \
             -DCMAKE_CXX_COMPILER=/usr/bin/clang++ \
             -DC3_WITH_LLVM=ON \
-            -DC3_FETCH_LLVM=ON \
-            -DLibEdit_INCLUDE_DIRS=$LibEdit_INCLUDE_DIRS \
-            -DLibEdit_LIBRARIES=$LibEdit_LIBRARIES \
+            -DC3_LINK_DYNAMIC=ON \
+            -DLLVM_DIR=$LLVM_DIR \
+            -DLLD_DIR=$LLD_DIR \
             -DZstd_DIR=$Zstd_DIR
           cmake --build build
-        continue-on-error: true
-
-      - name: Inspect LLVM artifact
-        run: |
-          ls -lh build/_deps/llvm_artifact-src/lib || true
-          ls -lh build/_deps/llvm_artifact-src/lib | grep -E lld || true
 
       - name: Codesign (iOS)
         run: |
