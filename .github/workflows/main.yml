@@ -622,7 +622,7 @@ jobs:
             -DLLVM_INSTALL_TOOLCHAIN_ONLY=OFF \
             -DLLVM_BUILD_TOOLS=ON \
             -DLLVM_INSTALL_UTILS=OFF \
-            -DLLVM_SKIP_INSTALL=ON \
+            -DLLVM_SKIP_INSTALL=ON
           echo "LLVM_DIR=$PWD/lib/cmake/llvm" >> $GITHUB_ENV
           echo "LLD_DIR=$PWD/lib/cmake/lld" >> $GITHUB_ENV
           echo "Zstd_DIR=$(brew --prefix zstd)/lib/cmake/zstd" >> $GITHUB_ENV
