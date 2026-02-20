@@ -631,7 +631,7 @@ jobs:
           cmake ../llvm \
             -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_SYSTEM_NAME=Darwin \
+            -DCMAKE_SYSTEM_NAME=iOS \
             -DCMAKE_OSX_SYSROOT=$IOS_SDK \
             -DCMAKE_OSX_ARCHITECTURES=arm64 \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 \
@@ -647,6 +647,7 @@ jobs:
             -DLLVM_INCLUDE_TESTS=OFF \
             -DLLVM_INCLUDE_EXAMPLES=OFF \
             -DLLVM_INCLUDE_DOCS=OFF \
+            -DLLVM_INCLUDE_BENCHMARKS=OFF \
             -DLLVM_INCLUDE_TOOLS=OFF \
             -DLLVM_INCLUDE_UTILS=OFF \
             -DLLVM_BUILD_TOOLS=OFF \
@@ -662,9 +663,12 @@ jobs:
             -DLLVM_ENABLE_ZLIB=OFF \
             -DLLVM_ENABLE_ZSTD=OFF \
             -DLLVM_ENABLE_TERMINFO=OFF \
+            -DLLVM_ENABLE_LLD=OFF \
+            -DLLVM_USE_LINKER_FLAGS=OFF \
             \
             -DLLVM_BUILD_TABLEGEN=OFF \
             -DLLVM_TABLEGEN=$LLVM_TABLEGEN_PATH \
+            -DLLVM_TBLGEN=$LLVM_TABLEGEN_PATH \
             -DLLVM_NATIVE_TOOL_DIR=$(dirname $LLVM_TABLEGEN_PATH) \
             -DLLVM_USE_HOST_TOOLS=ON
           ninja
@@ -675,7 +679,7 @@ jobs:
           SDK_PATH=$(xcrun --sdk iphoneos --show-sdk-path)
           cmake -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-            -DCMAKE_SYSTEM_NAME=Darwin \
+            -DCMAKE_SYSTEM_NAME=iOS \
             -DCMAKE_OSX_SYSROOT=$SDK_PATH \
             -DCMAKE_OSX_ARCHITECTURES="${{ matrix.arch }}" \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 \
