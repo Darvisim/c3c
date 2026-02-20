@@ -621,10 +621,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DLLVM_TARGETS_TO_BUILD=AArch64 \
             -DLLVM_INCLUDE_TESTS=OFF \
-            -DLLVM_INCLUDE_EXAMPLES=OFF \
-            -DLLVM_INCLUDE_DOCS=OFF \
-            -DLLVM_BUILD_TOOLS=ON \
-            -DLLVM_INCLUDE_TOOLS=ON
+            -DLLVM_BUILD_TOOLS=ON
           ninja -j$(sysctl -n hw.logicalcpu) llvm-tblgen
           echo "LLVM_TABLEGEN_PATH=$PWD/bin/llvm-tblgen" >> $GITHUB_ENV
 
@@ -647,6 +644,7 @@ jobs:
             -DCMAKE_SHARED_LINKER_FLAGS="" \
             -DCMAKE_MODULE_LINKER_FLAGS="" \
             -DLLVM_ENABLE_LTO=OFF \
+            -DLLVM_ENABLE_LINKER_GC=OFF \
             -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY \
             -DLLVM_DEFAULT_TARGET_TRIPLE=arm64-apple-ios17.0 \
             -DLLVM_TARGETS_TO_BUILD=AArch64 \
@@ -655,30 +653,11 @@ jobs:
             -DLLVM_ENABLE_EH=ON \
             -DLLVM_ENABLE_WARNINGS=OFF \
             -DLLVM_ENABLE_PEDANTIC=OFF \
-            -DLLVM_ENABLE_ZLIB=OFF \
-            -DLLVM_ENABLE_ZSTD=OFF \
-            -DLLVM_ENABLE_TERMINFO=OFF \
-            -DLLVM_ENABLE_LLD=OFF \
-            -DLLVM_ENABLE_THREADS=OFF \
-            -DLLVM_INCLUDE_TESTS=OFF \
-            -DLLVM_INCLUDE_EXAMPLES=OFF \
-            -DLLVM_INCLUDE_DOCS=OFF \
-            -DLLVM_INCLUDE_BENCHMARKS=OFF \
-            -DLLVM_INCLUDE_TOOLS=OFF \
-            -DLLVM_INCLUDE_UTILS=OFF \
-            -DLLVM_BUILD_TOOLS=OFF \
-            -DLLVM_BUILD_UTILS=OFF \
-            -DLLVM_BUILD_RUNTIME=OFF \
-            -DLLVM_BUILD_EXAMPLES=OFF \
-            -DLLVM_BUILD_TABLEGEN=OFF \
-            -DLLVM_BUILD_LLVM_DYLIB=OFF \
-            -DLLVM_LINK_LLVM_DYLIB=OFF \
-            -DBUILD_SHARED_LIBS=OFF \
+            -DLLVM_ENABLE_ASSERTIONS=OFF \
+            -DLLVM_USE_HOST_TOOLS=ON \
             -DLLVM_TABLEGEN=$LLVM_TABLEGEN_PATH \
             -DLLVM_TBLGEN=$LLVM_TABLEGEN_PATH \
-            -DLLVM_NATIVE_TOOL_DIR=$(dirname $LLVM_TABLEGEN_PATH) \
-            -DLLVM_USE_HOST_TOOLS=ON \
-            -DLLVM_USE_LINKER_FLAGS=OFF
+            -DLLVM_NATIVE_TOOL_DIR=$(dirname $LLVM_TABLEGEN_PATH)
           ninja -j$(sysctl -n hw.logicalcpu)
           echo "LLVM_DIR=$PWD/lib/cmake/llvm" >> $GITHUB_ENV
 
