@@ -645,7 +645,8 @@ jobs:
             -DLLVM_BUILD_LLVM_DYLIB=ON \
             -DLLVM_LINK_LLVM_DYLIB=ON \
             -DLLVM_TABLEGEN=$LLVM_TABLEGEN_PATH \
-            -DLLVM_NATIVE_TOOL_DIR=$(dirname $LLVM_TABLEGEN_PATH)
+            -DLLVM_NATIVE_TOOL_DIR=$(dirname $LLVM_TABLEGEN_PATH) \
+            -DLLVM_USE_HOST_TOOLS=ON
           ninja
           echo "LLVM_DIR=$PWD/lib/cmake/llvm" >> $GITHUB_ENV
           echo "Zstd_DIR=$(brew --prefix zstd)/lib/cmake/zstd" >> $GITHUB_ENV
