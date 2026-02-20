@@ -661,6 +661,7 @@ jobs:
             -DLLVM_ENABLE_ZSTD=OFF \
             -DLLVM_ENABLE_TERMINFO=OFF \
             \
+            -DLLVM_BUILD_TABLEGEN=OFF \
             -DLLVM_TABLEGEN=$LLVM_TABLEGEN_PATH \
             -DLLVM_NATIVE_TOOL_DIR=$(dirname $LLVM_TABLEGEN_PATH) \
             -DLLVM_USE_HOST_TOOLS=ON
