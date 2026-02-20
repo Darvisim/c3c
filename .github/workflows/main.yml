@@ -635,6 +635,9 @@ jobs:
             -DCMAKE_OSX_SYSROOT=$IOS_SDK \
             -DCMAKE_OSX_ARCHITECTURES=arm64 \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 \
+            -DCMAKE_C_FLAGS="-ffunction-sections -fdata-sections" \
+            -DCMAKE_CXX_FLAGS="-ffunction-sections -fdata-sections" \
+            -DCMAKE_EXE_LINKER_FLAGS="-Wl,-dead_strip" \
             -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY \
             \
             -DLLVM_DEFAULT_TARGET_TRIPLE=arm64-apple-ios17.0 \
@@ -643,34 +646,33 @@ jobs:
             \
             -DLLVM_ENABLE_RTTI=ON \
             -DLLVM_ENABLE_EH=ON \
+            -DLLVM_ENABLE_WARNINGS=OFF \
+            -DLLVM_ENABLE_PEDANTIC=OFF \
+            -DLLVM_ENABLE_ZLIB=OFF \
+            -DLLVM_ENABLE_ZSTD=OFF \
+            -DLLVM_ENABLE_TERMINFO=OFF \
+            -DLLVM_ENABLE_LLD=OFF \
+            -DLLVM_ENABLE_THREADS=OFF \
             \
             -DLLVM_INCLUDE_TESTS=OFF \
             -DLLVM_INCLUDE_EXAMPLES=OFF \
             -DLLVM_INCLUDE_DOCS=OFF \
             -DLLVM_INCLUDE_BENCHMARKS=OFF \
-            -DLLVM_INCLUDE_TOOLS=OFF \
             -DLLVM_INCLUDE_UTILS=OFF \
-            -DLLVM_BUILD_TOOLS=OFF \
+            \
             -DLLVM_BUILD_UTILS=OFF \
             -DLLVM_BUILD_RUNTIME=OFF \
             -DLLVM_BUILD_EXAMPLES=OFF \
-            -DLLVM_ENABLE_THREADS=OFF \
-            \
             -DLLVM_BUILD_LLVM_DYLIB=OFF \
+            \
             -DLLVM_LINK_LLVM_DYLIB=OFF \
             -DBUILD_SHARED_LIBS=OFF \
             \
-            -DLLVM_ENABLE_ZLIB=OFF \
-            -DLLVM_ENABLE_ZSTD=OFF \
-            -DLLVM_ENABLE_TERMINFO=OFF \
-            -DLLVM_ENABLE_LLD=OFF \
-            -DLLVM_USE_LINKER_FLAGS=OFF \
-            \
-            -DLLVM_BUILD_TABLEGEN=OFF \
             -DLLVM_TABLEGEN=$LLVM_TABLEGEN_PATH \
             -DLLVM_TBLGEN=$LLVM_TABLEGEN_PATH \
             -DLLVM_NATIVE_TOOL_DIR=$(dirname $LLVM_TABLEGEN_PATH) \
-            -DLLVM_USE_HOST_TOOLS=ON
+            -DLLVM_USE_HOST_TOOLS=ON \
+            -DLLVM_USE_LINKER_FLAGS=OFF
           ninja
           echo "LLVM_DIR=$PWD/lib/cmake/llvm" >> $GITHUB_ENV
 
