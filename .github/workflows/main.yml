@@ -569,7 +569,9 @@ jobs:
         include:
           - arch: arm64
             runner: macos-15
+
     runs-on: ${{ matrix.runner }}
+
     steps:
       - uses: actions/checkout@v6
       
@@ -577,10 +579,11 @@ jobs:
         run: |
           sudo xcode-select --switch /Applications/Xcode_16.app
           xcodebuild -version
+
       - name: Install dependencies
         run: |
           export HOMEBREW_NO_AUTO_UPDATE=1
-          PACKAGES="llvm cmake curl zstd libffi libedit ninja"
+          PACKAGES="cmake zstd libffi libedit ninja"
           for pkg in $PACKAGES; do
             if ! brew list --versions "$pkg" >/dev/null; then
               echo "Installing $pkg..."
@@ -591,48 +594,58 @@ jobs:
           done
           echo "/opt/homebrew/bin" >> $GITHUB_PATH
 
-      - name: Cache LLVM + LLD Build
+      - name: Cache LLVM Source
         uses: actions/cache@v5
         with:
-          path: |
-            llvm-project
-            llvm-project/build-ios
-          key: llvm-build-ios-${{ matrix.arch }}-${{ matrix.build_type }}-21.1.8
-          restore-keys: |
-            llvm-build-ios
-            llvm-src-
+          path: llvm-project
+          key: llvm-src-21.1.8
       
-      - name: Build LLVM + LLD
+      - name: Build Host LLVM
         run: |
           if [ ! -d llvm-project ]; then
-            git clone --depth=1 --branch llvmorg-21.1.8 https://github.com/llvm/llvm-project.git
+            git clone --depth=1 \
+              --branch llvmorg-21.1.8 \
+              https://github.com/llvm/llvm-project.git
           fi
-          mkdir llvm-project/build-ios && cd llvm-project/build-ios
+          mkdir -p llvm-project/build-host
+          cd llvm-project/build-host
+          cmake ../llvm \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLLVM_TARGETS_TO_BUILD="AArch64" \
+            -DLLVM_INCLUDE_TESTS=OFF \
+            -DLLVM_INCLUDE_EXAMPLES=OFF \
+            -DLLVM_INCLUDE_DOCS=OFF
+          ninja llvm-tblgen
+          echo "LLVM_TABLEGEN_PATH=$PWD/bin/llvm-tblgen" >> $GITHUB_ENV
+
+      - name: Build LLVM for iOS
+        run: |
+          mkdir -p llvm-project/build-ios
+          cd llvm-project/build-ios
+          IOS_SDK=$(xcrun --sdk iphoneos --show-sdk-path)
           cmake ../llvm \
             -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_SYSTEM_NAME=iOS \
-            -DCMAKE_OSX_SYSROOT=$(xcrun --sdk iphoneos --show-sdk-path) \
+            -DCMAKE_OSX_SYSROOT=$IOS_SDK \
             -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 \
             -DLLVM_TARGETS_TO_BUILD="AArch64" \
             -DLLVM_ENABLE_PROJECTS="llvm" \
             -DLLVM_ENABLE_RTTI=ON \
             -DLLVM_INCLUDE_TESTS=OFF \
             -DLLVM_INCLUDE_EXAMPLES=OFF \
             -DLLVM_INCLUDE_DOCS=OFF \
-            -DLLVM_BUILD_TOOLS=ON \
+            -DLLVM_BUILD_TOOLS=OFF \
             -DLLVM_INCLUDE_TOOLS=OFF \
-            -DLLVM_SKIP_INSTALL=ON \
-            -DLLVM_ENABLE_INSTALL=OFF \
-            -DLLVM_INSTALL_TBLGEN=OFF
+            -DLLVM_ENABLE_THREADS=OFF \
+            -DLLVM_BUILD_LLVM_DYLIB=ON \
+            -DLLVM_LINK_LLVM_DYLIB=ON \
+            -DLLVM_TABLEGEN=$LLVM_TABLEGEN_PATH
+          ninja
           echo "LLVM_DIR=$PWD/lib/cmake/llvm" >> $GITHUB_ENV
-          echo "LLD_DIR=$PWD/lib/cmake/lld" >> $GITHUB_ENV
           echo "Zstd_DIR=$(brew --prefix zstd)/lib/cmake/zstd" >> $GITHUB_ENV
-
-      - name: Inspect LLVM Artifact
-        run: |
-          find llvm-project/build-ios/include -name Attributes.inc
-          ls -lh $PWD/lib | grep dylib || true
 
       - name: CMake Build (LLVM + CLang)
         run: |
@@ -648,7 +661,6 @@ jobs:
             -DC3_WITH_LLVM=ON \
             -DC3_LINK_DYNAMIC=ON \
             -DLLVM_DIR=$LLVM_DIR \
-            -DLLD_DIR=$LLD_DIR \
             -DZstd_DIR=$Zstd_DIR
           cmake --build build
 
