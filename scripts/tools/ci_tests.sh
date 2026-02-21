@@ -138,6 +138,7 @@ run_dynlib_tests() {
     if [[ "$OS_MODE" == "windows" ]]; then
         "$C3C_BIN" -vv compile-run test.c3 -l ./add.lib
     elif [[ "$OS_MODE" == "mac" || "$OS_MODE" == "ios" ]]; then
+        "$C3C_BIN" -vv dynamic-lib add.c3 -o libadd
         "$C3C_BIN" -vv compile-run test.c3 -l ./add.dylib
     else 
         if [ -f add.so ]; then mv add.so libadd.so; fi
