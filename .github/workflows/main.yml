@@ -630,7 +630,7 @@ jobs:
           IOS_SDK=$(xcrun --sdk iphoneos --show-sdk-path)
           cmake ../llvm \
             -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
             -DCMAKE_SYSTEM_NAME=iOS \
             -DCMAKE_OSX_SYSROOT=$IOS_SDK \
             -DCMAKE_OSX_ARCHITECTURES=arm64 \
@@ -638,10 +638,14 @@ jobs:
             -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY \
             -DLLVM_DEFAULT_TARGET_TRIPLE=arm64-apple-ios17.0 \
             -DLLVM_TARGETS_TO_BUILD=AArch64 \
+            -DLLVM_NATIVE_TOOL_DIR=$(dirname $LLVM_TABLEGEN_PATH) \
             -DLLVM_TABLEGEN=$LLVM_TABLEGEN_PATH \
             -DLLVM_OPTIMIZED_TABLEGEN=ON \
             -DLLVM_USE_HOST_TOOLS=ON \
+            -DLLVM_BUILD_TOOLS=OFF \
+            -DLLVM_TOOL_LLVM_TBLGEN_BUILD=OFF \
             -DLLVM_ENABLE_LINKER_GC=OFF \
+            -DLLVM_LINKER_SUPPORTS_GC=OFF \
             -DCMAKE_EXE_LINKER_FLAGS="-Wl,-dead_strip" \
             -DLLVM_ENABLE_RTTI=ON \
             -DLLVM_ENABLE_EH=ON \
@@ -652,7 +656,6 @@ jobs:
             -DLLVM_INCLUDE_UTILS=OFF \
             -DLLVM_INCLUDE_BENCHMARKS=OFF \
             -DLLVM_INCLUDE_EXAMPLES=OFF \
-            -DLLVM_BUILD_TOOLS=OFF \
             -DLLVM_BUILD_UTILS=OFF \
             -DLLVM_BUILD_RUNTIME=OFF 
           ninja -j$(sysctl -n hw.logicalcpu)
