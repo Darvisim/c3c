@@ -586,87 +586,36 @@ jobs:
           brew install cmake ninja zstd libffi libedit
           echo "/opt/homebrew/bin" >> $GITHUB_PATH
 
-      - name: Cache LLVM Source
+      - name: Cache Host LLVM Build
         id: cache-llvm
         uses: actions/cache@v5
         with:
-          path: llvm-project
-          key: llvm-src-21.1.8-v5
-      
-      - name: Clone LLVM
-        if: steps.cache-llvm.outputs.cache-hit != 'true'
-        run: git clone --depth=1 --branch llvmorg-21.1.8 https://github.com/llvm/llvm-project.git
+          path: llvm-project/build-host
+          key: llvm-src-21.1.8-${{ runner.os }}
 
       - name: Build Host LLVM
+        if: steps.cache-llvm.outputs.cache-hit != 'true'
         run: |
-          rm -rf llvm-project/build-host    
+          git clone --depth=1 --branch llvmorg-21.1.8 https://github.com/llvm/llvm-project.git   
           mkdir -p llvm-project/build-host
           cd llvm-project/build-host
-          cmake ../llvm -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD=AArch64 -DLLVM_INCLUDE_TESTS=OFF
-          ninja -j$(sysctl -n hw.logicalcpu) llvm-tblgen
-          echo "LLVM_TABLEGEN_PATH=$PWD/bin/llvm-tblgen" >> $GITHUB_ENV
-
-      - name: Build LLVM for iOS
-        run: |
-          rm -rf llvm-project/build-ios
-          mkdir -p llvm-project/build-ios
-          cd llvm-project/build-ios
-          IOS_SDK=$(xcrun --sdk iphoneos --show-sdk-path)
-          cmake ../llvm \
-            -G Ninja \
-            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-            -DCMAKE_SYSTEM_NAME=iOS \
-            -DCMAKE_OSX_SYSROOT=$IOS_SDK \
-            -DCMAKE_OSX_ARCHITECTURES=arm64 \
-            -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 \
-            -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY \
-            -DLLVM_DEFAULT_TARGET_TRIPLE=arm64-apple-ios17.0 \
+          cmake ../llvm -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
             -DLLVM_TARGETS_TO_BUILD=AArch64 \
-            -DLLVM_TABLEGEN_EXE=$LLVM_TABLEGEN_PATH \
-            -DLLVM_ENABLE_TABLEGEN=OFF \
             -DLLVM_ENABLE_PROJECTS="" \
-            -DLLVM_ENABLE_RUNTIMES="" \
             -DLLVM_BUILD_TOOLS=OFF \
-            -DLLVM_INCLUDE_TOOLS=OFF \
-            -DLLVM_INCLUDE_UTILS=OFF \
             -DLLVM_INCLUDE_TESTS=OFF \
             -DLLVM_INCLUDE_EXAMPLES=OFF \
             -DLLVM_INCLUDE_BENCHMARKS=OFF \
-            -DLLVM_BUILD_EXAMPLES=OFF \
-            -DLLVM_BUILD_TESTS=OFF \
-            -DLLVM_BUILD_UTILS=OFF \
-            -DLLVM_BUILD_RUNTIME=OFF \
-            -DLLVM_ENABLE_BINDINGS=OFF \
-            -DLLVM_ENABLE_OCAMLDOC=OFF \
-            -DLLVM_ENABLE_TERMINFO=OFF \
-            -DLLVM_ENABLE_LIBEDIT=OFF \
-            -DLLVM_ENABLE_LIBXML2=OFF \
             -DLLVM_ENABLE_ZLIB=OFF \
             -DLLVM_ENABLE_ZSTD=OFF \
-            -DLLVM_ENABLE_RTTI=ON \
-            -DLLVM_ENABLE_EH=ON \
-            -DLLVM_ENABLE_THREADS=OFF \
-            -DLLVM_ENABLE_DIA_SDK=OFF \
-            -DLLVM_ENABLE_DOXYGEN=OFF \
-            -DLLVM_ENABLE_SPHINX=OFF \
-            -DLLVM_ENABLE_UNWIND_TABLES=OFF \
-            -DLLVM_ENABLE_BACKTRACES=OFF \
-            -DLLVM_ENABLE_CRASH_OVERRIDES=OFF \
-            -DLLVM_ENABLE_FFI=OFF \
-            -DLLVM_ENABLE_HEAPSORT=OFF \
-            -DLLVM_ENABLE_IDE=OFF \
-            -DLLVM_BUILD_INSTRUMENTED=OFF \
-            -DLLVM_BUILD_RUNTIMES=OFF \
-            -DLLVM_INCLUDE_RUNTIMES=OFF \
-            -DLLVM_LINKER_SUPPORTS_GC=OFF \
-            -DCMAKE_C_FLAGS_RELEASE="-O3 -DNDEBUG" \
-            -DCMAKE_CXX_FLAGS_RELEASE="-O3 -DNDEBUG" \
-            -DCMAKE_EXE_LINKER_FLAGS_RELEASE="-Wl,-dead_strip" \
-            -DCMAKE_SHARED_LINKER_FLAGS_RELEASE="-Wl,-dead_strip" \
-            -DLLVM_ENABLE_LINKER_GC=OFF 
+            -DLLVM_ENABLE_TERMINFO=OFF \
+            -DLLVM_ENABLE_LIBEDIT=OFF \
+            -DLLVM_ENABLE_LIBXML2=OFF
           ninja -j$(sysctl -n hw.logicalcpu)
-          grep -R "lrt" llvm-project/build-ios
-          echo "LLVM_DIR=$PWD" >> $GITHUB_ENV
+
+      - name: Export LLVM Directory
+        run: echo "LLVM_DIR=$PWD/llvm-project/build-host/lib/cmake/llvm" >> $GITHUB_ENV
 
       - name: CMake Build (LLVM + CLang)
         run: |
