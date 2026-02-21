@@ -141,9 +141,9 @@ run_dynlib_tests() {
         "$C3C_BIN" -vv compile-run test.c3 -l ./add.dylib
     else 
         if [ -f add.so ]; then mv add.so libadd.so; fi
-        cc test.c -L. -ladd -Wl,-rpath=.
+        cc test.c -L. -ladd -Wl,-rpath,.
         ./a.out
-        "$C3C_BIN" compile-run test.c3 -L . -l add -z -Wl,-rpath=.
+        "$C3C_BIN" compile-run test.c3 -L . -l add -z -Wl,-rpath,.
     fi
 }
 
