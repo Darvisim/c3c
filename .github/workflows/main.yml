@@ -657,7 +657,11 @@ jobs:
             -DLLVM_INCLUDE_BENCHMARKS=OFF \
             -DLLVM_INCLUDE_EXAMPLES=OFF \
             -DLLVM_BUILD_UTILS=OFF \
-            -DLLVM_BUILD_RUNTIME=OFF 
+            -DLLVM_BUILD_RUNTIME=OFF
+          mkdir -p bin
+          rm -f ./bin/llvm-tblgen
+          cp $LLVM_TABLEGEN_PATH ./bin/llvm-tblgen
+          touch ./bin/llvm-tblgen
           ninja -j$(sysctl -n hw.logicalcpu)
           echo "LLVM_DIR=$PWD" >> $GITHUB_ENV
 
@@ -675,7 +679,7 @@ jobs:
             -DC3_WITH_LLVM=ON \
             -DC3_LINK_DYNAMIC=OFF \
             -DC3_WITH_ZSTD=OFF \
-            -DLLVM_DIR=$LLVM_DIR \
+            -DLLVM_DIR=$LLVM_DIR
           cmake --build build -j$(sysctl -n hw.logicalcpu)
 
       - name: Codesign (iOS)
@@ -686,8 +690,13 @@ jobs:
       - name: Run Unified Tests
         run: ./scripts/tools/ci_tests.sh "./build/c3c" ios
       
+      - name: Cleanup
+        run: rm -rf llvm-project
+      
       - name: Bundle (iOS)
-        run: bash ./scripts/tools/package_build.sh "./build/c3c" "c3-ios-${{ matrix.arch }}-${{ matrix.build_type }}" "tar"
+        run: |
+          chmod +x ./build/c3c
+          bash ./scripts/tools/package_build.sh "./build/c3c" "c3-ios-${{ matrix.arch }}-${{ matrix.build_type }}" "tar"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v6
