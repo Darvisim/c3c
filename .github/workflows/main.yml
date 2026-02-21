@@ -586,67 +586,47 @@ jobs:
           brew install cmake ninja zstd libffi libedit
           echo "/opt/homebrew/bin" >> $GITHUB_PATH
 
-      - name: Cache Host LLVM Build
-        id: cache-llvm
+      - name: Cache LLVM
         uses: actions/cache@v5
         with:
-          path: llvm-project/build-host
-          key: llvm-src-21.1.8-${{ runner.os }}
+          path: _deps
+          key: ${{ runner.os }}-llvm-${{ env.LLVM_RELEASE_VERSION }}-ios-${{ matrix.build_type }}-${{ hashFiles('CMakeLists.txt', '.github/workflows/main.yml') }}
 
-      - name: Build Host LLVM
-        if: steps.cache-llvm.outputs.cache-hit != 'true'
+      - name: CMake Build (macOS)
         run: |
-          git clone --depth=1 --branch llvmorg-21.1.8 https://github.com/llvm/llvm-project.git   
-          mkdir -p llvm-project/build-host
-          cd llvm-project/build-host
-          cmake ../llvm -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DLLVM_TARGETS_TO_BUILD=AArch64 \
-            -DLLVM_ENABLE_PROJECTS="" \
-            -DLLVM_BUILD_TOOLS=OFF \
-            -DLLVM_INCLUDE_TESTS=OFF \
-            -DLLVM_INCLUDE_EXAMPLES=OFF \
-            -DLLVM_INCLUDE_BENCHMARKS=OFF \
-            -DLLVM_ENABLE_ZLIB=OFF \
-            -DLLVM_ENABLE_ZSTD=OFF \
-            -DLLVM_ENABLE_TERMINFO=OFF \
-            -DLLVM_ENABLE_LIBEDIT=OFF \
-            -DLLVM_ENABLE_LIBXML2=OFF
-          ninja -j$(sysctl -n hw.logicalcpu)
+          rm -rf build-macos
+          cmake -B build-macos -G Ninja \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DC3_FETCH_LLVM=ON \
+            -DC3_LINK_DYNAMIC=OFF \
+            -DFETCHCONTENT_BASE_DIR=$PWD/_deps
+          cmake --build build-macos
 
-      - name: Export LLVM Directory
-        run: echo "LLVM_DIR=$PWD/llvm-project/build-host/lib/cmake/llvm" >> $GITHUB_ENV
+      - name: Run Unified Tests
+        run: ./scripts/tools/ci_tests.sh "./build-macos/c3c" darwin
 
-      - name: CMake Build (LLVM + CLang)
+      - name: CMake Build (iOS)
         run: |
           SDK_PATH=$(xcrun --sdk iphoneos --show-sdk-path)
-          rm -rf build
-          cmake -B build -G Ninja \
+          rm -rf build-ios
+          cmake -B build-ios -G Ninja \
             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
             -DCMAKE_SYSTEM_NAME=iOS \
             -DCMAKE_OSX_SYSROOT=$SDK_PATH \
             -DCMAKE_OSX_ARCHITECTURES="${{ matrix.arch }}" \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 \
-            -DCMAKE_C_COMPILER=/usr/bin/clang \
-            -DCMAKE_CXX_COMPILER=/usr/bin/clang++ \
-            -DC3_WITH_LLVM=ON \
+            -DC3_FETCH_LLVM=ON \
             -DC3_LINK_DYNAMIC=OFF \
-            -DC3_WITH_ZSTD=OFF \
-            -DLLVM_DIR=$LLVM_DIR
-          cmake --build build -j$(sysctl -n hw.logicalcpu)
+            -DFETCHCONTENT_BASE_DIR=$PWD/_deps
+          cmake --build build-ios
 
       - name: Codesign (iOS)
         run: |
-          codesign -s - ./build/c3c
-          codesign -dv ./build/c3c || true
-
-      - name: Run Unified Tests
-        run: ./scripts/tools/ci_tests.sh "./build/c3c" ios
+          codesign -s - ./build-ios/c3c
+          codesign -dv ./build-ios/c3c || true
       
       - name: Bundle (iOS)
-        run: |
-          chmod +x ./build/c3c
-          bash ./scripts/tools/package_build.sh "./build/c3c" "c3-ios-${{ matrix.arch }}-${{ matrix.build_type }}" "tar"
+        run: bash ./scripts/tools/package_build.sh "./build-ios/c3c" "c3-ios-${{ matrix.arch }}-${{ matrix.build_type }}" "tar"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v6
