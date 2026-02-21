@@ -583,15 +583,7 @@ jobs:
       - name: Install dependencies
         run: |
           export HOMEBREW_NO_AUTO_UPDATE=1
-          PACKAGES="cmake zstd libffi libedit ninja"
-          for pkg in $PACKAGES; do
-            if ! brew list --versions "$pkg" >/dev/null; then
-              echo "Installing $pkg..."
-              brew install "$pkg"
-            else
-              echo "$pkg is already installed, skipping."
-            fi
-          done
+          brew install cmake ninja zstd libffi libedit
           echo "/opt/homebrew/bin" >> $GITHUB_PATH
 
       - name: Cache LLVM Source
@@ -599,30 +591,17 @@ jobs:
         uses: actions/cache@v5
         with:
           path: llvm-project
-          key: llvm-src-21.1.8-v2
+          key: llvm-src-21.1.8-v3
       
       - name: Clone LLVM
         if: steps.cache-llvm.outputs.cache-hit != 'true'
-        run: |
-            git clone --depth=1 \
-              --branch llvmorg-21.1.8 \
-              https://github.com/llvm/llvm-project.git
-
-      - name: Wipe Build Artifacts
-        run: |
-          rm -rf llvm-project/build-host
-          rm -rf llvm-project/build-ios
-          rm -rf ./bin/llvm-tblgen
+        run: git clone --depth=1 --branch llvmorg-21.1.8 https://github.com/llvm/llvm-project.git
 
       - name: Build Host LLVM
         run: |    
           mkdir -p llvm-project/build-host
           cd llvm-project/build-host
-          cmake ../llvm \
-            -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DLLVM_TARGETS_TO_BUILD=AArch64 \
-            -DLLVM_INCLUDE_TESTS=OFF
+          cmake ../llvm -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD=AArch64 -DLLVM_INCLUDE_TESTS=OFF
           ninja -j$(sysctl -n hw.logicalcpu) llvm-tblgen
           echo "LLVM_TABLEGEN_PATH=$PWD/bin/llvm-tblgen" >> $GITHUB_ENV
 
@@ -646,21 +625,31 @@ jobs:
             -DLLVM_OPTIMIZED_TABLEGEN=ON \
             -DLLVM_USE_HOST_TOOLS=ON \
             -DLLVM_BUILD_TOOLS=OFF \
-            -DLLVM_TOOL_LLVM_TBLGEN_BUILD=OFF \
-            -DLLVM_ENABLE_LINKER_GC=OFF \
-            -DLLVM_LINKER_SUPPORTS_GC=OFF \
-            -DCMAKE_EXE_LINKER_FLAGS="-Wl,-dead_strip" \
+            -DLLVM_INCLUDE_TOOLS=OFF \
+            -DLLVM_INCLUDE_UTILS=OFF \
+            -DLLVM_INCLUDE_TESTS=OFF \
+            -DLLVM_INCLUDE_EXAMPLES=OFF \
+            -DLLVM_INCLUDE_BENCHMARKS=OFF \
+            -DLLVM_BUILD_EXAMPLES=OFF \
+            -DLLVM_BUILD_TESTS=OFF \
+            -DLLVM_BUILD_UTILS=OFF \
+            -DLLVM_BUILD_RUNTIME=OFF \
+            -DLLVM_ENABLE_BINDINGS=OFF \
+            -DLLVM_ENABLE_OCAMLDOC=OFF \
+            -DLLVM_ENABLE_PROJECTS="" \
+            -DLLVM_ENABLE_TERMINFO=OFF \
+            -DLLVM_ENABLE_LIBEDIT=OFF \
+            -DLLVM_ENABLE_LIBXML2=OFF \
+            -DLLVM_ENABLE_ZLIB=OFF \
+            -DLLVM_ENABLE_ZSTD=OFF \
             -DLLVM_ENABLE_RTTI=ON \
             -DLLVM_ENABLE_EH=ON \
             -DLLVM_ENABLE_THREADS=OFF \
-            -DLLVM_ENABLE_ZLIB=OFF \
-            -DLLVM_ENABLE_ZSTD=OFF \
-            -DLLVM_INCLUDE_TESTS=OFF \
-            -DLLVM_INCLUDE_UTILS=OFF \
-            -DLLVM_INCLUDE_BENCHMARKS=OFF \
-            -DLLVM_INCLUDE_EXAMPLES=OFF \
-            -DLLVM_BUILD_UTILS=OFF \
-            -DLLVM_BUILD_RUNTIME=OFF
+            -DLLVM_LINKER_SUPPORTS_GC=OFF \
+            -DCMAKE_EXE_LINKER_FLAGS="-Wl,-dead_strip" \
+            -DLLVM_ENABLE_LINKER_GC=OFF \
+            -DLLVM_TOOL_LLVM_TBLGEN_BUILD=OFF \
+            -DLLVM_TOOL_LLVM_CONFIG_BUILD=OFF
           mkdir -p bin
           cp $LLVM_TABLEGEN_PATH ./bin/llvm-tblgen
           touch ./bin/llvm-tblgen
