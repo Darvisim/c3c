@@ -591,7 +591,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: llvm-project
-          key: llvm-src-21.1.8-v4
+          key: llvm-src-21.1.8-v5
       
       - name: Clone LLVM
         if: steps.cache-llvm.outputs.cache-hit != 'true'
@@ -623,7 +623,7 @@ jobs:
             -DLLVM_DEFAULT_TARGET_TRIPLE=arm64-apple-ios17.0 \
             -DLLVM_TARGETS_TO_BUILD=AArch64 \
             -DLLVM_TABLEGEN_EXE=$LLVM_TABLEGEN_PATH \
-            -DLLVM_USE_HOST_TOOLS=ON \
+            -DLLVM_ENABLE_TABLEGEN=OFF \
             -DLLVM_ENABLE_PROJECTS="" \
             -DLLVM_ENABLE_RUNTIMES="" \
             -DLLVM_BUILD_TOOLS=OFF \
@@ -659,10 +659,11 @@ jobs:
             -DLLVM_BUILD_RUNTIMES=OFF \
             -DLLVM_INCLUDE_RUNTIMES=OFF \
             -DLLVM_LINKER_SUPPORTS_GC=OFF \
-            -DCMAKE_EXE_LINKER_FLAGS="-Wl,-dead_strip" \
-            -DLLVM_ENABLE_LINKER_GC=OFF \
-            -DLLVM_TOOL_LLVM_TBLGEN_BUILD=OFF \
-            -DLLVM_TOOL_LLVM_CONFIG_BUILD=OFF
+            -DCMAKE_C_FLAGS_RELEASE="-O3 -DNDEBUG" \
+            -DCMAKE_CXX_FLAGS_RELEASE="-O3 -DNDEBUG" \
+            -DCMAKE_EXE_LINKER_FLAGS_RELEASE="-Wl,-dead_strip" \
+            -DCMAKE_SHARED_LINKER_FLAGS_RELEASE="-Wl,-dead_strip" \
+            -DLLVM_ENABLE_LINKER_GC=OFF 
           ninja -j$(sysctl -n hw.logicalcpu)
           grep -R "lrt" llvm-project/build-ios
           echo "LLVM_DIR=$PWD" >> $GITHUB_ENV
