@@ -14,4 +14,4 @@ fn void main()
 
 /* #expect: test.ll
 
-fefe
+// fefe
