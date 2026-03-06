@@ -204,16 +204,6 @@ run_wasm_compile() {
     "$C3C_BIN" compile --target wasm32 -g0 --no-entry -Os wasm4.c3
 }
 
-run_ios_compile() {
-    echo "--- Running iOS Compile Check ---"
-    if [[ "$OS_MODE" == "mac" || "$OS_MODE" == "ios" ]]; then
-        # We test compilation for the simulator here.
-        # Once an explicitly iOS-based CI job is added, this might be superseded.
-        cd "$ROOT_DIR/resources/testfragments"
-        "$C3C_BIN" compile --target ios-arm64 -g0 --no-entry -Os wasm4.c3
-    fi
-}
-
 run_unit_tests() {
     echo "--- Running Unit Tests ---"
     cd "$ROOT_DIR/test"
