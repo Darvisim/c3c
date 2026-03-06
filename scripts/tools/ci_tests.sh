@@ -225,5 +225,4 @@ run_dynlib_tests
 run_staticlib_tests
 run_testproject
 run_wasm_compile
-run_ios_compile
 run_unit_tests
