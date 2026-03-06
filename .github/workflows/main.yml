@@ -269,7 +269,7 @@ jobs:
           name: c3-macos-${{matrix.build_type}}
           path: c3-macos-${{matrix.build_type}}.zip
 
-  ios-build:
+  build-ios:
     runs-on: macos-latest
     strategy:
       fail-fast: false
@@ -583,7 +583,7 @@ jobs:
 
   release:
     runs-on: ubuntu-22.04
-    needs: [build-msvc, build-linux, build-mac, ios-build, build-linux-alpine, build-openbsd, build-netbsd, build-android]
+    needs: [build-msvc, build-linux, build-mac, build-ios, build-linux-alpine, build-openbsd, build-netbsd, build-android]
     if: github.ref == 'refs/heads/master'
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
