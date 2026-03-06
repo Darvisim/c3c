@@ -269,6 +269,27 @@ jobs:
           name: c3-macos-${{matrix.build_type}}
           path: c3-macos-${{matrix.build_type}}.zip
 
+  ios-build:
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: [Release, Debug]
+    steps:
+      - uses: actions/checkout@v6
+      - name: CMake Build
+        run: |
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DC3_FETCH_LLVM=ON
+          cmake --build build
+      - name: Run Unified Tests
+        run: ./scripts/tools/ci_tests.sh "./build/c3c" "ios"
+      - name: Bundle & Upload (iOS)
+        run: bash ./scripts/tools/package_build.sh "./build/c3c" "c3-ios-${{matrix.build_type}}" "zip"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: c3-ios-${{matrix.build_type}}
+          path: c3-ios-${{matrix.build_type}}.zip
+
   build-openbsd:
     runs-on: ubuntu-latest
     strategy:
@@ -562,7 +583,7 @@ jobs:
 
   release:
     runs-on: ubuntu-22.04
-    needs: [build-msvc, build-linux, build-mac, build-linux-alpine, build-openbsd, build-netbsd, build-android]
+    needs: [build-msvc, build-linux, build-mac, ios-build, build-linux-alpine, build-openbsd, build-netbsd, build-android]
     if: github.ref == 'refs/heads/master'
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -575,6 +596,7 @@ jobs:
           # --- Release Assets ---
           mv c3-windows-Release/c3-windows-Release.zip c3-windows.zip
           mv c3-macos-Release/c3-macos-Release.zip c3-macos.zip
+          mv c3-ios-Release/c3-ios-Release.zip c3-ios.zip
 
           mv c3-linux-Release/c3-linux-Release.tar.gz c3-linux.tar.gz
           mv c3-linux-musl-Release/c3-linux-musl-Release.tar.gz c3-linux-musl.tar.gz
@@ -586,6 +608,7 @@ jobs:
           # --- Debug Assets ---
           mv c3-windows-Debug/c3-windows-Debug.zip c3-windows-debug.zip
           mv c3-macos-Debug/c3-macos-Debug.zip c3-macos-debug.zip
+          mv c3-ios-Debug/c3-ios-Debug.zip c3-ios-debug.zip
 
           mv c3-linux-Debug/c3-linux-Debug.tar.gz c3-linux-debug.tar.gz
           mv c3-linux-musl-Debug/c3-linux-musl-Debug.tar.gz c3-linux-musl-debug.tar.gz
@@ -605,6 +628,7 @@ jobs:
           files: |
             c3-windows.zip
             c3-macos.zip
+            c3-ios.zip
             c3-linux.tar.gz
             c3-linux-musl.tar.gz
             c3-openbsd.tar.gz
@@ -614,6 +638,7 @@ jobs:
             # --- Debug Artifacts ---
             c3-windows-debug.zip
             c3-macos-debug.zip
+            c3-ios-debug.zip
             c3-linux-debug.tar.gz
             c3-linux-musl-debug.tar.gz
             c3-openbsd-debug.tar.gz

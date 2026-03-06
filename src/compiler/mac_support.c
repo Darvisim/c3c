@@ -12,6 +12,34 @@ const char *macos_sysroot(void)
 	return NULL;
 }
 
+const char *ios_sysroot(void)
+{
+#if __APPLE__
+	char* result = execute_cmd("xcrun --sdk iphoneos --show-sdk-path", true, NULL, 512);
+	if (result && result[0]) 
+	{
+		return result;
+	}
+	static const char *xcode_sysroot = "/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk";
+	if (file_is_dir(xcode_sysroot)) return xcode_sysroot;
+#endif
+	return NULL;
+}
+
+const char *ios_simulator_sysroot(void)
+{
+#if __APPLE__
+	char* result = execute_cmd("xcrun --sdk iphonesimulator --show-sdk-path", true, NULL, 512);
+	if (result && result[0]) 
+	{
+		return result;
+	}
+	static const char *xcode_sysroot = "/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator.sdk";
+	if (file_is_dir(xcode_sysroot)) return xcode_sysroot;
+#endif
+	return NULL;
+}
+
 void parse_version(const char *version_string, Version *version)
 {
 	StringSlice slice = slice_from_string(version_string);

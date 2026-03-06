@@ -1202,6 +1202,7 @@ static char *arch_to_target_triple(ArchOsTarget target, LinuxLibc linux_libc)
 		case ANDROID_X86_64: return "x86_64-linux-android";
 		case LINUX_AARCH64: return linux_libc == LINUX_LIBC_MUSL ? "aarch64-unknown-linux-musl" : "aarch64-unknown-linux-gnu";
 		case IOS_AARCH64: return "aarch64-apple-ios";
+		case IOS_SIMULATOR_AARCH64: return "aarch64-apple-ios-simulator";
 		case MACOS_AARCH64: return "aarch64-apple-macosx";
 		case ELF_AARCH64: return "aarch64-unknown-elf";
 		case WINDOWS_AARCH64: return "aarch64-pc-windows-msvc";
@@ -2353,9 +2354,33 @@ void target_setup(BuildTarget *build_target)
 
 	if (compiler.platform.os == OS_TYPE_IOS)
 	{
-		WARNING("iOS not properly supported yet.");
+		bool is_simulator = compiler.platform.environment_type == ENV_TYPE_SIMULATOR;
+		const char *sysroot = is_simulator ? ios_simulator_sysroot() : ios_sysroot();
+		if (!sysroot)
+		{
+			WARNING("Failed to find iOS SDK sysroot. Linker might fail.");
+		}
+		else if (!compiler.build.macos.sysroot)
+		{
+			compiler.build.macos.sysroot = sysroot;
+		}
+
+		compiler.build.macos.sdk = NULL;
+		if (compiler.build.macos.sysroot)
+		{
+			INFO_LOG("iOS SDK: %s", compiler.build.macos.sysroot);
+			compiler.build.macos.sdk = macos_sysroot_sdk_information(compiler.build.macos.sysroot);
+			if (compiler.build.macos.sdk->macos_min_deploy_target.major < 11)
+			{
+				compiler.build.macos.sdk->macos_min_deploy_target = (Version) { 11, 0 };
+			}
+			if (compiler.build.macos.sdk->macos_deploy_target.major < 11)
+			{
+				compiler.build.macos.sdk->macos_deploy_target = (Version) { 11, 0 };
+			}
+		}
 	}
-	if (compiler.platform.os == OS_TYPE_MACOSX)
+	else if (compiler.platform.os == OS_TYPE_MACOSX)
 	{
 		if (!compiler.build.macos.sysroot) compiler.build.macos.sysroot = macos_sysroot();
 		const char *sysroot = compiler.build.macos.sysroot ? compiler.build.macos.sysroot : macos_sysroot();

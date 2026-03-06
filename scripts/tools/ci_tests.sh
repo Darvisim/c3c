@@ -136,7 +136,7 @@ run_dynlib_tests() {
 
     if [[ "$OS_MODE" == "windows" ]]; then
         "$C3C_BIN" -vv compile-run test.c3 -l ./add.lib
-    elif [[ "$OS_MODE" == "mac" ]]; then
+    elif [[ "$OS_MODE" == "mac" || "$OS_MODE" == "ios" ]]; then
         "$C3C_BIN" -vv compile-run test.c3 -l ./add.dylib
     else 
         if [ -f add.so ]; then mv add.so libadd.so; fi
@@ -179,7 +179,7 @@ run_testproject() {
 
     ARGS="--trust=full"
     
-    if [[ "$OS_MODE" == "linux" || "$OS_MODE" == "mac" ]]; then
+    if [[ "$OS_MODE" == "linux" || "$OS_MODE" == "mac" || "$OS_MODE" == "ios" ]]; then
         ARGS="$ARGS --linker=builtin"
 
         if [ -f "/etc/alpine-release" ]; then
@@ -204,6 +204,16 @@ run_wasm_compile() {
     "$C3C_BIN" compile --target wasm32 -g0 --no-entry -Os wasm4.c3
 }
 
+run_ios_compile() {
+    echo "--- Running iOS Compile Check ---"
+    if [[ "$OS_MODE" == "mac" || "$OS_MODE" == "ios" ]]; then
+        # We test compilation for the simulator here.
+        # Once an explicitly iOS-based CI job is added, this might be superseded.
+        cd "$ROOT_DIR/resources/testfragments"
+        "$C3C_BIN" compile --target arm64-apple-ios-simulator -g0 --no-entry -Os wasm4.c3
+    fi
+}
+
 run_unit_tests() {
     echo "--- Running Unit Tests ---"
     cd "$ROOT_DIR/test"
@@ -225,4 +235,5 @@ run_dynlib_tests
 run_staticlib_tests
 run_testproject
 run_wasm_compile
+run_ios_compile
 run_unit_tests
