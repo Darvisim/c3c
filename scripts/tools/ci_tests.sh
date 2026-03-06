@@ -210,7 +210,7 @@ run_ios_compile() {
         # We test compilation for the simulator here.
         # Once an explicitly iOS-based CI job is added, this might be superseded.
         cd "$ROOT_DIR/resources/testfragments"
-        "$C3C_BIN" compile --target arm64-apple-ios-simulator -g0 --no-entry -Os wasm4.c3
+        "$C3C_BIN" compile --target ios-arm64 -g0 --no-entry -Os wasm4.c3
     fi
 }
 
