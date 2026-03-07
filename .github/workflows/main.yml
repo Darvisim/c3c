@@ -343,12 +343,12 @@ jobs:
           
           # 2. Compile to iOS Simulator Target
           TARGET="ios-${{ matrix.arch }}"
-          ./build/c3c compile -O1 --no-entry --target $TARGET -o c3-ios-app main.c3
-          
-          # 3. Create generic Payload
-          mkdir -p c3c.app
-          mv c3-ios-app c3c.app/
-          mv Info.plist c3c.app/
+          cat << 'LLDB' > run.lldb
+          run
+          bt
+          quit
+          LLDB
+          lldb -s run.lldb -- ./build/c3c compile -O1 --no-entry --target $TARGET -o c3-ios-app main.c3
           
           # 4. Fast generic codesign
           codesign --force --sign - --timestamp=none c3c.app
