@@ -270,19 +270,30 @@ jobs:
           path: c3-macos-${{matrix.build_type}}.zip
 
   build-ios:
-    runs-on: macos-latest
     strategy:
       fail-fast: false
       matrix:
         build_type: [Release, Debug]
         arch: [arm64, x86_64]
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x86_64
+            runner: macos-latest
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v6
 
+      - name: Select Xcode
+        run: |
+          sudo xcode-select --switch /Applications/Xcode_16.app
+          xcodebuild -version
+
       - name: CMake Build
         run: |
-          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_SYSTEM_PROCESSOR=${{ matrix.arch }} -DC3_FETCH_LLVM=ON
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DC3_FETCH_LLVM=ON
           cmake --build build
+
       - name: Create Info.plist
         run: |
           cat << EOF > Info.plist
@@ -291,11 +302,11 @@ jobs:
           <plist version="1.0">
           <dict>
               <key>CFBundleExecutable</key>
-              <string>c3c</string>
+              <string>c3-ios-app</string>
               <key>CFBundleIdentifier</key>
-              <string>org.c3lang.c3c</string>
+              <string>org.c3lang.iosapp</string>
               <key>CFBundleName</key>
-              <string>c3c</string>
+              <string>C3App</string>
               <key>CFBundleShortVersionString</key>
               <string>1.0</string>
               <key>CFBundleVersion</key>
@@ -309,13 +320,52 @@ jobs:
           </dict>
           </plist>
           EOF
-      - name: Codesign
+
+      - name: Create and Boot Simulator
         run: |
-          codesign --force --sign - --timestamp=none build/c3c
+          RUNTIME_ID=$(xcrun simctl list runtimes | grep iOS | tail -1 | awk '{print $NF}')
+          SIM_ID=$(xcrun simctl create "TestSim-${{ matrix.arch }}" "iPhone 15" "$RUNTIME_ID")
+          xcrun simctl boot $SIM_ID
+          xcrun simctl bootstatus $SIM_ID -b
+          echo "SIM_ID=$SIM_ID" >> $GITHUB_ENV
+
+      - name: Compile and Bundle iOS App
+        run: |
+          # 1. Write the test app
+          cat << 'EOF' > main.c3
+          module main;
+          import libc;
+          fn int main(int argc, char** argv) {
+              libc::printf("SUCCESS: Hello from a natively compiled C3 iOS App!\n");
+              return 0;
+          }
+          EOF
+          
+          # 2. Compile to iOS Simulator Target
+          TARGET="ios-${{ matrix.arch }}-simulator"
+          ./build/c3c compile -O1 --no-entry --target $TARGET -o c3-ios-app main.c3
+          
+          # 3. Create generic Payload
+          mkdir -p c3c.app
+          mv c3-ios-app c3c.app/
+          mv Info.plist c3c.app/
+          
+          # 4. Fast generic codesign
+          codesign --force --sign - --timestamp=none c3c.app
+
+      - name: Execute App inside Simulator
+        run: |
+          xcrun simctl install $SIM_ID ./c3c.app
+          
+          # Launch and pipe the C3 printf output back to the GitHub Actions runner terminal
+          xcrun simctl launch --console-pty $SIM_ID org.c3lang.iosapp
+          
       - name: Run Unified Tests
         run: ./scripts/tools/ci_tests.sh "./build/c3c" "ios"
+
       - name: Bundle & Upload (iOS)
         run: bash ./scripts/tools/package_build.sh "./build/c3c" "c3-ios-${{matrix.arch}}-${{matrix.build_type}}" "zip"
+
       - uses: actions/upload-artifact@v6
         with:
           name: c3-ios-${{matrix.arch}}-${{matrix.build_type}}
