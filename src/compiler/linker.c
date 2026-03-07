@@ -852,7 +852,7 @@ static bool linker_setup(const char ***args_ref, const char **files_to_link, uns
 		case OS_TYPE_WIN32:
 			linker_setup_windows(args_ref, linker_type, output_file);
 			break;
-		OS_DARWIN_TYPES:
+		case OS_DARWIN_TYPES:
 			linker_setup_macos(args_ref, linker_type);
 			break;
 		case OS_TYPE_WASI:
