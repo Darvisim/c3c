@@ -364,7 +364,7 @@ jobs:
           EOF
           
           # 2. Compile to iOS Simulator Target
-          TARGET="ios-${{ matrix.arch }}"
+          TARGET="${{ matrix.arch }}-apple-ios-simulator"
           ./build/c3c compile -O1 --target $TARGET -o c3-ios-app main.c3
           
           # 3. Create generic Payload

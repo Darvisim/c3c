@@ -1280,6 +1280,7 @@ static int jump_buffer_size()
 			// Based on Godbolt
 			return 24;
 		case IOS_ARM64:
+		case IOS_ARM64_SIMULATOR:
 		case MACOS_AARCH64:
 			// Based on macOS headers
 			return 25;
