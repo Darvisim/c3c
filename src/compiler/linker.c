@@ -288,49 +288,29 @@ static void linker_setup_macos(const char ***args_ref, Linker linker_type)
 	add_quote_arg(compiler.build.macos.sysroot);
 	if (is_no_pie(compiler.platform.reloc_model)) add_plain_arg("-no_pie");
 	if (is_pie(compiler.platform.reloc_model)) add_plain_arg("-pie");
-	
+	const char *platform_name = "macOS";
 	if (compiler.platform.os == OS_TYPE_IOS)
 	{
-		bool is_simulator = compiler.platform.environment_type == ENV_TYPE_SIMULATOR;
-		add_plain_arg(is_simulator ? "-mios-simulator-version-min" : "-miphoneos-version-min");
-		if (compiler.build.macos.min_version)
-		{
-			add_plain_arg(compiler.build.macos.min_version);
-		}
-		else
-		{
-			add_plain_arg(str_printf("%d.%d.0", compiler.build.macos.sdk->macos_min_deploy_target.major, compiler.build.macos.sdk->macos_min_deploy_target.minor));
-		}
-		add_plain_arg("-sdk_version");
-		if (compiler.build.macos.sdk_version)
-		{
-			add_plain_arg(compiler.build.macos.sdk_version);
-		}
-		else
-		{
-			add_plain_arg(str_printf("%d.%d.0", compiler.build.macos.sdk->macos_deploy_target.major, compiler.build.macos.sdk->macos_deploy_target.minor));
-		}
+		platform_name = compiler.platform.environment_type == ENV_TYPE_SIMULATOR ? "iOS-simulator" : "iOS";
 	}
-	else 
+
+	add_plain_arg("-platform_version");
+	add_plain_arg(platform_name);
+	if (compiler.build.macos.min_version)
 	{
-		add_plain_arg("-platform_version");
-		add_plain_arg("macos");
-		if (compiler.build.macos.min_version)
-		{
-			add_plain_arg(compiler.build.macos.min_version);
-		}
-		else
-		{
-			add_plain_arg(str_printf("%d.%d.0", compiler.build.macos.sdk->macos_min_deploy_target.major, compiler.build.macos.sdk->macos_min_deploy_target.minor));
-		}
-		if (compiler.build.macos.sdk_version)
-		{
-			add_plain_arg(compiler.build.macos.sdk_version);
-		}
-		else
-		{
-			add_plain_arg(str_printf("%d.%d", compiler.build.macos.sdk->macos_deploy_target.major, compiler.build.macos.sdk->macos_deploy_target.minor));
-		}
+		add_plain_arg(compiler.build.macos.min_version);
+	}
+	else
+	{
+		add_plain_arg(str_printf("%d.%d.0", compiler.build.macos.sdk->macos_min_deploy_target.major, compiler.build.macos.sdk->macos_min_deploy_target.minor));
+	}
+	if (compiler.build.macos.sdk_version)
+	{
+		add_plain_arg(compiler.build.macos.sdk_version);
+	}
+	else
+	{
+		add_plain_arg(str_printf("%d.%d.0", compiler.build.macos.sdk->macos_deploy_target.major, compiler.build.macos.sdk->macos_deploy_target.minor));
 	}
 }
 
@@ -872,7 +852,7 @@ static bool linker_setup(const char ***args_ref, const char **files_to_link, uns
 		case OS_TYPE_WIN32:
 			linker_setup_windows(args_ref, linker_type, output_file);
 			break;
-		case OS_DARWIN_TYPES:
+		OS_DARWIN_TYPES:
 			linker_setup_macos(args_ref, linker_type);
 			break;
 		case OS_TYPE_WASI:
