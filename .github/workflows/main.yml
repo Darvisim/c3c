@@ -278,10 +278,40 @@ jobs:
         arch: [arm64, x86_64]
     steps:
       - uses: actions/checkout@v6
+
       - name: CMake Build
         run: |
-          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DC3_FETCH_LLVM=ON
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_SYSTEM_PROCESSOR=${{ matrix.arch }} -DC3_FETCH_LLVM=ON
           cmake --build build
+      - name: Create Info.plist
+        run: |
+          cat << EOF > Info.plist
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleExecutable</key>
+              <string>c3c</string>
+              <key>CFBundleIdentifier</key>
+              <string>org.c3lang.c3c</string>
+              <key>CFBundleName</key>
+              <string>c3c</string>
+              <key>CFBundleShortVersionString</key>
+              <string>1.0</string>
+              <key>CFBundleVersion</key>
+              <string>1</string>
+              <key>MinimumOSVersion</key>
+              <string>12.0</string>
+              <key>LSRequiresIPhoneOS</key>
+              <true/>
+              <key>UIRequiredDeviceCapabilities</key>
+              <array><string>arm64</string></array>
+          </dict>
+          </plist>
+          EOF
+      - name: Codesign
+        run: |
+          codesign --force --sign - --timestamp=none build/c3c
       - name: Run Unified Tests
         run: ./scripts/tools/ci_tests.sh "./build/c3c" "ios"
       - name: Bundle & Upload (iOS)
