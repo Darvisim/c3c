@@ -294,33 +294,6 @@ jobs:
           cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DC3_FETCH_LLVM=ON
           cmake --build build
 
-      - name: Create Info.plist
-        run: |
-          cat << EOF > Info.plist
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>CFBundleExecutable</key>
-              <string>c3-ios-app</string>
-              <key>CFBundleIdentifier</key>
-              <string>org.c3lang.iosapp</string>
-              <key>CFBundleName</key>
-              <string>C3App</string>
-              <key>CFBundleShortVersionString</key>
-              <string>1.0</string>
-              <key>CFBundleVersion</key>
-              <string>1</string>
-              <key>MinimumOSVersion</key>
-              <string>12.0</string>
-              <key>LSRequiresIPhoneOS</key>
-              <true/>
-              <key>UIRequiredDeviceCapabilities</key>
-              <array><string>arm64</string></array>
-          </dict>
-          </plist>
-          EOF
-
       - name: Cache Simulator
         id: cache-simulator
         uses: actions/cache@v4
@@ -371,20 +344,13 @@ jobs:
           fi
           ./build/c3c compile -O1 --target $TARGET -o c3-ios-app main.c3
           
-          # 3. Create generic Payload
-          mkdir -p c3c.app
-          mv c3-ios-app c3c.app/
-          mv Info.plist c3c.app/
-          
-          # 4. Fast generic codesign
-          codesign --force --sign - --timestamp=none c3c.app
-
       - name: Execute App inside Simulator
         run: |
-          xcrun simctl install $SIM_ID ./c3c.app
+          # Ad-hoc sign the executable for Apple Silicon (AMFI requires this on arm64)
+          codesign -s - c3-ios-app
           
-          # Launch and pipe the C3 printf output back to the GitHub Actions runner terminal
-          xcrun simctl launch --console-pty $SIM_ID org.c3lang.iosapp
+          # Execute directly via spawn to bypass Springboard checking if it's a UI app
+          xcrun simctl spawn $SIM_ID $(pwd)/c3-ios-app
           
       - name: Run Unified Tests
         run: ./scripts/tools/ci_tests.sh "./build/c3c" "ios"
