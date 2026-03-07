@@ -364,7 +364,11 @@ jobs:
           EOF
           
           # 2. Compile to iOS Simulator Target
-          TARGET="${{ matrix.arch }}-apple-ios-simulator"
+          if [ "${{ matrix.arch }}" = "arm64" ]; then
+            TARGET="ios-arm64-simulator"
+          else
+            TARGET="ios-x86_64"
+          fi
           ./build/c3c compile -O1 --target $TARGET -o c3-ios-app main.c3
           
           # 3. Create generic Payload
