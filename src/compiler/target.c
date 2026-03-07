@@ -1202,6 +1202,7 @@ static char *arch_to_target_triple(ArchOsTarget target, LinuxLibc linux_libc)
 		case ANDROID_X86_64: return "x86_64-linux-android";
 		case LINUX_AARCH64: return linux_libc == LINUX_LIBC_MUSL ? "aarch64-unknown-linux-musl" : "aarch64-unknown-linux-gnu";
 		case IOS_ARM64: return "arm64-apple-ios";
+		case IOS_X86_64: return "x86_64-apple-ios-simulator";
 		case MACOS_AARCH64: return "aarch64-apple-macosx";
 		case ELF_AARCH64: return "aarch64-unknown-elf";
 		case WINDOWS_AARCH64: return "aarch64-pc-windows-msvc";

@@ -293,6 +293,7 @@ static LinkLibc libc_from_arch_os(ArchOsTarget target)
 		case FREEBSD_X86:
 		case FREEBSD_X64:
 		case IOS_ARM64:
+		case IOS_X86_64:
 		case LINUX_AARCH64:
 		case LINUX_RISCV32:
 		case LINUX_RISCV64:

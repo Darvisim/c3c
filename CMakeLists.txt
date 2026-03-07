@@ -162,9 +162,17 @@ if(C3_WITH_LLVM)
             set(C3_LLVM_PLATFORM "windows-amd64")
         elseif (APPLE)
             if (CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64" OR CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "arm64")
-                set(C3_LLVM_PLATFORM "darwin-aarch64")
+                if (CMAKE_SYSTEM_NAME STREQUAL "iOS")
+                    set(C3_LLVM_PLATFORM "ios-arm64")
+                else()
+                    set(C3_LLVM_PLATFORM "darwin-aarch64")
+                endif()
             else()
-                set(C3_LLVM_PLATFORM "darwin-amd64")
+                if (CMAKE_SYSTEM_NAME STREQUAL "iOS")
+                    set(C3_LLVM_PLATFORM "ios-amd64")
+                else()
+                    set(C3_LLVM_PLATFORM "darwin-amd64")
+                endif()
             endif()
         else() # Linux
             if (CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64" OR CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "aarch64")
@@ -188,7 +196,8 @@ if(C3_WITH_LLVM)
         set(C3_LLVM_ARTIFACT_NAME "llvm-${C3_LLVM_PLATFORM}${C3_LLVM_SUFFIX}")
         # We could also just set "latest" here to always fetch the latest release
         #set(C3_LLVM_URL "https://github.com/c3lang/llvm-for-c3/releases/latest/download/${C3_LLVM_ARTIFACT_NAME}.tar.gz")
-        set(C3_LLVM_URL "https://github.com/c3lang/llvm-for-c3/releases/download/llvm_22.1.0/${C3_LLVM_ARTIFACT_NAME}.tar.gz")
+        #set(C3_LLVM_URL "https://github.com/c3lang/llvm-for-c3/releases/download/llvm_22.1.0/${C3_LLVM_ARTIFACT_NAME}.tar.gz")
+        set(C3_LLVM_URL "https://github.com/Darvisim/llvm-for-c3/releases/latest/download/${C3_LLVM_ARTIFACT_NAME}.tar.gz")
 
         message(STATUS "Fetching ${C3_LLVM_TYPE} LLVM artifact for ${C3_LLVM_PLATFORM}...")
         message(STATUS "URL: ${C3_LLVM_URL}")
@@ -365,7 +374,7 @@ if(C3_WITH_LLVM)
             ${LLD_COMMON}
     )
 
-    if (APPLE)
+    if (APPLE AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
         set(lld_libs ${lld_libs} xar)
         if (llvm_dir)
             file(GLOB_RECURSE RT_ASAN_DYNAMIC "${llvm_dir}/*libclang_rt.asan_osx_dynamic.dylib")
@@ -713,7 +722,7 @@ if (C3_WITH_LLVM AND DEFINED sanitizer_runtime_libraries)
             VERBATIM
             COMMENT "Copying sanitizer runtime libraries to output directory")
 
-    if (APPLE)
+    if (APPLE AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
         # Change LC_ID_DYLIB to be rpath-based instead of having an absolute path
         # We set DYLD_LIBRARY_PATH so the tools (which might be dynamic) can find libLLVM.dylib in the artifact
         string(REPLACE ";" ":" _dyld_path "${LLVM_LIBRARY_DIRS}")
