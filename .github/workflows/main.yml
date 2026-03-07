@@ -354,13 +354,11 @@ jobs:
           # 1. Write the test app
           cat << 'EOF' > main.c3
           module main;
-          import std::io;
-          import std::thread::os;
-          import std::time;
+          import std::io, std::thread::os, std::time;
           
           fn int main(int argc, char** argv) {
               io::printfn("SUCCESS: Hello from a natively compiled C3 iOS App!");
-              os::native_sleep_nano((NanoDuration)2_000_000_000); // Sleep for 2 seconds to avoid Springboard killing us instantly
+              os::native_sleep_nano((NanoDuration)2_000_000_000)!!; // Sleep for 2 seconds to avoid Springboard killing us instantly
               return 0;
           }
           EOF
