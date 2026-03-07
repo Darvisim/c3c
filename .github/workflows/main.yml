@@ -346,6 +346,21 @@ jobs:
           
       - name: Execute App inside Simulator
         run: |
+          # 1. Test Clang baseline to ensure simulator spawn works for native C apps
+          cat << 'EOF' > test.c
+          #include <stdio.h>
+          int main() { printf("Clang Test OK\n"); return 0; }
+          EOF
+          if [ "${{ matrix.arch }}" = "arm64" ]; then
+            TARGET="arm64-apple-ios-simulator"
+          else
+            TARGET="x86_64-apple-ios-simulator"
+          fi
+          clang -target ${TARGET} -isysroot $(xcrun --sdk iphonesimulator --show-sdk-path) -o clang_test test.c
+          codesign -s - clang_test
+          xcrun simctl spawn $SIM_ID $(pwd)/clang_test
+          
+          # 2. Test C3 App
           # Ad-hoc sign the executable for Apple Silicon (AMFI requires this on arm64)
           codesign -s - c3-ios-app
           
