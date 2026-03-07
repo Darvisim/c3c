@@ -321,74 +321,9 @@ jobs:
           xcrun simctl boot $SIM_ID
           xcrun simctl bootstatus $SIM_ID -b
           echo "SIM_ID=$SIM_ID" >> $GITHUB_ENV
-
-      - name: Compile and Bundle iOS App
-        run: |
-          # 1. Write the test app
-          cat << 'EOF' > main.c3
-          module main;
-          import std::io, std::thread::os, std::time;
-          
-          fn int main(int argc, char** argv) {
-              io::printfn("SUCCESS: Hello from a natively compiled C3 iOS App!");
-              os::native_sleep_nano((NanoDuration)2_000_000_000)!!; // Sleep for 2 seconds to avoid Springboard killing us instantly
-              return 0;
-          }
-          EOF
-          
-          # 2. Compile to iOS Simulator Target
-          if [ "${{ matrix.arch }}" = "arm64" ]; then
-            TARGET="ios-arm64-simulator"
-          else
-            TARGET="ios-x86_64"
-          fi
-          ./build/c3c compile -O1 --target $TARGET -o c3-ios-app main.c3
-          
-      - name: Execute App inside Simulator
-        run: |
-          # 1. Test Clang baseline to ensure simulator spawn works for native C apps
-          cat << 'EOF' > test.c
-          #include <stdio.h>
-          int main() { printf("Clang Test OK\n"); return 0; }
-          EOF
-          if [ "${{ matrix.arch }}" = "arm64" ]; then
-            TARGET="arm64-apple-ios-simulator"
-          else
-            TARGET="x86_64-apple-ios-simulator"
-          fi
-          clang -target ${TARGET} -isysroot $(xcrun --sdk iphonesimulator --show-sdk-path) -o clang_test test.c
-          codesign -s - clang_test
-          xcrun simctl spawn $SIM_ID $(pwd)/clang_test
-          
-          # Debugging Mach-O to see differences why C3 app fails
-          echo "CLANG OTOOL:"
-          otool -l clang_test > clang.otool
-          cat clang.otool
-          
-          echo "C3 OTOOL:"
-          otool -l c3-ios-app > c3.otool
-          cat c3.otool
-          
-          diff -u clang.otool c3.otool || true
-          
-          # 2. Test C3 App
-          if [ "${{ matrix.arch }}" = "arm64" ]; then
-            TARGET="ios-arm64-simulator"
-            MIN_VERSION="--macos-min-version 14.0"
-          else
-            TARGET="ios-x86_64"
-            MIN_VERSION="--macos-min-version 12.0"
-          fi
-          ./build/c3c compile -O1 --target $TARGET $MIN_VERSION -o c3-ios-app main.c3
-          
-          # Ad-hoc sign the executable for Apple Silicon (AMFI requires this on arm64)
-          codesign -s - c3-ios-app
-          
-          # Execute directly via spawn to bypass Springboard checking if it's a UI app
-          xcrun simctl spawn $SIM_ID $(pwd)/c3-ios-app
           
       - name: Run Unified Tests
-        run: ./scripts/tools/ci_tests.sh "./build/c3c" "ios"
+        run: xcrun simctl spawn $SIM_ID /bin/bash $(pwd)/scripts/tools/ci_tests.sh "$(pwd)/build/c3c" "ios"
 
       - name: Bundle & Upload (iOS)
         run: bash ./scripts/tools/package_build.sh "./build/c3c" "c3-ios-${{matrix.arch}}-${{matrix.build_type}}" "zip"
