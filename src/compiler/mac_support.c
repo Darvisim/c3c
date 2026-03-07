@@ -60,15 +60,33 @@ MacSDK *macos_sysroot_sdk_information(const char *sdk_path)
 	const char *file = file_read_all(settings_json_path, &len);
 	json_init_string(&parser, file);
 	MacSDK *sdk = CALLOCS(MacSDK);
+	sdk->macos_deploy_target = (Version) { 11, 0 };
+	sdk->macos_min_deploy_target = (Version) { 11, 0 };
+
 	JSONObject *top_object = json_parse(&parser);
+	if (!top_object || top_object->type != J_OBJECT) return sdk;
+
 	JSONObject *supported_targets = json_map_get(top_object, "SupportedTargets");
-	JSONObject *macosx_target = json_map_get(supported_targets, "macosx");
+	if (!supported_targets || supported_targets->type != J_OBJECT) return sdk;
 
-	const char *default_deploy_target = json_map_get(macosx_target, "DefaultDeploymentTarget")->str;
-	parse_version(default_deploy_target, &sdk->macos_deploy_target);
+	JSONObject *os_target = json_map_get(supported_targets, "macosx");
+	if (!os_target) os_target = json_map_get(supported_targets, "iphoneos");
+	if (!os_target) os_target = json_map_get(supported_targets, "iphonesimulator");
 
-	const char *min_deploy_target = json_map_get(macosx_target, "MinimumDeploymentTarget")->str;
-	parse_version(min_deploy_target, &sdk->macos_min_deploy_target);
+	if (os_target && os_target->type == J_OBJECT)
+	{
+		JSONObject *default_deploy_target = json_map_get(os_target, "DefaultDeploymentTarget");
+		if (default_deploy_target && default_deploy_target->type == J_STRING)
+		{
+			parse_version(default_deploy_target->str, &sdk->macos_deploy_target);
+		}
+
+		JSONObject *min_deploy_target = json_map_get(os_target, "MinimumDeploymentTarget");
+		if (min_deploy_target && min_deploy_target->type == J_STRING)
+		{
+			parse_version(min_deploy_target->str, &sdk->macos_min_deploy_target);
+		}
+	}
 
 	return sdk;
 }
