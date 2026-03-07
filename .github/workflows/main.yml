@@ -374,10 +374,10 @@ jobs:
           # 2. Test C3 App
           if [ "${{ matrix.arch }}" = "arm64" ]; then
             TARGET="ios-arm64-simulator"
-            MIN_VERSION="--macosmin 14.0"
+            MIN_VERSION="--macos-min-version 14.0"
           else
             TARGET="ios-x86_64"
-            MIN_VERSION="--macosmin 12.0"
+            MIN_VERSION="--macos-min-version 12.0"
           fi
           ./build/c3c compile -O1 --target $TARGET $MIN_VERSION -o c3-ios-app main.c3
           
