@@ -359,7 +359,7 @@ jobs:
           
           fn int main(int argc, char** argv) {
               libc::printf("SUCCESS: Hello from a natively compiled C3 iOS App!\n");
-              os::native_sleep_nano(2000000000); // Sleep for 2 seconds to avoid Springboard killing us instantly
+              os::native_sleep_nano((NanoDuration)2_000_000_000); // Sleep for 2 seconds to avoid Springboard killing us instantly
               return 0;
           }
           EOF
