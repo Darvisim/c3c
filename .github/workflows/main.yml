@@ -360,6 +360,17 @@ jobs:
           codesign -s - clang_test
           xcrun simctl spawn $SIM_ID $(pwd)/clang_test
           
+          # Debugging Mach-O to see differences why C3 app fails
+          echo "CLANG OTOOL:"
+          otool -l clang_test > clang.otool
+          cat clang.otool
+          
+          echo "C3 OTOOL:"
+          otool -l c3-ios-app > c3.otool
+          cat c3.otool
+          
+          diff -u clang.otool c3.otool || true
+          
           # 2. Test C3 App
           # Ad-hoc sign the executable for Apple Silicon (AMFI requires this on arm64)
           codesign -s - c3-ios-app
