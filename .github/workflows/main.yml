@@ -286,7 +286,9 @@ jobs:
         run: ./scripts/tools/ci_tests.sh "./build-native/c3c" "ios"
       - name: CMake Build (Cross-compile for release)
         run: |
-          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DC3_FETCH_LLVM=ON -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphoneos -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }}
+          SYSROOT="iphoneos"
+          if [ "${{ matrix.arch }}" = "x86_64" ]; then SYSROOT="iphonesimulator"; fi
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DC3_FETCH_LLVM=ON -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=$SYSROOT -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }}
           cmake --build build
       - name: Bundle & Upload (iOS)
         run: bash ./scripts/tools/package_build.sh "./build/c3c" "c3-ios-${{matrix.arch}}-${{matrix.build_type}}" "zip"
