@@ -321,10 +321,30 @@ jobs:
           </plist>
           EOF
 
+      - name: Cache Simulator
+        id: cache-simulator
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Developer/CoreSimulator/Devices
+          key: ${{ runner.os }}-simulator-${{ matrix.arch }}-${{ env.CACHE_INVALIDATION_SEED }}
+
       - name: Create and Boot Simulator
         run: |
           RUNTIME_ID=$(xcrun simctl list runtimes | grep iOS | tail -1 | awk '{print $NF}')
-          SIM_ID=$(xcrun simctl create "TestSim-${{ matrix.arch }}" "iPhone 15" "$RUNTIME_ID")
+          SIM_NAME="TestSim-${{ matrix.arch }}"
+          
+          # Check if the simulator exists in the cache
+          SIM_ID=$(xcrun simctl list devices | grep "$SIM_NAME" | awk -F '[()]' '{for (i=1; i<=NF; i++) if ($i ~ /^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/) print $i}')
+          
+          if [ -z "$SIM_ID" ]; then
+            echo "Simulator not found in cache. Creating a new one..."
+            SIM_ID=$(xcrun simctl create "$SIM_NAME" "iPhone 15" "$RUNTIME_ID")
+          else
+            echo "Found existing simulator from cache: $SIM_ID"
+            # It might be in a bad state from cache, erase it just in case
+            xcrun simctl erase $SIM_ID || true
+          fi
+          
           xcrun simctl boot $SIM_ID
           xcrun simctl bootstatus $SIM_ID -b
           echo "SIM_ID=$SIM_ID" >> $GITHUB_ENV
@@ -343,7 +363,12 @@ jobs:
           
           # 2. Compile to iOS Simulator Target
           TARGET="ios-${{ matrix.arch }}"
-          ./build/c3c compile -O1 --no-entry --target $TARGET -o c3-ios-app main.c3
+          ./build/c3c compile -O1 --target $TARGET -o c3-ios-app main.c3
+          
+          # 3. Create generic Payload
+          mkdir -p c3c.app
+          mv c3-ios-app c3c.app/
+          mv Info.plist c3c.app/
           
           # 4. Fast generic codesign
           codesign --force --sign - --timestamp=none c3c.app
