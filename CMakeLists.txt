@@ -204,7 +204,7 @@ if(C3_WITH_LLVM)
             set(C3_LLVM_RELEASE_PATH "download/${C3_LLVM_TAG}")
         endif()
 
-        set(C3_LLVM_URL "https://github.com/c3lang/llvm-for-c3/releases/${C3_LLVM_RELEASE_PATH}/${C3_LLVM_ARTIFACT_NAME}.tar.gz")
+        set(C3_LLVM_URL "https://github.com/Darvisim/llvm-for-c3/releases/${C3_LLVM_RELEASE_PATH}/${C3_LLVM_ARTIFACT_NAME}.tar.gz")
 
         message(STATUS "Fetching ${C3_LLVM_TYPE} LLVM artifact for ${C3_LLVM_PLATFORM}...")
         message(STATUS "URL: ${C3_LLVM_URL}")
