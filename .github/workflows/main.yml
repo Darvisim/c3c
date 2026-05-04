@@ -12,8 +12,8 @@ on:
 env:
   LLVM_RELEASE_VERSION: 22.x
   LLVM_RELEASE_VERSION_LINUX_MUSL: 20
-  # LLVM_RELEASE_VERSION_OPENBSD: 20
-  # LLVM_RELEASE_VERSION_NETBSD: 19
+  LLVM_RELEASE_VERSION_OPENBSD: 20
+  LLVM_RELEASE_VERSION_NETBSD: 19
   LLVM_DEV_VERSION: 22
   # CACHE_INVALIDATION_SEED: '%Y-%m-%d' # Daily
   CACHE_INVALIDATION_SEED: '%G-%V-1'   # Weekly
@@ -349,7 +349,7 @@ jobs:
         with:
           release: ${{ matrix.version }}
           usesh: true
-          prepare: pkg_add ninja cmake llvm bash 
+          prepare: pkg_add ninja cmake llvm%${{ env.LLVM_RELEASE_VERSION_OPENBSD }} bash 
           run: |
             export MALLOC_OPTIONS=j
 
@@ -387,7 +387,7 @@ jobs:
           usesh: true
           prepare: |
             pkgin -y update
-            pkgin -y install cmake gcc14 ninja-build bash llvm clang lld
+            pkgin -y install cmake gcc14 ninja-build bash "llvm>=${{ env.LLVM_RELEASE_VERSION_NETBSD }}" "clang>=${{ env.LLVM_RELEASE_VERSION_NETBSD }}" "lld>=${{ env.LLVM_RELEASE_VERSION_NETBSD }}"
           run: |
             export CC=clang
             export CXX=clang++
