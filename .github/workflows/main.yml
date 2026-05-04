@@ -388,6 +388,9 @@ jobs:
           release: ${{ matrix.version }}
           usesh: true
           prepare: |
+            export PKG_PATH="http://netbsd.org{{ matrix.version }}/All"
+            /usr/sbin/pkg_add curl pkgin
+            
             export PATH="/usr/pkg/sbin:/usr/pkg/bin:$PATH"
             mkdir -p /usr/pkg/etc/pkgin
 
@@ -409,6 +412,7 @@ jobs:
             pkgin -y update
             pkgin -y install cmake gcc14 ninja-build bash "llvm>=${{ env.LLVM_RELEASE_VERSION_NETBSD }}" "clang>=${{ env.LLVM_RELEASE_VERSION_NETBSD }}" "lld>=${{ env.LLVM_RELEASE_VERSION_NETBSD }}"
           run: |
+            export PATH="/usr/pkg/sbin:/usr/pkg/bin:$PATH"
             ulimit -d $(ulimit -Hd)
             
             export CC=clang
