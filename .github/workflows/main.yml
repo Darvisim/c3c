@@ -14,6 +14,7 @@ env:
   LLVM_RELEASE_VERSION_LINUX_MUSL: 20
   LLVM_RELEASE_VERSION_OPENBSD: 20
   LLVM_RELEASE_VERSION_NETBSD: 19
+  LLVM_RELEASE_VERSION_FREEBSD: 18
   LLVM_DEV_VERSION: 22
   # CACHE_INVALIDATION_SEED: '%Y-%m-%d' # Daily
   CACHE_INVALIDATION_SEED: '%G-%V-1'   # Weekly
@@ -436,6 +437,45 @@ jobs:
         with:
           name: c3-netbsd-${{matrix.build_type}}
           path: c3-netbsd-${{matrix.build_type}}.tar.gz
+
+  build-freebsd:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: [Release, Debug]
+        version: ['15.0']
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build, Test and Package in FreeBSD
+        uses: vmactions/freebsd-vm@v1
+        with:
+          release: ${{ matrix.version }}
+          usesh: true
+          mem: 6G
+          cpu: 4
+          prepare: pkg install -y ninja cmake llvm${{ env.LLVM_RELEASE_VERSION_FREEBSD }} bash
+          run: |
+            ulimit -d unlimited
+            export MALLOC_OPTIONS=j
+
+            # Build
+            cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+            cmake --build build
+
+            # Run Unified Tests
+            chmod +x scripts/tools/ci_tests.sh
+            ./scripts/tools/ci_tests.sh "./build/c3c"
+
+            # Package
+            chmod +x scripts/tools/package_build.sh
+            ./scripts/tools/package_build.sh "./build/c3c" "c3-freebsd-${{matrix.build_type}}" "tar"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: c3-freebsd-${{matrix.build_type}}
+          path: c3-freebsd-${{matrix.build_type}}.tar.gz
 
   build-with-docker:
     name: LLVM ${{ matrix.llvm_version }} Compatibility
