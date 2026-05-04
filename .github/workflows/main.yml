@@ -397,8 +397,8 @@ jobs:
           mem: 6G
           cpu: 4
           prepare: |
-            export PKG_PATH="http://netbsd.org"
-            /usr/sbin/pkg_add curl pkgin
+            export PKG_PATH="http://ftp.netbsd.org/pub/pkgsrc/packages/NetBSD/amd64/10.1/All"
+            pkg_add curl pkgin
             
             export PATH="/usr/pkg/sbin:/usr/pkg/bin:$PATH"
             mkdir -p /usr/pkg/etc/pkgin
