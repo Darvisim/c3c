@@ -349,10 +349,17 @@ jobs:
         with:
           release: ${{ matrix.version }}
           usesh: true
-          prepare: pkg_add ninja cmake llvm%${{ env.LLVM_RELEASE_VERSION_OPENBSD }} bash 
-          run: |
-            ulimit -d $(ulimit -Hd)
+          mem: 6G
+          cpu: 4
+          prepare: |
+            sed -i 's/datasize-cur=768M/datasize-cur=infinity/g' /etc/login.conf
+            sed -i 's/datasize-max=768M/datasize-max=infinity/g' /etc/login.conf
             
+            cap_mkb /etc/login.conf
+            
+            pkg_add ninja cmake llvm%${{ env.LLVM_RELEASE_VERSION_OPENBSD }} bash 
+          run: |
+            ulimit -d unlimited
             export MALLOC_OPTIONS=j
 
             # Build
@@ -387,14 +394,19 @@ jobs:
         with:
           release: ${{ matrix.version }}
           usesh: true
+          mem: 6G
+          cpu: 4
           prepare: |
-            export PKG_PATH="http://netbsd.org{{ matrix.version }}/All"
+            ARCH=$(uname -m)
+            VER=$(uname -r)
+            
+            export PKG_PATH="http://netbsd.org"
             /usr/sbin/pkg_add curl pkgin
             
             export PATH="/usr/pkg/sbin:/usr/pkg/bin:$PATH"
             mkdir -p /usr/pkg/etc/pkgin
 
-            MIRROR_PATH="pub/pkgsrc/packages/NetBSD/amd64/${{ matrix.version }}/All"
+            MIRROR_PATH="pub/pkgsrc/packages/NetBSD/$ARCH/$VER/All"
             WORKING_MIRRORS=""
 
             for m in "http://cdn.NetBSD.org/$MIRROR_PATH" "http://ftp.jaist.ac.jp/$MIRROR_PATH" "http://ftp.NetBSD.org/$MIRROR_PATH" "http://ftp.fr.NetBSD.org/$MIRROR_PATH" "https://mirror.planetunix.net/$MIRROR_PATH"; do
@@ -403,17 +415,13 @@ jobs:
               fi
             done
 
-            if [ -n "$WORKING_MIRRORS" ]; then
-              printf "$WORKING_MIRRORS" > /usr/pkg/etc/pkgin/repositories.conf
-            else
-              echo "http://ftp.NetBSD.org/$MIRROR_PATH/" > /usr/pkg/etc/pkgin/repositories.conf
-            fi
+            [-n "$WORKING_MIRRORS" ] && printf "%s" "$WORKING_MIRRORS" > /usr/pkg/etc/pkgin/repositories.conf
             
             pkgin -y update
             pkgin -y install cmake gcc14 ninja-build bash "llvm>=${{ env.LLVM_RELEASE_VERSION_NETBSD }}" "clang>=${{ env.LLVM_RELEASE_VERSION_NETBSD }}" "lld>=${{ env.LLVM_RELEASE_VERSION_NETBSD }}"
           run: |
             export PATH="/usr/pkg/sbin:/usr/pkg/bin:$PATH"
-            ulimit -d $(ulimit -Hd)
+            ulimit -d unlimited
             
             export CC=clang
             export CXX=clang++
