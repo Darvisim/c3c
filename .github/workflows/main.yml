@@ -352,10 +352,10 @@ jobs:
           mem: 6G
           cpu: 4
           prepare: |
-            sed -i 's/datasize-cur=768M/datasize-cur=infinity/g' /etc/login.conf
-            sed -i 's/datasize-max=768M/datasize-max=infinity/g' /etc/login.conf
+            # sed -i 's/datasize-cur=768M/datasize-cur=infinity/g' /etc/login.conf
+            # sed -i 's/datasize-max=768M/datasize-max=infinity/g' /etc/login.conf
             
-            cap_mkdb /etc/login.conf
+            # cap_mkdb /etc/login.conf
             
             pkg_add ninja cmake llvm%${{ env.LLVM_RELEASE_VERSION_OPENBSD }} bash 
           run: |
@@ -397,7 +397,7 @@ jobs:
           mem: 6G
           cpu: 4
           prepare: |
-            export PKG_PATH="http://ftp.netbsd.org/pub/pkgsrc/packages/NetBSD/amd64/10.1/All"
+            # export PKG_PATH="http://ftp.netbsd.org/pub/pkgsrc/packages/NetBSD/amd64/10.1/All"
             pkg_add curl pkgin
             
             export PATH="/usr/pkg/sbin:/usr/pkg/bin:$PATH"
@@ -415,7 +415,7 @@ jobs:
             if [ -n "$WORKING_MIRRORS" ]; then
               printf "%s" "$WORKING_MIRRORS" > /usr/pkg/etc/pkgin/repositories.conf
             else
-              echo "$PKG_PATH" | sed 's/All/All\//' > /usr/pkg/etc/pkgin/repositories.conf
+              echo "http://ftp.NetBSD.org/$MIRROR_PATH/" > /usr/pkg/etc/pkgin/repositories.conf
             fi
             
             pkgin -y update
