@@ -388,7 +388,7 @@ jobs:
           release: ${{ matrix.version }}
           usesh: true
           prepare: |
-            export PATH="/usr/pkg/sbin"/usr/pkg/bin:$PATH"
+            export PATH="/usr/pkg/sbin:/usr/pkg/bin:$PATH"
             mkdir -p /usr/pkg/etc/pkgin
 
             MIRROR_PATH="pub/pkgsrc/packages/NetBSD/amd64/${{ matrix.version }}/All"
