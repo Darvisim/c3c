@@ -237,7 +237,7 @@ run_http_server_tests() {
     "$OUTPUT_BIN" -p $PORT -r . &
     SERVER_PID=$!
 
-    sleep 1 # Wait for the server to start?
+    sleep 5 # Wait for the server to start?
 
     # Test root path (directory listing)
     echo "Testing GET /"
