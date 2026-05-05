@@ -455,7 +455,7 @@ jobs:
           usesh: true
           mem: 6G
           cpu: 4
-          prepare: pkg install -y ninja cmake llvm${{ env.LLVM_RELEASE_VERSION_FREEBSD }} curl bash
+          prepare: pkg install -y ninja cmake llvm${{ env.LLVM_RELEASE_VERSION_FREEBSD }} bash
           run: |
             ulimit -d unlimited
             # export MALLOC_OPTIONS=j
