@@ -41,9 +41,9 @@
     },
     "hello_world_win32_lib": {
       "type": "static-lib",
-    }
+    },
     "freebsd-x64": {
-      "link-libc": true
+      "link-libc": true,
       "dependencies": []
     }
   },
