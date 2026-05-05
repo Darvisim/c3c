@@ -352,7 +352,10 @@ jobs:
           usesh: true
           mem: 6G
           cpu: 4
-          prepare: pkg_add ninja cmake llvm%${{ env.LLVM_RELEASE_VERSION_OPENBSD }} bash 
+          prepare: |
+            for i in 1 2 3; do
+              pkg_add ninja cmake llvm%${{ env.LLVM_RELEASE_VERSION_OPENBSD }} bash && break || sleep 5
+            done
           run: |
             ulimit -d unlimited
             export MALLOC_OPTIONS=j
@@ -392,6 +395,7 @@ jobs:
           mem: 6G
           cpu: 4
           prepare: |
+            export PKG_PATH="http://ftp.NetBSD.org/pub/pkgsrc/packages/NetBSD/amd64/10.1/All/"
             pkg_add curl pkgin
             
             export PATH="/usr/pkg/sbin:/usr/pkg/bin:$PATH"
@@ -409,11 +413,16 @@ jobs:
             if [ -n "$WORKING_MIRRORS" ]; then
               printf "%s" "$WORKING_MIRRORS" > /usr/pkg/etc/pkgin/repositories.conf
             else
-              echo "http://ftp.NetBSD.org/$MIRROR_PATH/" > /usr/pkg/etc/pkgin/repositories.conf
+              echo "PKG_PATH" > /usr/pkg/etc/pkgin/repositories.conf
             fi
             
-            pkgin -y update
-            pkgin -y install cmake gcc14 ninja-build bash "llvm>=${{ env.LLVM_RELEASE_VERSION_NETBSD }}" "clang>=${{ env.LLVM_RELEASE_VERSION_NETBSD }}" "lld>=${{ env.LLVM_RELEASE_VERSION_NETBSD }}"
+            for i in 1 2 3; do
+              pkgin -y update && \
+              pkgin -y install cmake gcc14 ninja-build bash \
+              "llvm>=${{ env.LLVM_RELEASE_VERSION_NETBSD }}" \
+              "clang>=${{ env.LLVM_RELEASE_VERSION_NETBSD }}" \
+              "lld>=${{ env.LLVM_RELEASE_VERSION_NETBSD }}" && break || sleep 5
+            done
           run: |
             export PATH="/usr/pkg/sbin:/usr/pkg/bin:$PATH"
             ulimit -d unlimited
@@ -455,7 +464,10 @@ jobs:
           usesh: true
           mem: 6G
           cpu: 4
-          prepare: pkg install -y ninja cmake llvm${{ env.LLVM_RELEASE_VERSION_FREEBSD }} curl bash
+          prepare: |
+            for i in 1 2 3; do
+              pkg install -y ninja cmake llvm${{ env.LLVM_RELEASE_VERSION_FREEBSD }} curl bash && break || sleep 5
+            done
           run: |
             ulimit -d unlimited
 
