@@ -458,7 +458,7 @@ jobs:
           prepare: pkg install -y ninja cmake llvm${{ env.LLVM_RELEASE_VERSION_FREEBSD }} bash
           run: |
             ulimit -d unlimited
-            # export MALLOC_OPTIONS=j
+            export MALLOC_OPTIONS=j
 
             # Build
             cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
