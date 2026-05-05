@@ -133,7 +133,7 @@ run_cli_tests() {
 run_dynlib_tests() {
     echo "--- Running Dynamic Lib Tests ---"
     # Skip openbsd and android
-    if [[ "$SYSTEM_NAME" == *"OpenBSD"* ]] || [[ "$OS_MODE" == "android" ]]; then return; fi
+    if [[ "$SYSTEM_NAME" == "OpenBSD" ]] || [[ "$OS_MODE" == "android" ]]; then return; fi
 
     cd "$ROOT_DIR/resources/examples/dynlib-test"
     "$C3C_BIN" -vv dynamic-lib add.c3
@@ -159,10 +159,10 @@ run_staticlib_tests() {
         "$C3C_BIN" -vv compile-run test.c3 -l ./add.lib
     else
         "$C3C_BIN" -vv static-lib add.c3 -o libadd
-        if [[ "$SYSTEM_NAME" == *"NetBSD"* ]]; then ranlib libadd.a; fi
+        if [[ "$SYSTEM_NAME" == "NetBSD" ]]; then ranlib libadd.a; fi
 
         OUTPUT_BIN="a.out"
-        if [[ "$SYSTEM_NAME" == *"OpenBSD"* ]]; then
+        if [[ "$SYSTEM_NAME" == "OpenBSD" ]]; then
              cc test.c -L. -ladd -lexecinfo -lm -lpthread -o "$OUTPUT_BIN"
         elif [[ "$SYSTEM_NAME" == "Linux" ]]; then
              # Fix: Linux (and i mean specifically the docker container run) needs dl (for backtrace)
@@ -183,7 +183,7 @@ run_testproject() {
 
     ARGS="--trust=full"
     
-    if [[ "$OS_MODE" == "linux" || "$OS_MODE" == "mac" ]] [[ "$SYSTEM_NAME" == *"FreeBSD"* ]]; then
+    if [[ "$OS_MODE" == "linux" || "$OS_MODE" == "mac" ]] || [[ "$SYSTEM_NAME" == "FreeBSD" ]]; then
         ARGS="$ARGS --linker=builtin"
 
         if [ -f "/etc/alpine-release" ]; then
