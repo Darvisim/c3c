@@ -798,6 +798,7 @@ static void linker_setup_bsd(const char ***args_ref, Linker linker_type, bool is
 		linking_add_link(&compiler.linking, "gcc_s");
 	}
 	if (compiler.linking.link_math) linking_add_link(&compiler.linking, "m");
+	linking_add_link(&compiler.linking, "pthread");
 	add_plain_arg("-m");
 	add_plain_arg(ld_target(compiler.platform.arch));
 }
