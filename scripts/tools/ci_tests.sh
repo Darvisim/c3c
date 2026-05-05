@@ -237,12 +237,7 @@ run_http_server_tests() {
     "$OUTPUT_BIN" -p $PORT -r . &
     SERVER_PID=$!
 
-    sleep 3 # Wait for the server to start?
-
-    # Just to check out the strace
-    if [[ "$SYSTEM_NAME" == "FreeBSD" ]]; then
-        truss ./http_server -p $PORT -r
-    fi
+    sleep 1 # Wait for the server to start?
     
     # Test root path (directory listing)
     echo "Testing GET /"
@@ -282,10 +277,6 @@ run_unit_tests() {
     UNIT_TEST_ARGS="-O1"
     if [[ "$OS_MODE" != "bsd" ]]; then
         UNIT_TEST_ARGS="$UNIT_TEST_ARGS -D SLOW_TESTS"
-    fi
-    # Again for strace
-    if [[ "$SYSTEM_NAME" == "FreeBSD" ]]; then
-        truss ./testrun
     fi
     "$C3C_BIN" compile-test unit $UNIT_TEST_ARGS
 
