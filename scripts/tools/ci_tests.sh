@@ -182,8 +182,12 @@ run_testproject() {
     cd "$ROOT_DIR/resources/testproject"
 
     ARGS="--trust=full"
+
+    if [[ "$SYSTEM_NAME" == "FreeBSD" ]]; then
+            ARGS="$ARGS --link-libc"
+    fi
     
-    if [[ "$OS_MODE" == "linux" || "$OS_MODE" == "mac" ]] || [[ "$SYSTEM_NAME" == "FreeBSD" ]]; then
+    if [[ "$OS_MODE" == "linux" || "$OS_MODE" == "mac" ]]; then
         ARGS="$ARGS --linker=builtin"
 
         if [ -f "/etc/alpine-release" ]; then
