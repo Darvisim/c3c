@@ -183,7 +183,7 @@ run_testproject() {
 
     ARGS="--trust=full"
     
-    if [[ "$OS_MODE" == "linux" || "$OS_MODE" == "mac" ]]; then
+    if [[ "$OS_MODE" == "linux" || "$OS_MODE" == "mac" ]] [[ "$SYSTEM_NAME" == *"FreeBSD"* ]]; then
         ARGS="$ARGS --linker=builtin"
 
         if [ -f "/etc/alpine-release" ]; then
