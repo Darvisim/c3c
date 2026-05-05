@@ -27,8 +27,8 @@ const CUInt SA_RESTART       = env::LINUX || env::ANDROID ? 0x10000000 : 0x0002;
 const CUInt SA_RESETHAND     = env::LINUX || env::ANDROID ? 0x80000000 : 0x0004;
 const CUInt SA_SIGINFO       = env::LINUX || env::ANDROID ? 0x00000004 : 0x0040;
 
-alias Sigset_t @if((env::DARWIN || env::BSD_FAMILY) && !env::NETBSD) = uint;
-alias Sigset_t @if(env::NETBSD) = uint[4];
+alias Sigset_t @if(env::DARWIN || env::OPENBSD) = uint;
+alias Sigset_t @if(env::NETBSD || env::FREEBSD) = uint[4];
 alias Sigset_t @if(env::LINUX) = ulong[16];
 alias Sigset_t @if(env::EMSCRIPTEN) = uint[2];
 alias Sigset_t @if(env::ANDROID) = ulong;
@@ -43,7 +43,7 @@ struct Sigaction
 		SigActionFunction   sa_sigaction;
 	}
 
-    CInt       sa_flags @if(env::DARWIN || env::BSD_FAMILY );
+    CInt       sa_flags @if(env::DARWIN || env::BSD_FAMILY);
     Sigset_t   sa_mask  @if(env::DARWIN || env::BSD_FAMILY);
 
     Sigset_t   sa_mask     @if(env::LINUX || env::ANDROID || env::EMSCRIPTEN);
