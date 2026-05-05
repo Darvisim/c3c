@@ -18,12 +18,12 @@ struct AddrInfo
 	AISockType ai_socktype;
 	AIProtocol ai_protocol;
 	Socklen_t ai_addrlen;
-	struct @if(env::WIN32 || env::DARWIN || env::ANDROID || env::NETBSD)
+	struct @if(env::WIN32 || env::DARWIN || env::ANDROID || env::NETBSD || env::FREEBSD)
 	{
 		ZString ai_canonname;
 		SockAddrPtr ai_addr;
 	}
-	struct @if(env::LINUX || env::OPENBSD || env::FREEBSD || env::EMSCRIPTEN)
+	struct @if(env::LINUX || env::OPENBSD || env::EMSCRIPTEN)
 	{
 		SockAddrPtr ai_addr;
 		ZString ai_canonname;
