@@ -43,6 +43,7 @@
       "type": "static-lib",
     },
     "freebsd-x64": {
+      "type": "static-lib"
       "link-libc": true,
       "dependencies": []
     }
