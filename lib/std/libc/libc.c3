@@ -466,7 +466,7 @@ const int TIME_UTC = 1;
 const CLOCKS_PER_SEC @if(env::WIN32) = 1000;
 const CLOCKS_PER_SEC @if(!env::WIN32) = 1000000;
 
-constdef Errno : inline CInt @if(env::DARWIN)
+constdef Errno : inline CInt @if(env::DARWIN || env::FREEBSD)
 {
 	OK                       = 0,
 	EPERM                    = 1, // Operation not permitted
