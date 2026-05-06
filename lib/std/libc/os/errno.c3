@@ -16,10 +16,10 @@ extern fn int* __errno() @if(env::OPENBSD || env::NETBSD);
 macro int errno() @if(env::OPENBSD || env::NETBSD) => *__errno();
 macro void errno_set(int err) @if(env::OPENBSD || env::NETBSD) => *(__errno()) = err;
 
-// Darwin
-extern fn int* __error() @if(env::DARWIN);
-macro int errno() @if(env::DARWIN) => *__error();
-macro void errno_set(int err) @if(env::DARWIN) => *(__error()) = err;
+// Darwin and FreeBSD
+extern fn int* __error() @if(env::DARWIN || env::FREEBSD);
+macro int errno() @if(env::DARWIN || env::FREEBSD) => *__error();
+macro void errno_set(int err) @if(env::DARWIN || env::FREEBSD) => *(__error()) = err;
 
 // Win32
 macro int errno() @if(env::WIN32)
