@@ -874,7 +874,7 @@ constdef Errno : inline CInt @if(env::EMSCRIPTEN)
 }
 
 
-constdef Errno : inline CInt @if(!env::WIN32 && !env::DARWIN && !env::NETBSD && !env::EMSCRIPTEN)
+constdef Errno : inline CInt @if(!env::WIN32 && !env::DARWIN && !env::NETBSD && !env::EMSCRIPTEN && !env::FREEBSD)
 {
 	OK                       = 0,
 	EPERM                    = 1, // Operation not permitted
