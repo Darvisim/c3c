@@ -22,7 +22,7 @@ env:
 jobs:
 
   build-msvc:
-    runs-on: windows-latest
+    runs-on: windows-2022
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -67,7 +67,7 @@ jobs:
           path: c3-windows-${{ matrix.build_type }}.zip
 
   build-msys2:
-    runs-on: windows-latest
+    runs-on: windows-2022
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -701,7 +701,7 @@ jobs:
 
   release:
     runs-on: ubuntu-slim
-    needs: [build-msvc, build-linux, build-mac, build-linux-alpine, build-openbsd, build-netbsd, build-android, build-linux-musl-static]
+    needs: [build-msvc, build-linux, build-mac, build-linux-alpine, build-openbsd, build-netbsd, build-freebsd, build-android, build-linux-musl-static]
     if: github.ref == 'refs/heads/master' || endsWith(github.ref, '.x')
     permissions:
       contents: write
@@ -716,7 +716,7 @@ jobs:
       - name: Prepare Assets
         run: |
           for config in Release Debug; do
-            for platform in windows macos linux linux-musl linux-static openbsd netbsd android-aarch64 android-x86_64; do
+            for platform in windows macos linux linux-musl linux-static openbsd netbsd freebsd android-aarch64 android-x86_64; do
               # Windows and macOS produce zip, others tar.gz
               if [ "$platform" = "windows" ] || [ "$platform" = "macos" ]; then
                 ext="zip"
