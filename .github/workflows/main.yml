@@ -3,10 +3,18 @@ name: CI
 on:
   push:
     branches: [ master, dev, ci_testing, experiments, '*.*.x' ]
-    paths-ignore: [ '**.md', 'LICENSE', '.gitignore' ]
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+      - '.gitignore'
+      - 'resources/docs.html'
   pull_request:
     branches: [ master, dev ]
-    paths-ignore: [ '**.md', 'LICENSE', '.gitignore' ]
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+      - '.gitignore'
+      - 'resources/docs.html'
   workflow_dispatch:
 
 env:
@@ -22,7 +30,7 @@ env:
 jobs:
 
   build-msvc:
-    runs-on: windows-2022
+    runs-on: windows-2025
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -65,6 +73,29 @@ jobs:
         with:
           name: c3-windows-${{ matrix.build_type }}
           path: c3-windows-${{ matrix.build_type }}.zip
+
+      - name: Cache NSIS
+        id: cache-nsis
+        uses: actions/cache@v5
+        with:
+          path: C:\Program Files (x86)\NSIS
+          key: ${{ runner.os }}-nsis-3.12
+
+      - name: Setup NSIS & Compile Installer
+        shell: bash
+        run: |
+          if [ "${{ steps.cache-nsis.outputs.cache-hit }}" != "true" ]; then
+            choco install nsis -y
+            curl -L -o EnVar-Plugin.zip "https://github.com/GsNSIS/EnVar/releases/download/v0.3.1/EnVar-Plugin.zip"
+            7z x EnVar-Plugin.zip -o"C:\Program Files (x86)\NSIS" -y
+          fi
+          export PATH="/c/Program Files (x86)/NSIS/Bin:/c/Program Files (x86)/NSIS:$PATH"
+          MSYS_NO_PATHCONV=1 makensis /DINSTALLER_NAME="c3-windows-setup-${{ matrix.build_type }}.exe" resources/nsis/installer.nsi
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: c3-windows-setup-${{ matrix.build_type }}
+          path: resources/nsis/c3-windows-setup-${{ matrix.build_type }}.exe
 
   build-msys2:
     runs-on: windows-2022
@@ -716,10 +747,12 @@ jobs:
       - name: Prepare Assets
         run: |
           for config in Release Debug; do
-            for platform in windows macos linux linux-musl linux-static openbsd netbsd freebsd android-aarch64 android-x86_64; do
+            for platform in windows macos linux linux-musl linux-static openbsd netbsd freebsd android-aarch64 android-x86_64 windows-setup; do
               # Windows and macOS produce zip, others tar.gz
               if [ "$platform" = "windows" ] || [ "$platform" = "macos" ]; then
                 ext="zip"
+              elif [ "$platform" = "windows-setup" ]; then
+                ext="exe"
               else
                 ext="tar.gz"
               fi
@@ -754,4 +787,4 @@ jobs:
           prerelease: true
           allowUpdates: true
           removeArtifacts: true
-          artifacts: "*.zip,*.tar.gz"
+          artifacts: "*.zip,*.tar.gz,*.exe"
