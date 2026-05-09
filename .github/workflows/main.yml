@@ -497,7 +497,7 @@ jobs:
           cpu: 4
           prepare: |
             for i in 1 2 3; do
-              pkg update -y && \
+              pkg update && \
               pkg install -y ninja cmake llvm${{ env.LLVM_RELEASE_VERSION_FREEBSD }} curl bash && break || sleep 5
             done
           run: |
@@ -531,10 +531,10 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Build and cache Docker image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./docker
           build-args: |
