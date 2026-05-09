@@ -1,7 +1,7 @@
 module libc::os @if(env::LIBC);
 import std::core::env;
 
-// Linux
+// Linux and Emscripten
 extern fn int* __errno_location() @if(env::LINUX || env::EMSCRIPTEN);
 macro int errno() @if(env::LINUX || env::EMSCRIPTEN) => *__errno_location();
 macro void errno_set(int err) @if(env::LINUX || env::EMSCRIPTEN) => *(__errno_location()) = err;
@@ -16,7 +16,7 @@ extern fn int* __errno() @if(env::OPENBSD || env::NETBSD);
 macro int errno() @if(env::OPENBSD || env::NETBSD) => *__errno();
 macro void errno_set(int err) @if(env::OPENBSD || env::NETBSD) => *(__errno()) = err;
 
-// Darwin
+// Darwin and FreeBSD
 extern fn int* __error() @if(env::DARWIN || env::FREEBSD);
 macro int errno() @if(env::DARWIN || env::FREEBSD) => *__error();
 macro void errno_set(int err) @if(env::DARWIN || env::FREEBSD) => *(__error()) = err;

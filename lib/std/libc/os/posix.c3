@@ -43,8 +43,8 @@ struct Sigaction
 		SigActionFunction   sa_sigaction;
 	}
 
-    CInt       sa_flags @if(env::DARWIN || env::BSD_FAMILY);
-    Sigset_t   sa_mask  @if(env::DARWIN || env::BSD_FAMILY);
+    CInt       sa_flags    @if(env::DARWIN || env::BSD_FAMILY);
+    Sigset_t   sa_mask     @if(env::DARWIN || env::BSD_FAMILY);
 
     Sigset_t   sa_mask     @if(env::LINUX || env::ANDROID || env::EMSCRIPTEN);
     CInt       sa_flags    @if(env::LINUX || env::EMSCRIPTEN);
