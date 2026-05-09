@@ -497,6 +497,7 @@ jobs:
           cpu: 4
           prepare: |
             for i in 1 2 3; do
+              pkg update -y && \
               pkg install -y ninja cmake llvm${{ env.LLVM_RELEASE_VERSION_FREEBSD }} curl bash && break || sleep 5
             done
           run: |
