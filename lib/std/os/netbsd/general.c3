@@ -1,4 +1,5 @@
 module std::os::netbsd @if(env::NETBSD);
+import libc, std::os, std::collections::list;
 
 const CTL_UNSPEC      = 0;   // unused
 const CTL_KERN        = 1;   // "high kernel": proc, limits

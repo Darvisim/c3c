@@ -1,5 +1,5 @@
 module std::os::freebsd @if(env::FREEBSD);
-
+import libc, std::os, std::collections::list;
 
 
 // Top-level identifiers <sys/sysctl.h>
