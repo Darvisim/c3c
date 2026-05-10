@@ -271,6 +271,28 @@ run_http_server_tests() {
     kill $SERVER_PID || true
 }
 
+run_backtrace() {
+    echo "___ Backtrace Test ___"
+    
+    # Run only on target BSD systems
+    if [[ "$SYSTEM_NAME" == "OpenBSD" || "$SYSTEM_NAME" == "NetBSD" || "$SYSTEM_NAME" == "FreeBSD" ]]; then
+        
+        # 1. Create the C3 program
+        cat <<EOF > segtest.c3
+fn void main() { int* p = null; *p = 42; }
+EOF
+
+        # 2. Compile and Run
+        # Added -g to ensure symbols are included for the backtrace
+        c3c compile-run segtest.c3 -g --show-backtrace=yes
+
+        # 3. Cleanup
+        rm -f segtest.c3 segtest segtest.core
+    else
+        echo "Skipping backtrace test for $SYSTEM_NAME."
+    fi
+}
+
 run_unit_tests() {
     echo "--- Running Unit Tests ---"
     cd "$ROOT_DIR/test"
@@ -293,4 +315,5 @@ run_staticlib_tests
 run_testproject
 run_wasm_compile
 run_http_server_tests
+run_backtrace
 run_unit_tests
