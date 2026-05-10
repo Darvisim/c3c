@@ -168,8 +168,9 @@ run_staticlib_tests() {
              # Fix: Linux (and i mean specifically the docker container run) needs dl (for backtrace)
              # math and pthread linked manually for static libs
              cc test.c -L. -ladd -ldl -lm -lpthread -o "$OUTPUT_BIN"
+        elif [[ "$SYSTEM_NAME" == "NetBSD" ]] || [[ "$SYSTEM_NAME" == "FreeBSD" ]]; then
+             cc test.c -L. -ladd -lexecinfo -o "$OUTPUT_BIN"
         else
-             # Mac / NetBSD
              cc test.c -L. -ladd -o "$OUTPUT_BIN"
         fi
         ./"$OUTPUT_BIN"
