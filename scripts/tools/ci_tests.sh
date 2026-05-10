@@ -284,7 +284,7 @@ EOF
 
         # 2. Compile and Run
         # Added -g to ensure symbols are included for the backtrace
-        c3c compile-run segtest.c3 -g --show-backtrace=yes
+        "$C3C_BIN" compile-run segtest.c3 -g --show-backtrace=yes
 
         # 3. Cleanup
         rm -f segtest.c3 segtest segtest.core
