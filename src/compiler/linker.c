@@ -744,6 +744,7 @@ static void linker_setup_bsd(const char ***args_ref, Linker linker_type, bool is
 	if (strip_unused() && compiler.build.type == TARGET_TYPE_EXECUTABLE) add_plain_arg("--gc-sections");
 	bool is_openbsd = compiler.platform.os == OS_TYPE_OPENBSD;
 	bool is_netbsd = compiler.platform.os == OS_TYPE_NETBSD;
+	bool is_freebsd = compiler.platform.os == OS_TYPE_FREEBSD;
 	bool is_pie_pic_mode = is_pie_pic(compiler.platform.reloc_model);
 	if (is_openbsd)
 	{
@@ -788,11 +789,8 @@ static void linker_setup_bsd(const char ***args_ref, Linker linker_type, bool is
 			add_plain_arg("--dynamic-linker=/libexec/ld-elf.so.1");
 	}
 	linking_add_link(&compiler.linking, "c");
-	if (is_openbsd)
-	{
-		linking_add_link(&compiler.linking, "execinfo");
-	}
-	else
+	linking_add_link(&compiler.linking, "execinfo");
+	if(!is_openbsd)
 	{
 		linking_add_link(&compiler.linking, "gcc");
 		linking_add_link(&compiler.linking, "gcc_s");
