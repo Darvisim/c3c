@@ -100,6 +100,8 @@ alias symbolize_backtrace @if(env::LINUX)  	= linux::symbolize_backtrace;
 alias symbolize_backtrace @if(env::WIN32)  	= win32::symbolize_backtrace;
 alias symbolize_backtrace @if(env::DARWIN) 	= darwin::symbolize_backtrace;
 alias symbolize_backtrace @if(env::OPENBSD)	= openbsd::symbolize_backtrace;
+alias symbolize_backtrace @if(env::NETBSD)	= netbsd::symbolize_backtrace;
+alias symbolize_backtrace @if(env::FREEBSD)	= freebsd::symbolize_backtrace;
 
 fn BacktraceList? symbolize_backtrace(Allocator allocator, void*[] backtrace) @if(!env::NATIVE_STACKTRACE)
 {
