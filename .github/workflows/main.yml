@@ -741,6 +741,9 @@ jobs:
     steps:
       - name: Symlink
         run: |
+          /entrypoint.sh pkg upgrade -y
+          /entrypoint.sh pkg install -y nodejs-lts tar git
+          
           chmod -R 755 ${PREFIX}/bin
           mkdir -p /usr/bin /bin /__e/node20/bin /__e/node24/bin ${TMPDIR} /tmp || true
           chmod 1777 ${TMPDIR} || true
