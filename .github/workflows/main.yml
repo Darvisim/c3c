@@ -749,9 +749,11 @@ jobs:
             printf "deb %s stable main\n" "$m" > "${PREFIX}/etc/apt/sources.list"
             if /entrypoint.sh pkg update -y; then break; fi
           done
-
-          /entrypoint.sh pkg upgrade -y
-          /entrypoint.sh pkg install -y nodejs-lts tar git llvm binutils libgc build-essential cmake git libedit zlib clang make mlir llvm-tools libpolly python libllvm-static
+          
+          for i in 1 2; do
+            /entrypoint.sh pkg upgrade -y
+            /entrypoint.sh pkg install -y nodejs-lts tar git llvm binutils libgc build-essential cmake git libedit zlib clang make mlir llvm-tools libpolly python libllvm-static && break || sleep 10;
+          done
           
           chmod -R 755 ${PREFIX}/bin
           mkdir -p /usr/bin /bin /__e/node20/bin /__e/node24/bin ${TMPDIR} /tmp || true
@@ -772,11 +774,7 @@ jobs:
       - name: Cache Termux packages
         uses: actions/cache@v5
         with:
-          path: |
-            /data/data/com.termux/cache/apt/archives/
-            /data/data/com.termux/files/usr
-            /__e/node20
-            /__e/node24
+          path: /data/data/com.termux/cache/apt/archives/
           key: termux-cache-${{ matrix.architecture }}-${{ steps.date.outputs.date }}
 
       - name: Fix Workspace Permissions
