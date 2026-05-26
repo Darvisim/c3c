@@ -725,8 +725,9 @@ jobs:
     container:
       image: termux/termux-docker:${{matrix.architecture}}
       volumes:
-        - /usr/bin/node:/__e/node20/bin/node
-        - /usr/bin/node:/__e/node20/bin/node
+        - /tmp/node20:/__e/node20
+        - /tmp/node24:/__e/node24
+      options: --entrypoint /bin/sh
     env:
       TERMUX_MAIN_PACKAGE_FORMAT: debian
       ANDROID_ROOT: /system
