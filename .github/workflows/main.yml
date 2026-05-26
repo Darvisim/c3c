@@ -739,8 +739,6 @@ jobs:
       LANG: en_US.UTF-8
       TZ: UTC
     steps:
-      - uses: actions/checkout@v6
-
       - name: Get current date context
         id: date
         run: echo "date=$(date +'${{ env.CACHE_INVALIDATION_SEED }}')" >> $GITHUB_OUTPUT
@@ -751,6 +749,7 @@ jobs:
         with:
           path: |
             /data/data/com.termux/cache/apt/archives/
+            /data/data/com.termux/files/usr
             /__e/node20
             /__e/node24
           key: termux-cache-${{ matrix.architecture }}-${{ steps.date.outputs.date }}
@@ -780,6 +779,8 @@ jobs:
           ln -sf ${PREFIX}/bin/sh /bin/sh || true
           ln -sf ${PREFIX}/bin/node /__e/node20/bin/node || true
           ln -sf ${PREFIX}/bin/node /__e/node24/bin/node || true
+
+      - uses: actions/checkout@v6
 
       - name: Fix Workspace Permissions
         run: chown -R 1000:1000 .
