@@ -725,8 +725,8 @@ jobs:
     container:
       image: termux/termux-docker:${{matrix.architecture}}
       volumes:
-        - /tmp/node20:/__e/node20
-        - /tmp/node24:/__e/node24
+        - /usr/bin/node:/__e/node20/bin/node
+        - /usr/bin/node:/__e/node20/bin/node
     env:
       TERMUX_MAIN_PACKAGE_FORMAT: debian
       ANDROID_ROOT: /system
@@ -754,7 +754,7 @@ jobs:
             /__e/node24
           key: termux-cache-${{ matrix.architecture }}-${{ steps.date.outputs.date }}
           
-      - name: select termux mirror
+      - name: Setup Termux
         if: steps.termux.outputs.cache-hit != 'true'
         run: |
           for m in \
