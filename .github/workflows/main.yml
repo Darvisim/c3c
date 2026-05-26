@@ -727,7 +727,6 @@ jobs:
       volumes:
         - /tmp/node20:/__e/node20
         - /tmp/node24:/__e/node24
-      options: --entrypoint /bin/sh
     env:
       TERMUX_MAIN_PACKAGE_FORMAT: debian
       ANDROID_ROOT: /system
@@ -739,38 +738,7 @@ jobs:
       LANG: en_US.UTF-8
       TZ: UTC
     steps:
-      - name: Symlink
-        run: |
-          /entrypoint.sh pkg upgrade -y
-          /entrypoint.sh pkg install -y nodejs-lts tar git
-          
-          chmod -R 755 ${PREFIX}/bin
-          mkdir -p /usr/bin /bin /__e/node20/bin /__e/node24/bin ${TMPDIR} /tmp || true
-          chmod 1777 ${TMPDIR} || true
-          
-          ln -sf ${PREFIX}/bin/env /usr/bin/env || true
-          ln -sf ${PREFIX}/bin/bash /usr/bin/bash || true
-          ln -sf ${PREFIX}/bin/sh /bin/sh || true
-          ln -sf ${PREFIX}/bin/node /__e/node20/bin/node || true
-          ln -sf ${PREFIX}/bin/node /__e/node24/bin/node || true
-          
-      - name: Get current date context
-        id: date
-        run: echo "date=$(date +'${{ env.CACHE_INVALIDATION_SEED }}')" >> $GITHUB_OUTPUT
-
-      - name: Cache Termux packages
-        id: termux
-        uses: actions/cache@v5
-        with:
-          path: |
-            /data/data/com.termux/cache/apt/archives/
-            /data/data/com.termux/files/usr
-            /__e/node20
-            /__e/node24
-          key: termux-cache-${{ matrix.architecture }}-${{ steps.date.outputs.date }}
-          
       - name: Setup Termux
-        if: steps.termux.outputs.cache-hit != 'true'
         run: |
           for m in \
             "https://termux.mentality.rip/termux-main" \
@@ -784,8 +752,32 @@ jobs:
 
           /entrypoint.sh pkg upgrade -y
           /entrypoint.sh pkg install -y nodejs-lts tar git llvm binutils libgc build-essential cmake git libedit zlib clang make mlir llvm-tools libpolly python libllvm-static
+          
+          chmod -R 755 ${PREFIX}/bin
+          mkdir -p /usr/bin /bin /__e/node20/bin /__e/node24/bin ${TMPDIR} /tmp || true
+          chmod 1777 ${TMPDIR} || true
+          
+          ln -sf ${PREFIX}/bin/env /usr/bin/env || true
+          ln -sf ${PREFIX}/bin/bash /usr/bin/bash || true
+          ln -sf ${PREFIX}/bin/sh /bin/sh || true
+          ln -sf ${PREFIX}/bin/node /__e/node20/bin/node || true
+          ln -sf ${PREFIX}/bin/node /__e/node24/bin/node || true
 
       - uses: actions/checkout@v6
+          
+      - name: Get current date context
+        id: date
+        run: echo "date=$(date +'${{ env.CACHE_INVALIDATION_SEED }}')" >> $GITHUB_OUTPUT
+
+      - name: Cache Termux packages
+        uses: actions/cache@v5
+        with:
+          path: |
+            /data/data/com.termux/cache/apt/archives/
+            /data/data/com.termux/files/usr
+            /__e/node20
+            /__e/node24
+          key: termux-cache-${{ matrix.architecture }}-${{ steps.date.outputs.date }}
 
       - name: Fix Workspace Permissions
         run: chown -R 1000:1000 .
