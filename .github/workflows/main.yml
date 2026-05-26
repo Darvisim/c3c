@@ -739,6 +739,18 @@ jobs:
       LANG: en_US.UTF-8
       TZ: UTC
     steps:
+      - name: Symlink
+        run: |
+          chmod -R 755 ${PREFIX}/bin
+          mkdir -p /usr/bin /bin /__e/node20/bin /__e/node24/bin ${TMPDIR} /tmp || true
+          chmod 1777 ${TMPDIR} || true
+          
+          ln -sf ${PREFIX}/bin/env /usr/bin/env || true
+          ln -sf ${PREFIX}/bin/bash /usr/bin/bash || true
+          ln -sf ${PREFIX}/bin/sh /bin/sh || true
+          ln -sf ${PREFIX}/bin/node /__e/node20/bin/node || true
+          ln -sf ${PREFIX}/bin/node /__e/node24/bin/node || true
+          
       - name: Get current date context
         id: date
         run: echo "date=$(date +'${{ env.CACHE_INVALIDATION_SEED }}')" >> $GITHUB_OUTPUT
@@ -769,16 +781,6 @@ jobs:
 
           /entrypoint.sh pkg upgrade -y
           /entrypoint.sh pkg install -y nodejs-lts tar git llvm binutils libgc build-essential cmake git libedit zlib clang make mlir llvm-tools libpolly python libllvm-static
-          
-          chmod -R 755 ${PREFIX}/bin
-          mkdir -p /usr/bin /bin /__e/node20/bin /__e/node24/bin ${TMPDIR} /tmp || true
-          chmod 1777 ${TMPDIR} || true
-          
-          ln -sf ${PREFIX}/bin/env /usr/bin/env || true
-          ln -sf ${PREFIX}/bin/bash /usr/bin/bash || true
-          ln -sf ${PREFIX}/bin/sh /bin/sh || true
-          ln -sf ${PREFIX}/bin/node /__e/node20/bin/node || true
-          ln -sf ${PREFIX}/bin/node /__e/node24/bin/node || true
 
       - uses: actions/checkout@v6
 
