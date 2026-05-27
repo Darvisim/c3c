@@ -679,13 +679,13 @@ jobs:
       - name: Build (Release)
         shell: cpa.sh {0}
         run: |
-          cmake -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_DIR=/usr/local/llvm${{ env.LLVM_RELEASE_VERSION_MIDNIGHTBSD }}/lib/cmake/llvm
+          cmake -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_DIR=/usr/local/lib/cmake/llvm
           cmake --build build-release
 
       - name: Build (Debug)
         shell: cpa.sh {0}
         run: |
-          cmake -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_DIR=/usr/local/llvm${{ env.LLVM_RELEASE_VERSION_MIDNIGHTBSD }}/lib/cmake/llvm
+          cmake -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_DIR=/usr/local/lib/cmake/llvm
           cmake --build build-debug
 
       - name: Run Tests
@@ -738,7 +738,7 @@ jobs:
       - name: Build (Release)
         shell: cpa.sh {0}
         run: |
-          cmake -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+          cmake -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=/usr/local/bin/clang -DCMAKE_CXX_COMPILER=/usr/local/bin/clang++
           cmake --build build-release
 
       - name: Build (Debug)
@@ -747,7 +747,7 @@ jobs:
           CC: clang
           CXX: clang++
         run: |
-          cmake -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+          cmake -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=/usr/local/bin/clang -DCMAKE_CXX_COMPILER=/usr/local/bin/clang++
           cmake --build build-debug
 
       - name: Run Tests
