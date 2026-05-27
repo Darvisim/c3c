@@ -626,11 +626,11 @@ jobs:
         shell: cpa.sh {0}
         run: |
           cmake -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Release
-          cmake --build build-release
+          cmake --build build-debug
 
       - name: Run Tests
         shell: cpa.sh {0}
-        run: ./scripts/tools/ci_tests.sh "./build/c3c"
+        run: ./scripts/tools/ci_tests.sh "./build-debug/c3c"
 
       - name: Package
         shell: cpa.sh {0}
@@ -686,11 +686,11 @@ jobs:
         shell: cpa.sh {0}
         run: |
           cmake -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Release
-          cmake --build build-release
+          cmake --build build-debug
 
       - name: Run Tests
         shell: cpa.sh {0}
-        run: ./scripts/tools/ci_tests.sh "./build/c3c"
+        run: ./scripts/tools/ci_tests.sh "./build-debug/c3c"
 
       - name: Package
         shell: cpa.sh {0}
@@ -737,23 +737,25 @@ jobs:
 
       - name: Build (Release)
         shell: cpa.sh {0}
+        env:
+          CC: clang
+          CXX: clang++
         run: |
-          export CC=clang
-          export CXX=clang++
           cmake -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release
           cmake --build build-release
 
       - name: Build (Debug)
         shell: cpa.sh {0}
+        env:
+          CC: clang
+          CXX: clang++
         run: |
-          export CC=clang
-          export CXX=clang++
           cmake -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Release
-          cmake --build build-release
+          cmake --build build-debug
 
       - name: Run Tests
         shell: cpa.sh {0}
-        run: ./scripts/tools/ci_tests.sh "./build/c3c"
+        run: ./scripts/tools/ci_tests.sh "./build-debug/c3c"
 
       - name: Package
         shell: cpa.sh {0}
