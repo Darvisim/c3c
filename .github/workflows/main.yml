@@ -23,6 +23,8 @@ env:
   LLVM_RELEASE_VERSION_OPENBSD: 20
   LLVM_RELEASE_VERSION_NETBSD: 19
   LLVM_RELEASE_VERSION_FREEBSD: 19
+  LLVM_RELEASE_VERSION_MIDNIGHTBSD: 19
+  LLVM_RELEASE_VERSION_DRAGONFLYBSD: 19
   LLVM_DEV_VERSION: 22
   # CACHE_INVALIDATION_SEED: '%Y-%m-%d' # Daily
   CACHE_INVALIDATION_SEED: '%G-%V-1'   # Weekly
@@ -634,8 +636,8 @@ jobs:
         shell: cpa.sh {0}
         run: |
           chmod +x ./scripts/tools/package_build.sh
-          ./scripts/tools/package_build.sh "./build-release/c3c" "c3-openbsd-Release" "tar"
-          ./scripts/tools/package_build.sh "./build-debug/c3c" "c3-openbsd-Debug" "tar"
+          ./scripts/tools/package_build.sh "./build-release/c3c" "c3-freebsd-Release" "tar"
+          ./scripts/tools/package_build.sh "./build-debug/c3c" "c3-freebsd-Debug" "tar"
 
       - name: Upload Artifacts (Release)
         uses: actions/upload-artifact@v7
@@ -648,6 +650,124 @@ jobs:
         with:
           name: c3-freebsd-Debug
           path: c3-freebsd-Debug.tar.gz
+
+  build-midnightbsd:
+    name: MidnightBSD (x64) ${{ matrix.version }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ['4.0.4']
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup MidnightBSD VM
+        uses: cross-platform-actions/action@master
+        with:
+          operating_system: midnightbsd
+          version: ${{ matrix.version }}
+          cpu_count: 4
+          memory: 6G
+
+      - name: Install Dependencies
+        shell: cpa.sh {0}
+        run: |
+          for i in 1 2 3; do
+            sudo mport install -y ninja cmake llvm${{ env.LLVM_RELEASE_VERSION_MIDNIGHTBSD }} curl bash && break || sleep 5
+          done
+
+      - name: Build (Release)
+        shell: cpa.sh {0}
+        run: |
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build
+
+      - name: Build (Debug)
+        shell: cpa.sh {0}
+        run: |
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
+          cmake --build build
+
+      - name: Run Tests
+        shell: cpa.sh {0}
+        run: ./scripts/tools/ci_tests.sh "./build/c3c"
+
+      - name: Package
+        shell: cpa.sh {0}
+        run: |
+          ./scripts/tools/package_build.sh "./build-release/c3c" "c3-midnightbsd-Release" "tar"
+          ./scripts/tools/package_build.sh "./build-debug/c3c" "c3-midnightbsd-Debug" "tar"
+
+      - name: Upload Artifacts (Release)
+        uses: actions/upload-artifact@v7
+        with:
+          name: c3-dragonflybsd-Release
+          path: c3-dragonflybsd-Release.tar.gz
+
+      - name: Upload Artifacts (Debug)
+        uses: actions/upload-artifact@v7
+        with:
+          name: c3-dragonflybsd-Debug
+          path: c3-dragonflybsd-Debug.tar.gz
+
+  build-dragonflybsd:
+    name: DragonFlyBSD (x64) ${{ matrix.version }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ['6.4.2']
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup DragonFlyBSD VM
+        uses: cross-platform-actions/action@master
+        with:
+          operating_system: dragonflybsd
+          version: ${{ matrix.version }}
+          cpu_count: 4
+          memory: 6G
+
+      - name: Install Dependencies
+        shell: cpa.sh {0}
+        run: |
+          for i in 1 2 3; do
+            sudo pkg install -y ninja cmake llvm${{ env.LLVM_RELEASE_VERSION_DRAGONFLYBSD }} curl bash && break || sleep 5
+          done
+
+      - name: Build (Release)
+        shell: cpa.sh {0}
+        run: |
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build
+
+      - name: Build (Debug)
+        shell: cpa.sh {0}
+        run: |
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
+          cmake --build build
+
+      - name: Run Tests
+        shell: cpa.sh {0}
+        run: ./scripts/tools/ci_tests.sh "./build/c3c"
+
+      - name: Package
+        shell: cpa.sh {0}
+        run: |
+          ./scripts/tools/package_build.sh "./build-release/c3c" "c3-dragonflybsd-Release" "tar"
+          ./scripts/tools/package_build.sh "./build-debug/c3c" "c3-dragonflybsd-Debug" "tar"
+
+      - name: Upload Artifacts (Release)
+        uses: actions/upload-artifact@v7
+        with:
+          name: c3-dragonflybsd-Release
+          path: c3-dragonflybsd-Release.tar.gz
+
+      - name: Upload Artifacts (Debug)
+        uses: actions/upload-artifact@v7
+        with:
+          name: c3-dragonflybsd-Debug
+          path: c3-dragonflybsd-Debug.tar.gz
 
   build-with-docker:
     name: LLVM ${{ matrix.llvm_version }} Compatibility
@@ -896,7 +1016,7 @@ jobs:
 
   release:
     runs-on: ubuntu-slim
-    needs: [build-msvc, build-linux, build-mac, build-linux-alpine, build-openbsd, build-netbsd, build-freebsd, build-android, build-linux-musl-static]
+    needs: [build-msvc, build-linux, build-mac, build-linux-alpine, build-openbsd, build-netbsd, build-freebsd, build-midnightbsd, build-dragonflybsd, build-android, build-linux-musl-static]
     if: github.ref == 'refs/heads/master' || endsWith(github.ref, '.x')
     permissions:
       contents: write
@@ -911,7 +1031,7 @@ jobs:
       - name: Prepare Assets
         run: |
           for config in Release Debug; do
-            for platform in windows macos linux linux-musl linux-static openbsd netbsd freebsd android-aarch64 android-x86_64 windows-setup; do
+            for platform in windows macos linux linux-musl linux-static openbsd netbsd freebsd midnightbsd dragonflybsd android-aarch64 android-x86_64 windows-setup; do
               # Windows and macOS produce zip, others tar.gz
               if [ "$platform" = "windows" ] || [ "$platform" = "macos" ]; then
                 ext="zip"
