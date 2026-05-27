@@ -633,6 +633,7 @@ jobs:
       - name: Package
         shell: cpa.sh {0}
         run: |
+          chmod +x ./scripts/tools/package_build.sh
           ./scripts/tools/package_build.sh "./build-release/c3c" "c3-openbsd-Release" "tar"
           ./scripts/tools/package_build.sh "./build-debug/c3c" "c3-openbsd-Debug" "tar"
 
