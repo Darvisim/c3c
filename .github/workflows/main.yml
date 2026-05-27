@@ -619,14 +619,14 @@ jobs:
       - name: Build (Release)
         shell: cpa.sh {0}
         run: |
-          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-          cmake --build build
+          cmake -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-release
 
       - name: Build (Debug)
         shell: cpa.sh {0}
         run: |
-          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
-          cmake --build build
+          cmake -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-release
 
       - name: Run Tests
         shell: cpa.sh {0}
@@ -635,7 +635,6 @@ jobs:
       - name: Package
         shell: cpa.sh {0}
         run: |
-          chmod +x ./scripts/tools/package_build.sh
           ./scripts/tools/package_build.sh "./build-release/c3c" "c3-freebsd-Release" "tar"
           ./scripts/tools/package_build.sh "./build-debug/c3c" "c3-freebsd-Debug" "tar"
 
@@ -673,20 +672,21 @@ jobs:
         shell: cpa.sh {0}
         run: |
           for i in 1 2 3; do
-            sudo mport install -y ninja cmake llvm${{ env.LLVM_RELEASE_VERSION_MIDNIGHTBSD }} curl bash && break || sleep 5
+            sudo mport index
+            sudo mport install ninja cmake llvm${{ env.LLVM_RELEASE_VERSION_MIDNIGHTBSD }} curl bash && break || sleep 5
           done
 
       - name: Build (Release)
         shell: cpa.sh {0}
         run: |
-          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-          cmake --build build
+          cmake -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-release
 
       - name: Build (Debug)
         shell: cpa.sh {0}
         run: |
-          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
-          cmake --build build
+          cmake -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-release
 
       - name: Run Tests
         shell: cpa.sh {0}
@@ -738,14 +738,18 @@ jobs:
       - name: Build (Release)
         shell: cpa.sh {0}
         run: |
-          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-          cmake --build build
+          export CC=clang
+          export CXX=clang++
+          cmake -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-release
 
       - name: Build (Debug)
         shell: cpa.sh {0}
         run: |
-          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
-          cmake --build build
+          export CC=clang
+          export CXX=clang++
+          cmake -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-release
 
       - name: Run Tests
         shell: cpa.sh {0}
