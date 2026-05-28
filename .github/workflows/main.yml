@@ -1019,7 +1019,7 @@ jobs:
 
   release:
     runs-on: ubuntu-slim
-    needs: [build-msvc, build-linux, build-mac, build-linux-alpine, build-openbsd, build-netbsd, build-freebsd, build-midnightbsd, build-dragonflybsd, build-android, build-linux-musl-static]
+    needs: [build-msvc, build-linux, build-mac, build-linux-alpine, build-openbsd, build-netbsd, build-freebsd, build-dragonflybsd, build-android, build-linux-musl-static]
     if: github.ref == 'refs/heads/master' || endsWith(github.ref, '.x')
     permissions:
       contents: write
@@ -1034,7 +1034,7 @@ jobs:
       - name: Prepare Assets
         run: |
           for config in Release Debug; do
-            for platform in windows macos linux linux-musl linux-static openbsd netbsd freebsd midnightbsd dragonflybsd android-aarch64 android-x86_64 windows-setup; do
+            for platform in windows macos linux linux-musl linux-static openbsd netbsd freebsd dragonflybsd android-aarch64 android-x86_64 windows-setup; do
               # Windows and macOS produce zip, others tar.gz
               if [ "$platform" = "windows" ] || [ "$platform" = "macos" ]; then
                 ext="zip"
