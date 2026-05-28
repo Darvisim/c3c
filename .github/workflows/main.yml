@@ -701,14 +701,14 @@ jobs:
       - name: Upload Artifacts (Release)
         uses: actions/upload-artifact@v7
         with:
-          name: c3-dragonflybsd-Release
-          path: c3-dragonflybsd-Release.tar.gz
+          name: c3-midnightbsd-Release
+          path: c3-midnightbsd-Release.tar.gz
 
       - name: Upload Artifacts (Debug)
         uses: actions/upload-artifact@v7
         with:
-          name: c3-dragonflybsd-Debug
-          path: c3-dragonflybsd-Debug.tar.gz
+          name: c3-midnightbsd-Debug
+          path: c3-midnightbsd-Debug.tar.gz
 
   build-dragonflybsd:
     name: DragonFlyBSD (x64) ${{ matrix.version }}
@@ -738,7 +738,7 @@ jobs:
       - name: Build (Release)
         shell: cpa.sh {0}
         run: |
-          cmake -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=/usr/local/bin/clang -DCMAKE_CXX_COMPILER=/usr/local/bin/clang++
+          cmake -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=/usr/local/llvm${{ env.LLVM_RELEASE_VERSION_DRAGONFLYBSD }}/bin/clang -DCMAKE_CXX_COMPILER=/usr/local/llvm${{ env.LLVM_RELEASE_VERSION_DRAGONFLYBSD }}/bin/clang++
           cmake --build build-release
 
       - name: Build (Debug)
@@ -747,7 +747,7 @@ jobs:
           CC: clang
           CXX: clang++
         run: |
-          cmake -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=/usr/local/bin/clang -DCMAKE_CXX_COMPILER=/usr/local/bin/clang++
+          cmake -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=/usr/local/llvm${{ env.LLVM_RELEASE_VERSION_DRAGONFLYBSD }}/bin/clang -DCMAKE_CXX_COMPILER=/usr/local/llvm${{ env.LLVM_RELEASE_VERSION_DRAGONFLYBSD }}/bin/clang++
           cmake --build build-debug
 
       - name: Run Tests
