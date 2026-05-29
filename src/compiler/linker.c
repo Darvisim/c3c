@@ -929,6 +929,7 @@ static bool linker_setup(const char ***args_ref, const char **files_to_link, uns
 		case OS_TYPE_FREEBSD:
 		case OS_TYPE_OPENBSD:
 		case OS_TYPE_NETBSD:
+		case OS_TYPE_DRAGON_FLY:
 			linker_setup_bsd(args_ref, linker_type, is_dylib);
 			break;
 		case OS_TYPE_LINUX:
@@ -1038,6 +1039,7 @@ Linker linker_find_linker_type(void)
 		case OS_TYPE_NETBSD:
 		case OS_TYPE_OPENBSD:
 		case OS_TYPE_ANDROID:
+		case OS_TYPE_DRAGON_FLY:
 			return LINKER_LD;
 		case OS_DARWIN_TYPES:
 			return LINKER_LD64;
@@ -1400,6 +1402,7 @@ bool static_lib_linker(const char *output_file, const char **files, unsigned fil
 		case OS_TYPE_FREEBSD:
 		case OS_TYPE_NETBSD:
 		case OS_TYPE_OPENBSD:
+		case OS_TYPE_DRAGON_FLY:
 			format = AR_BSD;
 			break;
 		case OS_TYPE_LINUX:
