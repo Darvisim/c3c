@@ -153,7 +153,7 @@ const bool POSIX = LIBC && os_is_posix();
 const bool OPENBSD = LIBC && OS_TYPE == OPENBSD;
 const bool FREEBSD = LIBC && OS_TYPE == FREEBSD;
 const bool NETBSD = LIBC && OS_TYPE == NETBSD;
-const bool BSD_FAMILY = env::FREEBSD || env::OPENBSD || env::NETBSD;
+const bool BSD_FAMILY = env::FREEBSD || env::OPENBSD || env::NETBSD || env::DRAGON_FLY;
 const bool WASI = LIBC && OS_TYPE == WASI;
 const bool WASM = ARCH_TYPE == ArchType.WASM32 || ARCH_TYPE == ArchType.WASM64;
 const bool EMSCRIPTEN = LIBC && OS_TYPE == EMSCRIPTEN;
@@ -170,7 +170,7 @@ const bool MEMORY_SANITIZER = $$MEMORY_SANITIZER;
 const bool THREAD_SANITIZER = $$THREAD_SANITIZER;
 const bool ANY_SANITIZER = ADDRESS_SANITIZER || MEMORY_SANITIZER || THREAD_SANITIZER;
 const int LANGUAGE_DEV_VERSION = $$LANGUAGE_DEV_VERSION;
-const bool HAS_NATIVE_ERRNO = LINUX || ANDROID || BSD_FAMILY || DARWIN || WIN32 || EMSCRIPTEN || DRAGON_FLY
+const bool HAS_NATIVE_ERRNO = LINUX || ANDROID || BSD_FAMILY || DARWIN || WIN32 || EMSCRIPTEN
 
 macro bool os_is_darwin() @const
 {
