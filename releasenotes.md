@@ -6,6 +6,8 @@
 - Add `$$PROJECT_PATH`, accessible through `env::PROJECT_PATH`.
 - Deprecate `$field.get(a)` and `$field.set(a, b)`. Replaced by `a.$field` and `a.$field = b`.
 - Add `a.$eval($field)` as a variant of `a.$field`.
+- Add json pretty print.
+- `$$atomic_store` and `$$atomic_load` takes an alignment parameter.
 
 ### Stdlib changes
 - Add math::TAU / math::TWO_PI
@@ -18,7 +20,8 @@
 - `ini::parse` and related takes an `error_line` argument to identify the line with error.
 - JSON marshaling will return INVALID_NUMBER when encountering a inf or NaN for a float.
 - JSON decoding will reject `1.` literals.
-
+- `spawn` now allows binding I/O and using different settings per pipe.
+ 
 ### Fixes
 - `@volatile_store` on arrays were sometimes incorrectly lowered.
 - NPOT vectors as associated variables were incorrectly lowered on load. #3228
@@ -66,6 +69,8 @@
 - Using a faultdef hidden behind `@if` would cause a crash.
 - Taking the type of a macro method would cause a crash.
 - Cap array size to avoid overflow when making multidimensional arrays that are too large.
+- DynamicArenaAllocator would incorrectly handle some reuse cases.
+- `__atomic_compare_exchange` had an incorrect implementation.
 
 ## 0.8.0 Change list
 
