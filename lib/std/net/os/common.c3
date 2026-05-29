@@ -1,5 +1,5 @@
 module std::net::os;
-const bool SUPPORTS_INET = env::LIBC && (env::WIN32 || env::DARWIN || env::LINUX || env::ANDROID || env::BSD_FAMILY || env::EMSCRIPTEN);
+const bool SUPPORTS_INET = env::LIBC && (env::WIN32 || env::DARWIN || env::LINUX || env::ANDROID || env::BSD_FAMILY || env::EMSCRIPTEN || env::DRAGON_FLY);
 
 typedef AIFamily = CInt;
 typedef AIProtocol = CInt;
@@ -18,7 +18,7 @@ struct AddrInfo
 	AISockType ai_socktype;
 	AIProtocol ai_protocol;
 	Socklen_t ai_addrlen;
-	struct @if(env::WIN32 || env::DARWIN || env::ANDROID || env::NETBSD  || env::FREEBSD)
+	struct @if(env::WIN32 || env::DARWIN || env::ANDROID || env::NETBSD || env::FREEBSD || env::DRAGON_FLY)
 	{
 		ZString ai_canonname;
 		SockAddrPtr ai_addr;
@@ -87,7 +87,7 @@ extern fn CInt setsockopt(NativeSocket socket, CInt level, CInt optname, void* o
 *>
 extern fn CInt getsockopt(NativeSocket socket, CInt level, CInt optname, void* optval, Socklen_t* optlen) @if(SUPPORTS_INET);
 
-module std::net::os @if(!env::LIBC || !(env::WIN32 || env::DARWIN || env::LINUX || env::ANDROID || env::BSD_FAMILY || env::EMSCRIPTEN));
+module std::net::os @if(!env::LIBC || !(env::WIN32 || env::DARWIN || env::LINUX || env::ANDROID || env::BSD_FAMILY || env::EMSCRIPTEN || env::DRAGON_FLY));
 
 const AIFamily PLATFORM_AF_INET6        = (AIFamily)0;
 const AIFamily PLATFORM_AF_IPX          = (AIFamily)0;
