@@ -28,7 +28,7 @@ const CUInt SA_RESETHAND     = env::LINUX || env::ANDROID ? 0x80000000 : 0x0004;
 const CUInt SA_SIGINFO       = env::LINUX || env::ANDROID ? 0x00000004 : 0x0040;
 
 alias Sigset_t @if(env::DARWIN || env::OPENBSD) = uint;
-alias Sigset_t @if(env::NETBSD || env::FREEBSD) = uint[4];
+alias Sigset_t @if(env::NETBSD || env::FREEBSD || env::DRAGON_FLY) = uint[4];
 alias Sigset_t @if(env::LINUX) = ulong[16];
 alias Sigset_t @if(env::EMSCRIPTEN) = uint[2];
 alias Sigset_t @if(env::ANDROID) = ulong;
