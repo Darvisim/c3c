@@ -158,6 +158,7 @@ const bool WASI = LIBC && OS_TYPE == WASI;
 const bool WASM = ARCH_TYPE == ArchType.WASM32 || ARCH_TYPE == ArchType.WASM64;
 const bool EMSCRIPTEN = LIBC && OS_TYPE == EMSCRIPTEN;
 const bool ANDROID = LIBC && OS_TYPE == ANDROID;
+const bool DRAGON_FLY = LIBC && OS_TYPE == DRAGON_FLY;
 const bool FREESTANDING_PE32 = NO_LIBC && OS_TYPE == WIN32;
 const bool FREESTANDING_MACHO = NO_LIBC && OS_TYPE == MACOS;
 const bool FREESTANDING_ELF = NO_LIBC && !env::FREESTANDING_PE32 && !env::FREESTANDING_MACHO && !env::FREESTANDING_WASM;
@@ -169,7 +170,7 @@ const bool MEMORY_SANITIZER = $$MEMORY_SANITIZER;
 const bool THREAD_SANITIZER = $$THREAD_SANITIZER;
 const bool ANY_SANITIZER = ADDRESS_SANITIZER || MEMORY_SANITIZER || THREAD_SANITIZER;
 const int LANGUAGE_DEV_VERSION = $$LANGUAGE_DEV_VERSION;
-const bool HAS_NATIVE_ERRNO = LINUX || ANDROID || BSD_FAMILY || DARWIN || WIN32 || EMSCRIPTEN;
+const bool HAS_NATIVE_ERRNO = LINUX || ANDROID || BSD_FAMILY || DARWIN || WIN32 || EMSCRIPTEN || DRAGON_FLY
 
 macro bool os_is_darwin() @const
 {
@@ -199,6 +200,7 @@ macro bool os_is_posix() @const
 	$case WATCHOS:
 	$case EMSCRIPTEN:
 	$case ANDROID:
+	$case DRAGON_FLY:
 		return true;
 	$case WIN32:
 	$case WASI:
