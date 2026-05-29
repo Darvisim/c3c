@@ -710,67 +710,64 @@ jobs:
   #         name: c3-midnightbsd-Debug
   #         path: c3-midnightbsd-Debug.tar.gz
 
-  # build-dragonflybsd:
-    # name: DragonFlyBSD (x64) ${{ matrix.version }}
-    # runs-on: ubuntu-24.04
-    #strategy:
-      #fail-fast: false
-      #matrix:
-        #version: ['6.4.2']
-    #steps:
-      #- uses: actions/checkout@v6
+  build-dragonflybsd:
+    name: DragonFlyBSD (x64) ${{ matrix.version }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ['6.4.2']
+    steps:
+      - uses: actions/checkout@v6
 
-      #- name: Setup DragonFlyBSD VM
-        #uses: cross-platform-actions/action@master
-        #with:
-          #operating_system: dragonflybsd
-          #version: ${{ matrix.version }}
-          #cpu_count: 4
-          #memory: 6G
+      - name: Setup DragonFlyBSD VM
+        uses: cross-platform-actions/action@master
+        with:
+          operating_system: dragonflybsd
+          version: ${{ matrix.version }}
+          cpu_count: 4
+          memory: 6G
 
-      #- name: Install Dependencies
-        #shell: cpa.sh {0}
-        #run: |
-          #for i in 1 2 3; do
-            #sudo pkg install -y ninja cmake llvm${{ env.LLVM_RELEASE_VERSION_DRAGONFLYBSD }} curl bash && break || sleep 5
-          #done
+      - name: Install Dependencies
+        shell: cpa.sh {0}
+        run: |
+          for i in 1 2 3; do
+            sudo pkg install -y ninja cmake llvm${{ env.LLVM_RELEASE_VERSION_DRAGONFLYBSD }} curl bash && break || sleep 5
+          done
 
-      #- name: Build (Release)
-        #shell: cpa.sh {0}
-        #run: |
-          #cmake -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=/usr/local/llvm${{ env.LLVM_RELEASE_VERSION_DRAGONFLYBSD }}/bin/clang -DCMAKE_CXX_COMPILER=/usr/local/llvm${{ env.LLVM_RELEASE_VERSION_DRAGONFLYBSD }}/bin/clang++
-          #cmake --build build-release
+      - name: Build (Release)
+        shell: cpa.sh {0}
+        run: |
+          cmake -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=/usr/local/llvm${{ env.LLVM_RELEASE_VERSION_DRAGONFLYBSD }}/bin/clang -DCMAKE_CXX_COMPILER=/usr/local/llvm${{ env.LLVM_RELEASE_VERSION_DRAGONFLYBSD }}/bin/clang++
+          cmake --build build-release
 
-      #- name: Build (Debug)
-        #shell: cpa.sh {0}
-        #env:
-          #CC: clang
-          #CXX: clang++
-        #run: |
-          #cmake -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=/usr/local/llvm${{ env.LLVM_RELEASE_VERSION_DRAGONFLYBSD }}/bin/clang -DCMAKE_CXX_COMPILER=/usr/local/llvm${{ env.LLVM_RELEASE_VERSION_DRAGONFLYBSD }}/bin/clang++
-          #cmake --build build-debug
+      - name: Build (Debug)
+        shell: cpa.sh {0}
+        run: |
+          cmake -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=/usr/local/llvm${{ env.LLVM_RELEASE_VERSION_DRAGONFLYBSD }}/bin/clang -DCMAKE_CXX_COMPILER=/usr/local/llvm${{ env.LLVM_RELEASE_VERSION_DRAGONFLYBSD }}/bin/clang++
+          cmake --build build-debug
 
-      #- name: Run Tests
-        #shell: cpa.sh {0}
-        #run: ./scripts/tools/ci_tests.sh "./build-debug/c3c"
+      - name: Run Tests
+        shell: cpa.sh {0}
+        run: ./scripts/tools/ci_tests.sh "./build-debug/c3c"
 
-      #- name: Package
-        #shell: cpa.sh {0}
-        #run: |
-          #./scripts/tools/package_build.sh "./build-release/c3c" "c3-dragonflybsd-Release" "tar"
-         # ./scripts/tools/package_build.sh "./build-debug/c3c" "c3-dragonflybsd-Debug" "tar"
+      - name: Package
+        shell: cpa.sh {0}
+        run: |
+          ./scripts/tools/package_build.sh "./build-release/c3c" "c3-dragonflybsd-Release" "tar"
+          ./scripts/tools/package_build.sh "./build-debug/c3c" "c3-dragonflybsd-Debug" "tar"
 
-      #- name: Upload Artifacts (Release)
-        #uses: actions/upload-artifact@v7
-        #with:
-          #name: c3-dragonflybsd-Release
-          #path: c3-dragonflybsd-Release.tar.gz
+      - name: Upload Artifacts (Release)
+        uses: actions/upload-artifact@v7
+        with:
+          name: c3-dragonflybsd-Release
+          path: c3-dragonflybsd-Release.tar.gz
 
-      #- name: Upload Artifacts (Debug)
-        #uses: actions/upload-artifact@v7
-        #with:
-          #name: c3-dragonflybsd-Debug
-          #path: c3-dragonflybsd-Debug.tar.gz
+      - name: Upload Artifacts (Debug)
+        uses: actions/upload-artifact@v7
+        with:
+          name: c3-dragonflybsd-Debug
+          path: c3-dragonflybsd-Debug.tar.gz
 
   build-with-docker:
     name: LLVM ${{ matrix.llvm_version }} Compatibility
