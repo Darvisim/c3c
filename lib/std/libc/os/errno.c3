@@ -17,9 +17,9 @@ macro int errno() @if(env::OPENBSD || env::NETBSD) => *__errno();
 macro void errno_set(int err) @if(env::OPENBSD || env::NETBSD) => *(__errno()) = err;
 
 // Darwin
-extern fn int* __error() @if(env::DARWIN || env::FREEBSD || env:DRAGON_FLY);
+extern fn int* __error() @if(env::DARWIN || env::FREEBSD || env::DRAGON_FLY);
 macro int errno() @if(env::DARWIN || env::FREEBSD || env:DRAGON_FLY) => *__error();
-macro void errno_set(int err) @if(env::DARWIN || env::FREEBSD || env:DRAGON_FLY) => *(__error()) = err;
+macro void errno_set(int err) @if(env::DARWIN || env::FREEBSD || env::DRAGON_FLY) => *(__error()) = err;
 
 // Win32
 macro int errno() @if(env::WIN32)
