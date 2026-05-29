@@ -7,19 +7,21 @@ typedef DIRPtr = void*;
 struct Posix_dirent
 {
 	Ino_t d_fileno;
-	Off_t d_off @if(!env::NETBSD);
-	ushort d_reclen;
-	ushort d_namelen @if(env::DARWIN || env::NETBSD);
+	Off_t d_off @if(!env::NETBSD && !env::DRAGON_FLY);
+	ushort d_reclen @if(!env::DRAGON_FLY);
+	ushort d_namelen @if(env::DARWIN || env::NETBSD || env::DRAGON_FLY);
 	char d_type;
 
 	char d_namelen @if(env::OPENBSD);
 	char[4] d_pad0 @if(env::OPENBSD);
 
-	char d_pad0 @if(env::FREEBSD);
+	char d_pad0 @if(env::FREEBSD || env::DRAGON_FLY);
 	ushort d_namelen @if(env::FREEBSD);
 	ushort d_pad1 @if(env::FREEBSD);
 
-	char[255+1] name @if(env::FREEBSD || env::OPENBSD);
+	uint d_pad1 @if(env::DRAGON_FLY);
+	
+	char[255+1] name @if(env::FREEBSD || env::OPENBSD || env::DRAGON_FLY);
 	char[511+1] name @if(env::NETBSD);
 	char[1024] name @if(env::DARWIN);
 	char[*] name @if(!env::DARWIN && !env::BSD_FAMILY);
