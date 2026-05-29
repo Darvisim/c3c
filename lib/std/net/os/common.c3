@@ -1,5 +1,5 @@
 module std::net::os;
-const bool SUPPORTS_INET = env::LIBC && (env::WIN32 || env::DARWIN || env::LINUX || env::ANDROID || env::BSD_FAMILY || env::EMSCRIPTEN || env::DRAGON_FLY);
+const bool SUPPORTS_INET = env::LIBC && (env::WIN32 || env::DARWIN || env::LINUX || env::ANDROID || env::BSD_FAMILY || env::EMSCRIPTEN);
 
 typedef AIFamily = CInt;
 typedef AIProtocol = CInt;
@@ -87,7 +87,7 @@ extern fn CInt setsockopt(NativeSocket socket, CInt level, CInt optname, void* o
 *>
 extern fn CInt getsockopt(NativeSocket socket, CInt level, CInt optname, void* optval, Socklen_t* optlen) @if(SUPPORTS_INET);
 
-module std::net::os @if(!env::LIBC || !(env::WIN32 || env::DARWIN || env::LINUX || env::ANDROID || env::BSD_FAMILY || env::EMSCRIPTEN || env::DRAGON_FLY));
+module std::net::os @if(!env::LIBC || !(env::WIN32 || env::DARWIN || env::LINUX || env::ANDROID || env::BSD_FAMILY || env::EMSCRIPTEN));
 
 const AIFamily PLATFORM_AF_INET6        = (AIFamily)0;
 const AIFamily PLATFORM_AF_IPX          = (AIFamily)0;
