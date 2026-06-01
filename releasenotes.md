@@ -8,6 +8,8 @@
 - Add `a.$eval($field)` as a variant of `a.$field`.
 - Add json pretty print.
 - `$$atomic_store` and `$$atomic_load` takes an alignment parameter.
+- `$vaarg[^1]` is supported. #3276
+- Improve error message when a keyword is used a block parameter. #3275
 
 ### Stdlib changes
 - Add math::TAU / math::TWO_PI
@@ -71,6 +73,18 @@
 - Cap array size to avoid overflow when making multidimensional arrays that are too large.
 - DynamicArenaAllocator would incorrectly handle some reuse cases.
 - `__atomic_compare_exchange` had an incorrect implementation.
+- `channel::create_unbuffered` would not correctly zero out memory, potentially yielding unpredictable result.
+- `lock_timeout` on Posix would sleep the entire sleep before retrying, and it would fail if it managed to sleep.
+- `stack_size` setting for threads was ignored on Posix.
+- Setting thread priority on Win32 was off by one.
+- Non-power-of-two-sized member of @bigendian bitstruct backed by char array wasn't working #3283.
+- Binary bitwise operations were not considered simple.
+- `$expand` was incorrectly made generic in generic modules. #3274
+- Mangle lambdas in macros without `@` to ensure they work correctly on elf #3217.
+- `DString.replace("", "X");` would crash.
+- `DString.read_from_stream` would not return the correct length when `available` was not supported by the stream.
+- `@str_camelcase` would yield same result as `@str_pascalcase`. #3287
+- `conv::utf8to32` would not zero terminate in when the zero would be at the end of the buffer.
 
 ## 0.8.0 Change list
 
