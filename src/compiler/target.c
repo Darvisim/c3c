@@ -330,6 +330,7 @@ static bool os_target_use_thread_local(OsType os)
 		case OS_TYPE_ANDROID:
 		case OS_TYPE_NETBSD:
 		case OS_TYPE_OPENBSD:
+		case OS_TYPE_DRAGON_FLY:
 		case OS_TYPE_WIN32:
 		case OS_TYPE_WASI:
 		case OS_TYPE_EMSCRIPTEN:
@@ -1203,6 +1204,7 @@ static char *arch_to_target_triple(ArchOsTarget target, LinuxLibc linux_libc)
 		case NETBSD_X64: return "x86_64-pc-netbsd";
 		case FREEBSD_X64: return "x86_64-pc-freebsd";
 		case OPENBSD_X64: return "x86_64-pc-openbsd";
+		case DRAGON_FLY_x64: return "x86_64-pc-dragonflybsd";
 		case ELF_X64: return "x86_64-unknown-elf";
 		case ANDROID_AARCH64: return "aarch64-linux-android";
 		case ANDROID_X86_64: return "x86_64-linux-android";
@@ -1597,6 +1599,7 @@ static ObjectFormatType object_format_from_os(OsType os, ArchType arch_type)
 		case OS_TYPE_NETBSD:
 		case OS_TYPE_OPENBSD:
 		case OS_TYPE_FREEBSD:
+		case OS_TYPE_DRAGON_FLY:
 			return OBJ_FORMAT_ELF;
 		case OS_DARWIN_TYPES:
 			return OBJ_FORMAT_MACHO;
@@ -1657,6 +1660,7 @@ static unsigned os_target_c_type_bits(OsType os, ArchType arch, CType type)
 		case OS_TYPE_OPENBSD:
 		case OS_TYPE_WASI:
 		case OS_TYPE_EMSCRIPTEN:
+		case OS_TYPE_DRAGON_FLY:
 			// Use default
 			break;
 		case OS_TYPE_WIN32:
@@ -1842,6 +1846,7 @@ static RelocModel arch_os_reloc_default(ArchType arch, OsType os, EnvironmentTyp
 				return RELOC_NONE;
 			case OS_TYPE_FREEBSD:
 			case OS_TYPE_NETBSD:
+			case OS_TYPE_DRAGON_FLY:
 			case OS_TYPE_UNKNOWN:
 			case OS_TYPE_NONE:
 				switch (arch)
@@ -1861,6 +1866,7 @@ static RelocModel arch_os_reloc_default(ArchType arch, OsType os, EnvironmentTyp
 		case OS_TYPE_NONE:
 		case OS_TYPE_FREEBSD:
 		case OS_TYPE_NETBSD:
+		case OS_TYPE_DRAGON_FLY:
 			switch (arch)
 			{
 				case ARCH_TYPE_MIPS64:
@@ -1905,6 +1911,7 @@ static bool arch_os_pic_default_forced(ArchType arch, OsType os)
 		case OS_TYPE_ANDROID:
 		case OS_TYPE_NETBSD:
 		case OS_TYPE_OPENBSD:
+		case OS_TYPE_DRAGON_FLY:
 			return false;
 		case OS_UNSUPPORTED:
 			UNREACHABLE
