@@ -133,7 +133,7 @@ run_cli_tests() {
             return
         fi
 
-        if [ -f "/etc/alpine-release" ] || [[ "$SYSTEM_NAME" == "OpenBSD" || "$SYSTEM_NAME" == "NetBSD" || "$SYSTEM_NAME" == "FreeBSD" ]] || [[ "$OS_MODE" == "android" ]]; then
+        if [ -f "/etc/alpine-release" ] || [[ "$SYSTEM_NAME" == "OpenBSD" || "$SYSTEM_NAME" == "NetBSD" || "$SYSTEM_NAME" == "FreeBSD" || "$SYSTEM_NAME" == "MidnightBSD" ]] || [[ "$OS_MODE" == "android" ]]; then
             echo "::warning::Skipping raylib_arkanoid (vendor raylib doesn't support this platform)"
             return
         fi
@@ -182,7 +182,7 @@ run_staticlib_tests() {
              cc "$ROOT_DIR/resources/examples/staticlib-test/test.c" -L. -ladd -lexecinfo -lm -lpthread -o a.out
         elif [[ "$SYSTEM_NAME" == "Linux" ]]; then
              cc "$ROOT_DIR/resources/examples/staticlib-test/test.c" -L. -ladd -ldl -lm -lpthread -o a.out 
-        elif [[ "$SYSTEM_NAME" == *"NetBSD"* ]] || [[ "$SYSTEM_NAME" == *"FreeBSD"* ]]; then
+        elif [[ "$SYSTEM_NAME" == *"NetBSD"* ]] || [[ "$SYSTEM_NAME" == *"FreeBSD"* ]] || [[ "$SYSTEM_NAME" == *"MidnightBSD"* ]]; then
              cc "$ROOT_DIR/resources/examples/staticlib-test/test.c" -L. -ladd -lexecinfo -o a.out 
         else
              cc "$ROOT_DIR/resources/examples/staticlib-test/test.c" -L. -ladd -o a.out
