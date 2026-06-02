@@ -244,8 +244,7 @@ int target_alloca_addr_space()
 
 bool os_supports_stacktrace(OsType os_type)
 {
-	return os_type == OS_TYPE_LINUX || os_is_apple(os_type) || os_type == OS_TYPE_WIN32 || os_type == OS_TYPE_OPENBSD || 
-		   os_type == OS_TYPE_NETBSD || os_type == OS_TYPE_FREEBSD || os_type == OS_TYPE_DRAGON_FLY;
+	return os_type == OS_TYPE_LINUX || os_is_apple(os_type) || os_type == OS_TYPE_WIN32;
 }
 
 bool os_is_apple(OsType os_type)
@@ -1196,7 +1195,6 @@ static char *arch_to_target_triple(ArchOsTarget target, LinuxLibc linux_libc)
 		case FREEBSD_X86: return "i386-unknown-freebsd";
 		case OPENBSD_X86: return "i386-unknown-openbsd";
 		case NETBSD_X86: return "i386-unknown-netbsd";
-		case DRAGON_FLY_x86: return "i386-unknown-dragonfly";
 		case MCU_X86: return "i386-pc-elfiamcu";
 		case LINUX_X86: return linux_libc == LINUX_LIBC_MUSL ? "i386-unknown-linux-musl" : "i386-unknown-linux";
 		case ELF_X86: return "i386-unknown-elf";
@@ -1207,7 +1205,7 @@ static char *arch_to_target_triple(ArchOsTarget target, LinuxLibc linux_libc)
 		case NETBSD_X64: return "x86_64-pc-netbsd";
 		case FREEBSD_X64: return "x86_64-pc-freebsd";
 		case OPENBSD_X64: return "x86_64-pc-openbsd";
-		case DRAGON_FLY_x64: return "x86_64-pc-dragonfly";
+		case DRAGON_FLY_X64: return "x86_64-unknown-dragonfly";
 		case ELF_X64: return "x86_64-unknown-elf";
 		case ANDROID_AARCH64: return "aarch64-linux-android";
 		case ANDROID_X86_64: return "x86_64-linux-android";
