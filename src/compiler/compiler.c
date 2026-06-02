@@ -1284,6 +1284,8 @@ static int jump_buffer_size()
 		case OPENBSD_X64:
 			REMINDER("Guessing setjmp for platform.");
 			return 32;
+		case DRAGON_FLY_X64:
+			return 23; // 23 * 8 = 184 bytes
 		case ANDROID_AARCH64:
 		case LINUX_AARCH64:
 		case ELF_AARCH64:
