@@ -28,6 +28,8 @@ ArchOsTarget default_target = NETBSD_X64;
 ArchOsTarget default_target = FREEBSD_X64;
 	#elif defined(__OpenBSD__)
 ArchOsTarget default_target = OPENBSD_X64;
+	#elif defined(__DragonFly__)
+ArchOsTarget default_target = DRAGON_FLY_X64;
 	#else
 ArchOsTarget default_target = ELF_X64;
 	#endif
@@ -66,6 +68,8 @@ ArchOsTarget default_target = FREEBSD_X86;
 ArchOsTarget default_target = OPENBSD_X86;
 	#elif defined(__NetBSD__)
 ArchOsTarget default_target = NETBSD_X86;
+	#elif defined(__DragonFly__)
+ArchOsTarget default_target = DRAGON_FLY_X86;
 	#elif defined(_MSC_VER) && _MSC_VER
 ArchOsTarget default_target = WINDOWS_X86;
 	#else
@@ -293,6 +297,8 @@ static LinkLibc libc_from_arch_os(ArchOsTarget target)
 	{
 		case ANDROID_AARCH64:
 		case ANDROID_X86_64:
+		case DRAGON_FLY_X86:
+		case DRAGON_FLY_X64:
 		case FREEBSD_X86:
 		case FREEBSD_X64:
 		case IOS_AARCH64:
@@ -323,7 +329,6 @@ static LinkLibc libc_from_arch_os(ArchOsTarget target)
 		case ELF_X86:
 		case ELF_X64:
 		case ELF_XTENSA:
-			return LINK_LIBC_OFF;
 		case ELF_AVR:
 			return LINK_LIBC_OFF;
 	}
