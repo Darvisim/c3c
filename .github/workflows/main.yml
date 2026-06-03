@@ -731,6 +731,7 @@ jobs:
           path: c3-midnightbsd-Debug.tar.gz
 
   build-dragonflybsd:
+    if: false
     name: DragonFlyBSD (x64) ${{ matrix.version }}
     runs-on: ubuntu-24.04
     strategy:
