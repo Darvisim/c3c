@@ -65,6 +65,7 @@ fn DString temp(String s = "") => new(tmem, s) @inline;
 fn void DString.replace_char(self, char ch, char replacement)
 {
 	StringData* data = self.data();
+	if (!data) return;
 	foreach (&c : data.chars[:data.len])
 	{
 		if (*c == ch) *c = replacement;
@@ -111,27 +112,29 @@ fn void DString.replace(&self, String needle, String replacement)
 		self.clear();
 		sz len = str.len;
 		sz match = 0;
-		foreach (i, c : str)
+		sz run_start = 0;
+		for (sz i = 0; i < len; i++)
 		{
-			if (c == needle[match])
+			if (str[i] == needle[match])
 			{
 				match++;
 				if (match == needle_len)
 				{
+					sz match_start = i - needle_len + 1;
+					if (match_start > run_start) self.append_string(str[run_start:match_start - run_start]);
 					self.append_string(replacement);
+					run_start = i + 1;
 					match = 0;
-					continue;
 				}
 				continue;
 			}
 			if (match > 0)
 			{
-				self.append_string(str[i - match:match]);
+				i -= match;
 				match = 0;
 			}
-			self.append_char(c) @inline;
 		}
-		if (match > 0) self.append_string(str[^match:match]);
+		if (run_start < len) self.append_string(str[run_start..]);
 	};
 }
 
@@ -325,7 +328,7 @@ fn bool DString.equals(self, DString other_string)
 	if (!str2) return str1.len == 0;
 	sz str1_len = str1.len;
 	if (str1_len != str2.len) return false;
-	for (int i = 0; i < str1_len; i++)
+	for (sz i = 0; i < str1_len; i++)
 	{
 		if (str1.chars[i] != str2.chars[i]) return false;
 	}

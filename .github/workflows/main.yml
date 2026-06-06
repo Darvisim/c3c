@@ -19,7 +19,7 @@ on:
 
 env:
   LLVM_RELEASE_VERSION: 22.x
-  LLVM_RELEASE_VERSION_LINUX_MUSL: 20
+  LLVM_RELEASE_VERSION_LINUX_MUSL: 21
   LLVM_RELEASE_VERSION_OPENBSD: 20
   LLVM_RELEASE_VERSION_NETBSD: 19
   LLVM_RELEASE_VERSION_FREEBSD: 19
@@ -107,6 +107,7 @@ jobs:
             curl -L -o EnVar-Plugin.zip "https://github.com/GsNSIS/EnVar/releases/download/v0.3.1/EnVar-Plugin.zip"
             7z x EnVar-Plugin.zip -o"C:\Program Files (x86)\NSIS" -y
           fi
+          curl -sSfL -o MANUAL.md https://c3-lang.org/all.md
           export PATH="/c/Program Files (x86)/NSIS/Bin:/c/Program Files (x86)/NSIS:$PATH"
           MSYS_NO_PATHCONV=1 makensis /DINSTALLER_NAME="c3-windows-setup-Release.exe" /DBUILD_DIR=build-release resources/nsis/installer.nsi
           MSYS_NO_PATHCONV=1 makensis /DINSTALLER_NAME="c3-windows-setup-Debug.exe" /DBUILD_DIR=build-debug resources/nsis/installer.nsi
@@ -364,14 +365,12 @@ jobs:
           for i in 1 2 3; do apk update && break || sleep 2; done
           for i in 1 2 3; do \
             apk add \
-              build-base bash cmake ninja python3 linux-headers \
+              build-base bash cmake ninja \
               tar zstd \
-              zlib-dev curl-dev libffi-dev \
+              curl-dev \
               llvm${V}-dev \
               llvm${V}-static \
               llvm${V}-gtest \
-              clang${V}-dev \
-              clang${V}-static \
               lld${V}-dev \
               lld${V}-libs && break || sleep 2; \
           done

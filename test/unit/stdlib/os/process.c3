@@ -139,6 +139,20 @@ fn void test_inherit_stdio_redirect()
     assert(stderr_bytes == 0, "Should read 0 bytes from stderr");
 }
 
+fn void test_run_capture_stdout_no_trailing_newline() @test @if(env::POSIX)
+{
+	char[64] buffer;
+	String result = process::run_capture_stdout(&buffer, {"printf", "hello"})!!;
+	assert(result == "hello", "got '%s'", result);
+}
+
+fn void test_run_capture_stdout_strips_trailing_newline() @test @if(env::POSIX)
+{
+	char[64] buffer;
+	String result = process::run_capture_stdout(&buffer, {"echo", "hello"})!!;
+	assert(result == "hello\n", "got '%s'", result);
+}
+
 fn void test_pipe_cloexec_leak() @test @if(env::POSIX)
 {
 	// Process A reads from stdin and exits when its stdin pipe closes
