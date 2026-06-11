@@ -66,8 +66,8 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: c3-windows-Release
-          path: c3-windows-Release.zip
+          name: c3-windows-${{ matrix.arch }}-Release
+          path: c3-windows-${{ matrix.arch }}-Release.zip
 
       - name: CMake Build (Debug)
         run: |
@@ -95,19 +95,17 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: c3-windows-Debug
-          path: c3-windows-Debug.zip
+          name: c3-windows-${{ matrix.arch }}-Debug
+          path: c3-windows-${{ matrix.arch }}-Debug.zip
 
       - name: Cache NSIS
         id: cache-nsis
-        if: matrix.arch != 'arm64'
         uses: actions/cache@v5
         with:
           path: C:\Program Files (x86)\NSIS
           key: ${{ runner.os }}-nsis-3.12
 
       - name: Setup NSIS & Compile Installers
-        if: matrix.arch != 'arm64'
         shell: bash
         run: |
           if [ "${{ steps.cache-nsis.outputs.cache-hit }}" != "true" ]; then
@@ -118,20 +116,18 @@ jobs:
           curl -sSfL -o MANUAL.md https://c3-lang.org/all.md
           curl -sSfL -o c3fmt.exe https://github.com/lmichaudel/c3fmt/releases/latest/download/c3fmt-windows.exe
           export PATH="/c/Program Files (x86)/NSIS/Bin:/c/Program Files (x86)/NSIS:$PATH"
-          MSYS_NO_PATHCONV=1 makensis /DINSTALLER_NAME="c3-windows-setup-Release.exe" /DBUILD_DIR=build-release resources/nsis/installer.nsi
-          MSYS_NO_PATHCONV=1 makensis /DINSTALLER_NAME="c3-windows-setup-Debug.exe" /DBUILD_DIR=build-debug resources/nsis/installer.nsi
+          MSYS_NO_PATHCONV=1 makensis /DINSTALLER_NAME="c3-windows-setup-${{ matrix.arch }}-Release.exe" /DBUILD_DIR=build-release resources/nsis/installer.nsi
+          MSYS_NO_PATHCONV=1 makensis /DINSTALLER_NAME="c3-windows-setup-${{ matrix.arch }}-Debug.exe" /DBUILD_DIR=build-debug resources/nsis/installer.nsi
 
       - uses: actions/upload-artifact@v7
-        if: matrix.arch != 'arm64'
         with:
           name: c3-windows-setup-Release
-          path: resources/nsis/c3-windows-setup-Release.exe
+          path: resources/nsis/c3-windows-setup-${{ matrix.arch }}-Release.exe
 
       - uses: actions/upload-artifact@v7
-        if: matrix.arch != 'arm64'
         with:
           name: c3-windows-setup-Debug
-          path: resources/nsis/c3-windows-setup-Debug.exe
+          path: resources/nsis/c3-windows-setup-${{ matrix.arch }}-Debug.exe
 
   build-msys2:
     name: Windows (${{ matrix.arch }}) ${{ matrix.sys }}
