@@ -57,7 +57,7 @@ jobs:
 
       - name: CMake Build (Release)
         run: |
-          cmake -B build-release -G Ninja -A ${{ matrix.arch }} -DCMAKE_BUILD_TYPE=Release -DC3_FETCH_LLVM=ON
+          cmake -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DC3_FETCH_LLVM=ON
           cmake --build build-release --config Release
 
       - name: Bundle (Windows Release)
@@ -71,7 +71,7 @@ jobs:
 
       - name: CMake Build (Debug)
         run: |
-          cmake -B build-debug -G Ninja -A ${{ matrix.arch }} -DCMAKE_BUILD_TYPE=Debug -DC3_FETCH_LLVM=ON
+          cmake -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DC3_FETCH_LLVM=ON
           cmake --build build-debug --config Debug
 
       # We remove the GNU link tool so C3C picks up the MSVC link.exe
