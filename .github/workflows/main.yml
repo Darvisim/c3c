@@ -57,7 +57,7 @@ jobs:
 
       - name: CMake Build (Release)
         run: |
-          cmake -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DC3_FETCH_LLVM=ON
+          cmake -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DC3_FETCH_LLVM=ON -DCMAKE_GENERATOR_PLATFORM=${{ matrix.arch }}
           cmake --build build-release --config Release
 
       - name: Bundle (Windows Release)
@@ -71,7 +71,7 @@ jobs:
 
       - name: CMake Build (Debug)
         run: |
-          cmake -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DC3_FETCH_LLVM=ON
+          cmake -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DC3_FETCH_LLVM=ON -DCMAKE_GENERATOR_PLATFORM=${{ matrix.arch }}
           cmake --build build-debug --config Debug
 
       # We remove the GNU link tool so C3C picks up the MSVC link.exe
@@ -166,7 +166,7 @@ jobs:
       # static LLVM archives (LNK4217), which the GNU linker (ld) cannot resolve automatically.
       - name: CMake Build
         run: |
-          cmake -B build -G Ninja -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Debug -DCMAKE_LINKER=lld -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld" -DC3_LINK_DYNAMIC=OFF -DLLVM_DIR=${{matrix.prefix}}/lib/cmake/llvm -DC3_LLD_DIR=${{matrix.prefix}}/lib/
+          cmake -B build -G Ninja -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Debug -DCMAKE_LINKER=lld -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld" -DC3_LINK_DYNAMIC=OFF -DLLVM_DIR=${{matrix.prefix}}/lib/cmake/llvm -DC3_LLD_DIR=${{matrix.prefix}}/lib/ -DCMAKE_GENERATOR_PLATFORM=${{ matrix.arch }}
           cmake --build build
       - name: Cache FreeBSD Sysroot
         uses: actions/cache@v5
