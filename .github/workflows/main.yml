@@ -873,7 +873,13 @@ jobs:
 
       - name: CMake Build (Release)
         run: |
-          cmake -B build-release -G Ninja -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphonesimulator -DCMAKE_BUILD_TYPE=Release -DC3_FETCH_LLVM=ON
+          cmake -B build-release -G Ninja \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_SYSROOT=iphonesimulator \
+            -DC3_FETCH_LLVM=OFF \
+            -DCMAKE_C_FLAGS=-isysroot $(xcrun --sdk iphonesimulator --show-sdk-path) -target arm64-apple-ios17.0-simulator \
+            -DCMAKE_CXX_FLAGS=-isysroot $(xcrun --sdk iphonesimulator --show-sdk-path) -target arm64-apple-ios17.0-simulator \
+            -DCMAKE_BUILD_TYPE=Release
           cmake --build build-release
 
       - name: Bundle (Release)
@@ -887,7 +893,13 @@ jobs:
 
       - name: CMake Build (Debug)
         run: |
-          cmake -B build-debug -G Ninja -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphonesimulator -DCMAKE_BUILD_TYPE=Debug -DC3_FETCH_LLVM=ON
+          cmake -B build-debug -G Ninja \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_SYSROOT=iphonesimulator \
+            -DC3_FETCH_LLVM=OFF \
+            -DCMAKE_C_FLAGS=-isysroot $(xcrun --sdk iphonesimulator --show-sdk-path) -target arm64-apple-ios17.0-simulator \
+            -DCMAKE_CXX_FLAGS=-isysroot $(xcrun --sdk iphonesimulator --show-sdk-path) -target arm64-apple-ios17.0-simulator \
+            -DCMAKE_BUILD_TYPE=Debug
           cmake --build build-debug
 
       - name: Cache FreeBSD Sysroot
