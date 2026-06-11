@@ -873,7 +873,7 @@ jobs:
 
       - name: CMake Build (Release)
         run: |
-          cmake -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DC3_FETCH_LLVM=ON
+          cmake -B build-release -G Ninja -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphonesimulator -DCMAKE_BUILD_TYPE=Release -DC3_FETCH_LLVM=ON
           cmake --build build-release
 
       - name: Bundle (Release)
@@ -887,7 +887,7 @@ jobs:
 
       - name: CMake Build (Debug)
         run: |
-          cmake -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DC3_FETCH_LLVM=ON
+          cmake -B build-debug -G Ninja -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphonesimulator -DCMAKE_BUILD_TYPE=Debug -DC3_FETCH_LLVM=ON
           cmake --build build-debug
 
       - name: Cache FreeBSD Sysroot
@@ -897,7 +897,7 @@ jobs:
           key: ${{ runner.os }}-freebsd-sysroot-15.0
       
       - name: Run Unified Tests
-        run: ./scripts/tools/ci_tests.sh "./build-debug/c3c"
+        run: xcrun simctl spawn booted ./scripts/tools/ci_tests.sh "./build-debug/c3c"
 
       - name: Bundle (Debug)
         run: bash ./scripts/tools/package_build.sh "./build-debug/c3c" "c3-ios-Debug" "zip"
@@ -907,7 +907,6 @@ jobs:
         with:
           name: c3-ios-Debug
           path: c3-ios-Debug.zip
-      
 
   release:
     runs-on: ubuntu-slim
@@ -926,9 +925,9 @@ jobs:
       - name: Prepare Assets
         run: |
           for config in Release Debug; do
-            for platform in windows macos linux linux-musl linux-static openbsd netbsd android-aarch64 android-x86_64 windows-setup; do
-              # Windows and macOS produce zip, others tar.gz
-              if [ "$platform" = "windows" ] || [ "$platform" = "macos" ]; then
+            for platform in windows macos linux linux-musl linux-static openbsd netbsd android-aarch64 android-x86_64 windows-setup ios; do
+              # Windows, macOS and iOS produce zip, others tar.gz
+              if [ "$platform" = "windows" ] || [ "$platform" = "macos" ] || [ "$platform" = "ios" ]; then
                 ext="zip"
               elif [ "$platform" = "windows-setup" ]; then
                 ext="exe"
