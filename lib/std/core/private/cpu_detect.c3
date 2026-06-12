@@ -531,9 +531,9 @@ const uint PF_ARM_SME2_INSTRUCTIONS_AVAILABLE        = 71;
 const uint PF_ARM_SME_F64F64_INSTRUCTIONS_AVAILABLE  = 85;
 const uint PF_ARM_SME_I16I64_INSTRUCTIONS_AVAILABLE  = 86;
 
-extern fn bool IsProcessorFeaturePresent(uint ProcessorFeature);
+extern fn bool isProcessorFeaturePresent(uint ProcessorFeature) @cname("IsProcessorFeaturePresent");
 
 fn void add_feature_if_windows(Aarch64Feature feature, uint win_feature)
 {
-	if (IsProcessorFeaturePresent(win_feature)) aarch64_features |= 1ULL << feature.ordinal;
+	if (isProcessorFeaturePresent(win_feature)) aarch64_features |= 1ULL << feature.ordinal;
 }
