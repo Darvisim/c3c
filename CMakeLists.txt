@@ -180,7 +180,7 @@ if(C3_WITH_LLVM)
     if(C3_FETCH_LLVM)
         # 1. Determine local platform ID
         if (WIN32)
-            if (CMAKE_SYSTEM_PROCESSOR STREQUAL "ARM64|aarch64" OR CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "ARM64|aarch64")
+            if (CMAKE_SYSTEM_PROCESSOR MATCHES "ARM64|aarch64" OR CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "ARM64|aarch64")
                 set(C3_LLVM_PLATFORM "windows-aarch64")
             else()
                 set(C3_LLVM_PLATFORM "windows-amd64")
