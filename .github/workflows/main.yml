@@ -47,6 +47,9 @@ jobs:
         shell: cmd
     steps:
       - uses: actions/checkout@v6
+      - name: Clear architecture mismatch paths
+        shell: bash
+        run: rm -rf build/_deps
       - uses: actions/cache@v5
         with:
           path: build/_deps
