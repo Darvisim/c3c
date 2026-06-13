@@ -34,7 +34,7 @@ ArchOsTarget default_target = ELF_X64;
 #elif defined(__aarch64__) || defined(_M_ARM64)
 	#if defined(_WIN32)
 ArchOsTarget default_target = WINDOWS_AARCH64;
-	#if defined(__MACH__)
+	#elif defined(__MACH__)
 ArchOsTarget default_target = MACOS_AARCH64;
 	#elif defined(__NetBSD__)
 ArchOsTarget default_target = NETBSD_AARCH64;
