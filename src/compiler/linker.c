@@ -55,8 +55,18 @@ static void linker_setup_windows(const char ***args_ref, Linker linker_type, con
 	add_plain_arg(compiler.build.win.use_win_subsystem ? "/SUBSYSTEM:WINDOWS" : "/SUBSYSTEM:CONSOLE");
 	if (link_libc()) linking_add_link(&compiler.linking, "dbghelp");
 	if (linker_type == LINKER_CC) return;
-	//add_arg("/MACHINE:X64");
+	add_plain_arg(compiler.platform.arch == ARCH_TYPE_ARM ? "/MACHINE:ARM" : compiler.platform.arch == ARCH_TYPE_AARCH64 ? "/MACHINE:ARM64" 
+		: compiler.platform.arch == ARCH_TYPE_X86 ? "/MACHINE:X86" : "/MACHINE:X64");
 	bool is_debug = false;
+	const char *suffix = NULL;
+	switch (compiler.platform.arch)
+	{
+		case ARCH_TYPE_ARM: suffix = "arm"; break;
+		case ARCH_TYPE_AARCH64: suffix = "arm64"; break;
+		case ARCH_TYPE_X86_64: suffix = "x64"; break;
+		case ARCH_TYPE_X86: suffix = "x86"; break;
+		default: break;
+	}
 	switch (compiler.build.debug_info)
 	{
 		case DEBUG_INFO_NOT_SET:
@@ -109,16 +119,6 @@ static void linker_setup_windows(const char ***args_ref, Linker linker_type, con
 				OUTF("Using MSVC SDK at: %s\n", path);
 			}
 
-			const char *suffix = NULL;
-			switch (compiler.platform.arch)
-			{
-				case ARCH_TYPE_ARM: suffix = "arm"; break;
-				case ARCH_TYPE_AARCH64: suffix = "arm64"; break;
-				case ARCH_TYPE_X86_64: suffix = "x64"; break;
-				case ARCH_TYPE_X86: suffix = "x86"; break;
-				default: break;
-			}
-
 			if (suffix)
 			{
 				char *full_path = file_append_path(path, suffix);
@@ -151,8 +151,8 @@ static void linker_setup_windows(const char ***args_ref, Linker linker_type, con
 			const char *c = strstr(compiler.build.win.vs_dirs, ";");
 			int len = (int)(c - compiler.build.win.vs_dirs);
 			if (!c || !len) error_exit("''win-vs-dirs' override was invalid.");
-			char *um = str_printf("%.*s\\um\\x64", len, compiler.build.win.vs_dirs);
-			char *ucrt = str_printf("%.*s\\ucrt\\x64", len, compiler.build.win.vs_dirs);
+			char *um = str_printf("%.*s\\um\\%s", len, compiler.build.win.vs_dirs, suffix);
+			char *ucrt = str_printf("%.*s\\ucrt\\%s", len, compiler.build.win.vs_dirs, suffix);
 			c++;
 			if (!file_is_dir(um) || !file_is_dir(ucrt) || !file_is_dir(c))
 			{
@@ -169,8 +169,8 @@ static void linker_setup_windows(const char ***args_ref, Linker linker_type, con
 
 			if (!file_is_dir(windows_sdk->vs_library_path)) error_exit("Failed to find windows sdk.");
 
-			char *um = str_printf("%s\\um\\x64", windows_sdk->windows_sdk_path);
-			char *ucrt = str_printf("%s\\ucrt\\x64", windows_sdk->windows_sdk_path);
+			char *um = str_printf("%s\\um\\%s", windows_sdk->windows_sdk_path, suffix);
+			char *ucrt = str_printf("%s\\ucrt\\%s", windows_sdk->windows_sdk_path, suffix);
 
 			add_concat_quote_arg("/LIBPATH:", um);
 			add_concat_quote_arg("/LIBPATH:", ucrt);
@@ -179,8 +179,17 @@ static void linker_setup_windows(const char ***args_ref, Linker linker_type, con
 	}
 
 	// Link sanitizer runtime libraries
+	const char *asan_suffix = NULL;
+	switch (compiler.platform.arch)
+	{
+		case ARCH_TYPE_AARCH64: asan_suffix = "aarch64"; break;
+		case ARCH_TYPE_X86_64: asan_suffix = "x86_64"; break;
+		case ARCH_TYPE_X86: asan_suffix = "i386"; break;
+		default: break;
+	}
 	const char *compiler_path = find_executable_path();
-	const char *asan_dll_src_path = file_append_path(compiler_path, "c3c_rt/clang_rt.asan_dynamic-x86_64.dll");
+	const char *asan_dll_src_name = str_printf("c3c_rt/clang_rt.asan_dynamic-%s.dll", asan_suffix);
+	const char *asan_dll_src_path = file_append_path(compiler_path, asan_dll_src_name);
 	const char *output_dir = "";
 	if (compiler.build.output_dir)
 	{
@@ -191,19 +200,23 @@ static void linker_setup_windows(const char ***args_ref, Linker linker_type, con
 		char *filename;
 		file_namesplit(output_file, &filename, (char**)&output_dir);
 	}
-	const char *asan_dll_dst_path = file_append_path(output_dir, "clang_rt.asan_dynamic-x86_64.dll");
+	const char *asan_dll_dst_name = str_printf("clang_rt.asan_dynamic-%s.dll", asan_suffix);
+	const char *asan_dll_dst_path = file_append_path(output_dir, asan_dll_dst_name);
 	file_delete_file(asan_dll_dst_path);
 	if (compiler.build.feature.sanitize_address)
 	{
 		if (crt_linking == WIN_CRT_STATIC)
 		{
 			// This path is now unreachable due to the check in compiler.c
-			add_concat_file_arg(compiler_path, "c3c_rt/clang_rt.asan-x86_64.lib");
+			const char *asan_crt_lib_path = str_printf("c3c_rt/clang_rt.asan-%s.lib", asan_suffix);
+			add_concat_file_arg(compiler_path, asan_crt_lib_path);
 		}
 		else
 		{
-			add_concat_file_arg(compiler_path, "c3c_rt/clang_rt.asan_dynamic-x86_64.lib");
-			add_concat_file_arg(compiler_path, "c3c_rt/clang_rt.asan_dynamic_runtime_thunk-x86_64.lib");
+			const char *asan_crt_dll_path = str_printf("c3c_rt/clang_rt.asan_dynamic-%s.lib", asan_suffix);
+			const char *asan_crt_dll_tnk_path = str_printf("c3c_rt/clang_rt.asan_dynamic_runtime_thunk-%s.lib", asan_suffix);
+			add_concat_file_arg(compiler_path, asan_crt_dll_path);
+			add_concat_file_arg(compiler_path, asan_crt_dll_tnk_path);
 			DEBUG_LOG("Copying '%s' to '%s'\n", asan_dll_src_path, asan_dll_dst_path);
 			file_copy_file(asan_dll_src_path, asan_dll_dst_path, true);
 		}
