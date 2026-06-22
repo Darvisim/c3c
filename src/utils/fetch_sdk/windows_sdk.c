@@ -253,7 +253,7 @@ static void print_msvc_version(JSONObject *pkg, char out[128])
 	for (int i = 0; i < max_version_segments; i++)
 	{
 		StringSlice v = slice_next_token(&slice, '.');
-		if (slice_strcmp(v, "x86")) break;
+		if (slice_strcmp(v, "x86") || slice_strcmp(v, "ARM64")) break;
 		if (i > 0) strcat(out, ".");
 		strncat(out, v.ptr, v.len);
 	}
@@ -303,7 +303,7 @@ static void collect_versions(JSONObject *pkgs, JSONObject **msvc_vers_out,
 		if (!id_obj) continue;
 		const char *id = id_obj->str;
 		if (str_start_with(id, "Microsoft.VisualStudio.Component.VC.") &&
-			strstr(id, ".x86.x64"))
+			(strstr(id, ".x86.x64") || strstr(id, ".ARM64")))
 		{
 			StringSlice slice = slice_from_string(id);
 			const int id_prefix_segments = 4;
@@ -459,10 +459,11 @@ void fetch_winsdk(BuildOptions *options)
 
 	if (!options->fetch_accept_license)
 	{
+		const char* target = compiler.platform.arch == ARCH_TYPE_AARCH64 ? "aarch64" : "x64";
 #if PLATFORM_WINDOWS
-		printf("To target windows-x64 you need the MSVC SDK.\n");
+		printf("To target windows-%s you need the MSVC SDK.\n", target);
 #else
-		printf("To cross-compile to windows-x64 you need the MSVC SDK.\n");
+		printf("To cross-compile to windows-%s you need the MSVC SDK.\n", target);
 #endif
 		printf("Downloading version %s to %s.\n", full_msvc_v, sdk_output);
 	}
@@ -504,9 +505,10 @@ void fetch_winsdk(BuildOptions *options)
 	const char *msi_names[] = {
 		"Windows SDK for Windows Store Apps Libs-x86_en-us.msi",
 		"Windows SDK Desktop Libs x64-x86_en-us.msi",
+		"Windows SDK Desktop Libs arm64-arm64_en-us.msi",
 		"Universal CRT Headers Libraries and Sources-x86_en-us.msi"};
 
-	JSONObject *msi_packages[3] = {NULL};
+	JSONObject *msi_packages[4] = {NULL};
 	for (int i = 0; i < ELEMENTLEN(msi_names); i++)
 	{
 		FOREACH(JSONObject *, pkg, checked_pkgs)
@@ -528,20 +530,29 @@ void fetch_winsdk(BuildOptions *options)
 	int progress = 0;
 	if (verbose_level == 0) sdk_progress(progress);
 
-	const char *suffixes[] = {"asan.headers.base", "crt.x64.desktop.base", "crt.x64.store.base", "asan.x64.base"};
-	for (int i = 0; i < ELEMENTLEN(suffixes); i++)
+	const char *archs[] = {"x64", "arm64"};
+	const char *arch_suffixes[] = {"asan.headers.base", "crt.%s.desktop.base", "crt.%s.store.base", "asan.%s.base"};
+	for (int i = 0; i < ELEMENTLEN(archs); i++)
 	{
-		char *pid_part = str_printf("microsoft.vc.%s.%s", full_msvc_v, suffixes[i]);
-		JSONObject *best_pkg = find_package_by_id(pkgs, pid_part);
-		if (best_pkg)
+		for (int k = 0; k < ELEMENTLEN(arch_suffixes); k++)
 		{
-			JSONObject *payloads_arr = json_map_get(best_pkg, "payloads");
-			FOREACH_IDX(j, JSONObject *, payload, payloads_arr->elements)
+			bool has_arch = strstr(arch_suffixes[k], "%s") != NULL;
+
+			if (!has_arch && i > 0) continue;
+			char *suffix = has_arch ? str_printf(arch_suffixes[k], archs[i]) : (char *)arch_suffixes[k];
+			char *pid_part = str_printf("microsoft.vc.%s.%s", full_msvc_v, suffix);
+
+			JSONObject *best_pkg = find_package_by_id(pkgs, pid_part);
+			if (best_pkg)
 			{
-				char *zpath = file_append_path(dl_root, str_printf("p%d_%lu.zip", i, (unsigned long)j));
-				if (download_with_verification(json_map_get(payload, "url")->str, pid_part, zpath))
+				JSONObject *payloads_arr = json_map_get(best_pkg, "payloads");
+				FOREACH_IDX(j, JSONObject *, payload, payloads_arr->elements)
 				{
-					extract_msvc_zip(zpath, out_root);
+					char *zpath = file_append_path(dl_root, str_printf("p%d_%s_%lu.zip", k, suffix, (unsigned long)j));
+					if (download_with_verification(json_map_get(payload, "url")->str, pid_part, zpath))
+					{
+						extract_msvc_zip(zpath, out_root);
+					}
 				}
 			}
 		}
@@ -630,12 +641,14 @@ void fetch_winsdk(BuildOptions *options)
 		error_exit("Missing library components");
 	}
 
-	char *sdk_x64 = file_append_path(sdk_output, "x64");
-	dir_make_recursive(sdk_x64);
-
-	copy_to_msvc_sdk(file_append_path(s_ucrt, "x64"), sdk_x64);
-	copy_to_msvc_sdk(file_append_path(s_um, "x64"), sdk_x64);
-	copy_to_msvc_sdk(file_append_path(s_msvc, "x64"), sdk_x64);
+	for (int i = 0; i < ELEMENTLEN(archs); i++)
+	{
+		char *sdk_arch_dir = file_append_path(sdk_output, archs[i]);
+		dir_make_recursive(sdk_arch_dir);
+		copy_to_msvc_sdk(file_append_path(s_ucrt, archs[i]), sdk_arch_dir);
+		copy_to_msvc_sdk(file_append_path(s_um, archs[i]), sdk_arch_dir);
+		copy_to_msvc_sdk(file_append_path(s_msvc, archs[i]), sdk_arch_dir);
+	}
 
 	if (verbose_level >= 0) printf("The 'msvc_sdk' directory was successfully generated at %s.\n", sdk_output);
 
