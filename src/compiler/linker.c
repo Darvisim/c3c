@@ -198,7 +198,7 @@ static void linker_setup_windows(const char ***args_ref, Linker linker_type, con
 		else
 		{
 			const char *asan_crt_dll_path = str_printf("c3c_rt/clang_rt.asan_dynamic-%s.lib", target);
-			const char *asan_crt_dll_tnk_path = str_printf("c3c_rt/clang_rt.asan_dynamic_runtime_thunk-%s.lib", asan_suffix);
+			const char *asan_crt_dll_tnk_path = str_printf("c3c_rt/clang_rt.asan_dynamic_runtime_thunk-%s.lib", target);
 			add_concat_file_arg(compiler_path, asan_crt_dll_path);
 			add_concat_file_arg(compiler_path, asan_crt_dll_tnk_path);
 			DEBUG_LOG("Copying '%s' to '%s'\n", asan_dll_src_path, asan_dll_dst_path);
