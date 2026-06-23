@@ -409,8 +409,16 @@ jobs:
           path: c3-linux-musl-Debug.tar.gz
 
   build-mac:
-    name: macOS (aarch64)
-    runs-on: macos-latest
+    name: macOS (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: aarch64
+            runner: macos-latest
+          - arch: x64
+            runner: macos-15-intel
     steps:
       - uses: actions/checkout@v6
       - name: CMake Build (Release)
@@ -419,11 +427,11 @@ jobs:
           cmake --build build-release
 
       - name: Bundle & Upload (Mac Release)
-        run: bash ./scripts/tools/package_build.sh "./build-release/c3c" "c3-macos-Release" "zip"
+        run: bash ./scripts/tools/package_build.sh "./build-release/c3c" "c3-macos-${{ matrix.arch }}-Release" "zip"
       - uses: actions/upload-artifact@v7
         with:
-          name: c3-macos-Release
-          path: c3-macos-Release.zip
+          name: c3-macos-${{ matrix.arch }}-Release
+          path: c3-macos-${{ matrix.arch }}-Release.zip
 
       - name: CMake Build (Debug)
         run: |
@@ -434,7 +442,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: .cache
-          key: ${{ runner.os }}-freebsd-sysroot-15.0
+          key: ${{ runner.os }}-${{ matrix.arch }}-freebsd-sysroot-15.0
       - name: Run Unified Tests
         run: ./scripts/tools/ci_tests.sh "./build-debug/c3c"
 
@@ -444,11 +452,11 @@ jobs:
           ../../build-debug/c3c build hello_world_lib -vv --trust=full
 
       - name: Bundle & Upload (Mac Debug)
-        run: bash ./scripts/tools/package_build.sh "./build-debug/c3c" "c3-macos-Debug" "zip"
+        run: bash ./scripts/tools/package_build.sh "./build-debug/c3c" "c3-macos-${{ matrix.arch }}-Debug" "zip"
       - uses: actions/upload-artifact@v7
         with:
-          name: c3-macos-Debug
-          path: c3-macos-Debug.zip
+          name: c3-macos-${{ matrix.arch }}-Debug
+          path: c3-macos-${{ matrix.arch }}-Debug.zip
 
   build-openbsd:
     name: OpenBSD (x64) ${{ matrix.version }}
