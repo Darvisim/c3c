@@ -939,9 +939,9 @@ jobs:
       - name: Prepare Assets
         run: |
           for config in Release Debug; do
-            for platform in windows windows-aarch64 macos linux linux-musl linux-static openbsd netbsd android-aarch64 android-x86_64 windows-setup; do
+            for platform in windows windows-aarch64 macos-aarch64 macos-x64 linux linux-musl linux-static openbsd netbsd android-aarch64 android-x86_64 windows-setup; do
               # Windows and macOS produce zip, others tar.gz
-              if [ "$platform" = "windows" ] || [ "$platform" = "windows-aarch64" ] || [ "$platform" = "macos" ]; then
+              if [ "$platform" = "windows" ] || [ "$platform" = "windows-aarch64" ] || [ "$platform" = "macos-*" ]; then
                 ext="zip"
               elif [ "$platform" = "windows-setup" ]; then
                 ext="exe"
