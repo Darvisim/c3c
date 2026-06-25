@@ -174,7 +174,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: .cache
-          key: ${{ runner.os }}-freebsd-sysroot-15.0
+          key: ${{ runner.os }}-${{ matrix.arch }}-freebsd-sysroot-15.0
       - name: Run Unified Tests
         run: ./scripts/tools/ci_tests.sh "./build/c3c"
 
