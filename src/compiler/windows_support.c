@@ -30,7 +30,7 @@ WindowsSDK *windows_get_sdk(void)
 			case ARCH_TYPE_AARCH64: target = "arm64"; break;
 			case ARCH_TYPE_X86_64: target = "x64"; break;
 			case ARCH_TYPE_X86: target = "x86"; break;
-			default: break;
+			default: error_exit("Unsupported target architecture for MSVC.");
 		}
 		loaded = get_windows_paths(target);
 		if (loaded.windows_sdk_path && loaded.vs_library_path)

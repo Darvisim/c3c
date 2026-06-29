@@ -199,11 +199,10 @@ static void linker_setup_windows(const char ***args_ref, Linker linker_type, con
 
 			char *um = str_printf("%s\\um\\%s", windows_sdk->windows_sdk_path, suffix);
 			char *ucrt = str_printf("%s\\ucrt\\%s", windows_sdk->windows_sdk_path, suffix);
-			char *vs_lib = str_printf("%s\\..\\%s", windows_sdk->vs_library_path, suffix);
 
 			add_concat_quote_arg("/LIBPATH:", um);
 			add_concat_quote_arg("/LIBPATH:", ucrt);
-			add_concat_quote_arg("/LIBPATH:", vs_lib);
+			add_concat_quote_arg("/LIBPATH:", windows_sdk->vs_library_path);
 		}
 	}
 
