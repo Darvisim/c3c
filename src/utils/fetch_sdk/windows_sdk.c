@@ -389,6 +389,7 @@ static bool check_license(bool accept_all)
 	if (accept_all) return true;
 	printf("Do you accept the license? https://visualstudio.microsoft.com/license-terms/vs2022-ga-diagnosticbuildtools/"
 	       " (Y/n): ");
+	fflush(stdout);
 	char c = (char)getchar();
 	return (c == 'y' || c == 'Y' || c == '\n');
 }
