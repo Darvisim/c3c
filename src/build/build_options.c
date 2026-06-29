@@ -257,7 +257,7 @@ static void fetch_windows_usage()
 	print_opt("--show-versions", "Show available MSVC and Windows SDK versions.");
 	print_opt("--msvc-version <ver>", "Specify a particular MSVC version to fetch.");
 	print_opt("--sdk-version <ver>", "Specify a particular Windows SDK version to fetch.");
-	print_opt("--arch <arch>", "Target architecture to fetch (x64, arm64). May be specified multiple times. Defaults to x64.");
+	print_opt("--arch <arch>", "Target architecture to fetch (x64, arm64). May be specified multiple times.");
 	PRINTF("");
 }
 
