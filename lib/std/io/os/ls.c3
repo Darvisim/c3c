@@ -8,7 +8,7 @@ fn PathList? native_ls(Path dir, bool no_dirs, bool no_symlinks, String mask, Al
 	DIRPtr directory @noinit;
 	@pool()
 	{
-		directory = posix::opendir(dir.str_view() ? dir.str_view().zstr_tcopy() : (ZString)".");
+		directory = posix::opendir(dir ? dir.zstr_tcopy() : (ZString)".");
 	};
 	defer if (directory) posix::closedir(directory);
 	if (!directory) return (path::is_dir(dir) ? io::CANNOT_READ_DIR : io::FILE_NOT_DIR)~;
@@ -35,14 +35,15 @@ fn PathList? native_ls(Path dir, bool no_dirs, bool no_symlinks, String mask, Al
 
 	@pool()
 	{
-		WString result = dir.str_view().tconcat(`\*`).to_temp_wstring()!!;
+		WString result = dir.tconcat(`\*`).to_temp_wstring()!!;
 		Win32_WIN32_FIND_DATAW find_data;
 		Win32_HANDLE find = win32::findFirstFileW(result, &find_data);
 		if (find == win32::INVALID_HANDLE_VALUE) return io::CANNOT_READ_DIR~;
 		defer win32::findClose(find);
 		do
 		{
-			if (no_dirs && (find_data.dwFileAttributes & win32::FILE_ATTRIBUTE_DIRECTORY)) continue;
+			if (no_dirs && find_data.dwFileAttributes & win32::FILE_ATTRIBUTE_DIRECTORY) continue;
+			if (no_symlinks && find_data.dwFileAttributes & win32::FILE_ATTRIBUTE_REPARSE_POINT) continue;
 			@pool()
 			{
 				String filename = string::tfrom_wstring((WString)&find_data.cFileName)!;

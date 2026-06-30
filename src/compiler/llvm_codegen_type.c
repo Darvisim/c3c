@@ -49,7 +49,7 @@ static inline LLVMTypeRef llvm_type_from_decl(GenContext *c, Decl *decl)
 				vec_add(types, llvm_const_padding_type(c, decl->strukt.padding));
 			}
 			LLVMStructSetBody(type, types, vec_size(types), decl->is_packed);
-			ASSERT_SPAN(decl, llvm_abi_size(c, type) == type_size(decl->type));
+			ASSERT_SPANF(decl, llvm_abi_size(c, type) == type_size(decl->type), "Was %d, expected %d", (int)type_size(decl->type), (int)llvm_abi_size(c, type));
 			return type;
 		}
 		case DECL_UNION:
@@ -63,7 +63,7 @@ static inline LLVMTypeRef llvm_type_from_decl(GenContext *c, Decl *decl)
 
 				Decl *rep_type = members[decl->strukt.union_rep];
 				LLVMTypeRef type_ref[2] = {
-						llvm_get_type(c, rep_type->type),
+						llvm_get_type(c, lowered_member_type(rep_type)),
 						NULL
 				};
 				unsigned elements = 1;
@@ -230,12 +230,8 @@ LLVMTypeRef llvm_update_prototype_abi(GenContext *c, FunctionPrototype *prototyp
 			retval = llvm_get_type(c, type_void);
 			break;
 		case ABI_ARG_DIRECT_PAIR:
-		{
-			LLVMTypeRef lo = llvm_abi_type(c, ret_arg_info->direct_pair.lo);
-			LLVMTypeRef hi = llvm_abi_type(c, ret_arg_info->direct_pair.hi);
-			retval = llvm_get_twostruct(c, lo, hi);
+			retval = llvm_get_coerce_type(c, ret_arg_info);
 			break;
-		}
 		case ABI_ARG_DIRECT:
 			retval = llvm_get_type(c, call_return_type);
 			break;
@@ -309,6 +305,7 @@ LLVMTypeRef llvm_get_type(GenContext *c, Type *any_type)
 	switch (any_type->type_kind)
 	{
 		case LOWERED_TYPES:
+		case TYPE_UNTYPEDLIST:
 			// If this is reachable, then we're not doing the proper lowering.
 			UNREACHABLE_VOID
 		case TYPE_STRUCT:
@@ -626,7 +623,7 @@ LLVMValueRef llvm_get_typeid(GenContext *c, Type *type)
 		case TYPE_OPTIONAL:
 			return llvm_generate_introspection_global(c, NULL, type, INTROSPECT_TYPE_OPTIONAL, type->optional, 0, NULL, false);
 		case TYPE_FLEXIBLE_ARRAY:
-			return llvm_generate_introspection_global(c, NULL, type, INTROSPECT_TYPE_ARRAY, type->array.base, 0, NULL, false);
+			return llvm_generate_introspection_global(c, NULL, type, INTROSPECT_TYPE_ARRAY, type->array.base->canonical, 0, NULL, false);
 		case VECTORS:
 			return llvm_generate_introspection_global(c, NULL, type, INTROSPECT_TYPE_VECTOR, type->array.base, type->array.len, NULL, false);
 		case TYPE_ARRAY:
@@ -640,11 +637,11 @@ LLVMValueRef llvm_get_typeid(GenContext *c, Type *type)
 		case TYPE_POINTER:
 			return llvm_generate_introspection_global(c, NULL, type, INTROSPECT_TYPE_POINTER, type->pointer, 0, NULL, false);
 		case TYPE_TYPEDEF:
-			return llvm_generate_introspection_global(c, NULL, type, INTROSPECT_TYPE_DISTINCT, type_inline(type), 0, NULL, false);
+			return llvm_generate_introspection_global(c, NULL, type, INTROSPECT_TYPE_DISTINCT, type_inline(type)->canonical, 0, NULL, false);
 		case TYPE_ENUM:
 			return llvm_get_introspection_for_enum(c, type);
 		case TYPE_CONSTDEF:
-			return llvm_generate_introspection_global(c, NULL, type, INTROSPECT_TYPE_CONSTDEF, type_inline(type), vec_size(type->decl->enums.values), NULL, false);
+			return llvm_generate_introspection_global(c, NULL, type, INTROSPECT_TYPE_CONSTDEF, type_inline(type)->canonical, vec_size(type->decl->enums.values), NULL, false);
 		case TYPE_STRUCT:
 		case TYPE_UNION:
 			return llvm_get_introspection_for_struct_union(c, type);
@@ -661,10 +658,12 @@ LLVMValueRef llvm_get_typeid(GenContext *c, Type *type)
 		case TYPE_BITSTRUCT:
 		{
 			LLVMValueRef ref = llvm_generate_temp_introspection_global(c, type);
-			return llvm_generate_introspection_global(c, ref, type, INTROSPECT_TYPE_BITSTRUCT, type->decl->strukt.container_type->type, 0, NULL, false);
+			return llvm_generate_introspection_global(c, ref, type, INTROSPECT_TYPE_BITSTRUCT, type->decl->strukt.container_type->type->canonical, 0, NULL, false);
 		}
 		case TYPE_ALIAS:
 			return llvm_get_typeid(c, type->canonical);
+		case TYPE_UNTYPEDLIST:
+			return llvm_get_introspection_for_builtin_type(c, type, INTROSPECT_TYPE_UNTYPEDLIST, 0);
 		case CT_TYPES:
 			UNREACHABLE_VOID
 		case TYPE_VOID:

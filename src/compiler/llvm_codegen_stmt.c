@@ -156,6 +156,22 @@ void llvm_emit_local_decl(GenContext *c, Decl *decl, BEValue *value)
 	// If the variable has a no-init, then set the value to undef.
 	if (decl->var.no_init)
 	{
+		if (safe_mode_enabled())
+		{
+			switch (var_type->type_kind)
+			{
+				case ALL_FLOATS:
+					llvm_value_set_decl_address(c, value, decl);
+					llvm_store_raw(c, value, LLVMConstRealOfString(alloc_type, "nan"));
+					break;
+				case TYPE_U8:
+					llvm_value_set_decl_address(c, value, decl);
+					llvm_store_raw(c, value, LLVMConstInt(alloc_type, 0xFF, false));
+					break;
+				default:
+					break;
+			}
+		}
 		llvm_value_set(value, LLVMGetUndef(alloc_type), decl->type);
 		if (is_optional)
 		{
@@ -779,7 +795,7 @@ static LLVMValueRef llvm_emit_switch_jump_stmt(GenContext *c,
 	c->current_block = NULL;
 	llvm_emit_block(c, switch_block);
 	AlignSize align;
-	LLVMValueRef index = llvm_emit_array_gep_raw_index(c, jump_table, type_voidptr, switch_value, type_abi_alignment(type_voidptr), &align);
+	LLVMValueRef index = llvm_emit_array_gep_raw_index(c, jump_table, switch_value, type_abi_alignment(type_voidptr), &align, type_size(type_voidptr));
 	LLVMValueRef addr = llvm_load(c, c->ptr_type, index, align, "target");
 	LLVMValueRef instr = LLVMBuildIndirectBr(c->builder, addr, case_count);
 	c->current_block = NULL;
@@ -1446,7 +1462,7 @@ static inline void llvm_emit_asm_block_stmt(GenContext *c, Ast *ast)
 										   clobbers,
 										   strlen(clobbers),
 										   ast->asm_block_stmt.is_volatile,
-										   true,
+										   ast->asm_block_stmt.is_aligned,
 										   LLVMInlineAsmDialectATT,
 										   /* can throw */ false
 										   );
@@ -1608,7 +1624,6 @@ void llvm_emit_panic_if_true(GenContext *c, BEValue *value, const char *panic_na
 		{
 			return;
 		}
-		sema_warning_at(loc, "The code here was detected to always panic at runtime.");
 		always_panic = true;
 	}
 	if (llvm_is_global_eval(c) || !c->current_block) return;

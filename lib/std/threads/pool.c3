@@ -1,7 +1,7 @@
 module std::thread::pool <SIZE>;
 import std::thread;
 
-struct ThreadPool
+struct ThreadPool @deprecated
 {
 	Mutex mu;
 	QueueItem[SIZE] queue;
@@ -67,7 +67,7 @@ fn void ThreadPool.join(&self)
 *>
 fn void ThreadPool.destroy(&self)
 {
-	self.@shutdown(self.stop_now);
+	@_threadPool_shutdown(self, self.stop_now);
 }
 
 <*
@@ -76,10 +76,10 @@ fn void ThreadPool.destroy(&self)
 *>
 fn void ThreadPool.stop_and_destroy(&self)
 {
-	self.@shutdown(self.stop);
+	@_threadPool_shutdown(self, self.stop);
 }
 
-macro void ThreadPool.@shutdown(&self, #stop) @private
+macro void @_threadPool_shutdown(ThreadPool* self, #stop) @private
 {
 	if (self.initialized)
 	{
@@ -107,7 +107,7 @@ macro void ThreadPool.@shutdown(&self, #stop) @private
 
 <*
  Push a new job to the pool.
- Returns whether the queue is full, in which case the job is ignored.
+ Blocks the current thread if the queue is full.
 *>
 fn void ThreadPool.push(&self, ThreadFn func, void* arg)
 {

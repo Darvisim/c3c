@@ -1,12 +1,12 @@
 <*
- @require Enum.kindof == TypeKind.ENUM : "Only enums may be used with an enummap"
+ @require Enum::kind == TypeKind.ENUM : "Only enums may be used with an enummap"
 *>
 module std::collections::enummap <Enum, ValueType>;
 import std::io;
 
 struct EnumMap (Printable)
 {
-	ValueType[Enum.values.len] values;
+	ValueType[Enum::len] values;
 }
 
 fn void EnumMap.init(&self, ValueType init_value)
@@ -22,8 +22,8 @@ fn sz? EnumMap.to_format(&self, Formatter* formatter) @dynamic
 	sz n = formatter.print("{ ")!;
 	foreach (i, &value : self.values)
 	{
-		if (i != 0) formatter.print(", ")!;
-		n += formatter.printf("%s: %s", Enum.from_ordinal(i), *value)!;
+		if (i != 0) n += formatter.print(", ")!;
+		n += formatter.printf("%s: %s", Enum::from_ordinal(i), *value)!;
 	}
 	n += formatter.print(" }")!;
 	return n;

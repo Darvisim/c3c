@@ -6,12 +6,12 @@
  then free the pointer and the atomic variable assuming that they are allocated using the Allocator in the Ref.
 
  @require !$defined(Type.dealloc) ||| $defined(Type.dealloc(&&(Type){})) : "'dealloc' must only take a pointer to the underlying type"
- @require !$defined(Type.dealloc) ||| $typeof((Type){}.dealloc()) ==  void : "'dealloc' must return 'void'"
+ @require !$defined(Type.dealloc) ||| $Typeof((Type){}.dealloc()) ==  void : "'dealloc' must return 'void'"
 *>
 module std::core::mem::ref <Type>;
 import std::thread, std::atomic;
 
-const OVERALIGNED @private = Type.alignof > mem::DEFAULT_MEM_ALIGNMENT;
+const OVERALIGNED @private = Type::alignment > mem::DEFAULT_MEM_ALIGNMENT;
 
 alias DeallocFn = fn void(void*);
 
@@ -29,17 +29,17 @@ macro Ref new(Allocator allocator, #init = ...) @nodiscard @safemacro
 {
 	$if $defined(#init):
 		$if OVERALIGNED:
-			Type* ptr = alloc::malloc_aligned(allocator, Type.sizeof, Type.alignof)!!;
+			Type* ptr = alloc::malloc_aligned(allocator, Type::size, Type::alignment)!!;
 			*ptr = #init;
 		$else
-			Type* ptr = alloc::malloc(allocator, Type.sizeof);
+			Type* ptr = alloc::malloc(allocator, Type::size);
 			*ptr = #init;
 		$endif
 	$else
 		$if OVERALIGNED:
-			Type* ptr = alloc::calloc_aligned(allocator, Type.sizeof, Type.alignof)!!;
+			Type* ptr = alloc::calloc_aligned(allocator, Type::size, Type::alignment)!!;
 		$else
-			Type* ptr = alloc::calloc(allocator, Type.sizeof);
+			Type* ptr = alloc::calloc(allocator, Type::size);
 		$endif
 	$endif
 	return { .refcount = alloc::new(allocator, Atomic{int}), .ptr = ptr, .allocator = allocator };
@@ -64,7 +64,7 @@ fn void Ref.release(&self)
 {
 	assert(self.refcount != null, "Reference already released");
     assert(self.refcount.load(RELAXED) >= 0, "Overrelease of refcount");
-	if (self.refcount.sub(1, RELAXED) == 0)
+	if (self.refcount.sub(1, RELEASE) == 0)
 	{
 		thread::fence(ACQUIRE);
 		$if $defined(Type.dealloc):
@@ -115,14 +115,14 @@ macro retain(refcounted)
 
 <*
  @require $defined(RefCounted* c = refcounted) : "Expected a ref counted value"
- @require !$defined(refcounted.dealloc()) ||| $typeof(refcounted.dealloc()) == void
+ @require !$defined(refcounted.dealloc()) ||| $Typeof(refcounted.dealloc()) == void
    : "Expected refcounted type to have a valid dealloc"
 *>
 macro void release(refcounted)
 {
 	if (!refcounted) return;
 	assert(refcounted.refcount.load(RELAXED) >= 0, "Overrelease of refcount");
-	if (refcounted.refcount.sub(1, RELAXED) == 0)
+	if (refcounted.refcount.sub(1, RELEASE) == 0)
 	{
 		thread::fence(ACQUIRE);
 		$if $defined(refcounted.dealloc):

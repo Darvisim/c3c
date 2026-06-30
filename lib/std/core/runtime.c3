@@ -22,18 +22,10 @@ struct SliceRaw
 	sz len;
 }
 
-macro @enum_lookup($Type, #value, value)
+macro @enum_lookup($Type, $name, value)
 {
-	$foreach $val : $Type.values:
-		if ($val.#value == value) return $val;
-	$endforeach
-	return NOT_FOUND~;
-}
-
-macro @enum_lookup_new($Type, $name, value)
-{
-	$foreach $val : $Type.values:
-		if ($val.$eval($name) == value) return $val;
+	$foreach $val : $Type::values:
+		if ($val.$name == value) return $val;
 	$endforeach
 	return NOT_FOUND~;
 }
@@ -46,4 +38,17 @@ fn void wasm_initialize() @cname("_initialize") @wasm
 {
 	// The linker synthesizes this to call constructors.
 	__wasm_call_ctors();
+}
+
+module std::core::runtime @if(env::EMSCRIPTEN);
+
+extern fn void __wasm_call_ctors();
+fn void wasm_emscripten_initialize() @cname("_initialize") @wasm
+{
+	__wasm_call_ctors();
+}
+
+fn CInt atexit(void* func) @weak @cname("atexit")
+{
+	return 0;
 }

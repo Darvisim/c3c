@@ -3,11 +3,11 @@
 // a copy of which can be found in the LICENSE_STDLIB file.
 <*
  @require SIZE > 0 : "The size of the bitset in bits must be at least 1"
- @require SIZE / (uint.sizeof * 8) < uint.max
+ @require SIZE / (uint::size * 8) < uint::max
 *>
 module std::collections::bitset <SIZE>;
 
-const BITS = uint.sizeof * 8;
+const BITS = uint::size * 8;
 const SZ = (SIZE + BITS - 1) / BITS;
 
 struct BitSet
@@ -171,12 +171,12 @@ fn void BitSet.set_bool(&self, sz i, bool value) @operator([]=) @inline
 }
 
 <*
- @require Type.kindof == UNSIGNED_INT
+ @require Type::kind == UNSIGNED_INT
 *>
 module std::collections::growablebitset <Type>;
 import std::collections::list;
 
-const BITS = Type.sizeof * 8;
+const BITS = Type::size * 8;
 
 alias GrowableBitSetList = List{Type};
 
@@ -186,7 +186,7 @@ struct GrowableBitSet
 }
 
 <*
- @param initial_capacity : "The initial capcity of the underlying list"
+ @param initial_capacity : "The initial capacity of the underlying list"
  @param [&inout] allocator : "The allocator to use"
 
  @require initial_capacity > 0 : "The initial capacity must be at least 1"
@@ -198,7 +198,7 @@ fn GrowableBitSet* GrowableBitSet.init(&self, Allocator allocator, sz initial_ca
 }
 
 <*
- @param initial_capacity : "The initial capcity of the underlying list"
+ @param initial_capacity : "The initial capacity of the underlying list"
 
  @require initial_capacity > 0 : "The initial capacity must be at least 1"
 *>
@@ -242,7 +242,7 @@ fn void GrowableBitSet.set(&self, sz i)
 		self.data.push(0);
 		current_len++;
 	}
-	self.data.set(q, self.data[q] | (1u << r));
+	self.data.set(q, self.data[q] | ((Type)1 << r));
 }
 
 <*
@@ -257,7 +257,7 @@ fn void GrowableBitSet.unset(&self, sz i)
 	sz q = i / BITS;
 	uint r = (uint)(i % BITS);
 	if (q >= self.data.len()) return;
-	self.data.set(q, self.data[q] &~ (1u << r));
+	self.data.set(q, self.data[q] &~ ((Type)1 << r));
 }
 
 fn bool GrowableBitSet.get(&self, sz i) @operator([]) @inline
@@ -265,14 +265,30 @@ fn bool GrowableBitSet.get(&self, sz i) @operator([]) @inline
 	sz q = i / BITS;
 	uint r = (uint)(i % BITS);
 	if (q >= self.data.len()) return false;
-	return self.data[q] & (1u << r) != 0;
+	return self.data[q] & ((Type)1 << r) != 0;
 }
 
+<*
+ @return "Total number of (currently) available bits."
+*>
 fn sz GrowableBitSet.len(&self) @operator(len)
 {
-	sz n = self.data.len() * BITS;
-	if (n > 0) n -= (sz)self.data[^1].clz();
-	return n;
+	return self.data.len() * BITS;
+}
+
+<*
+ @return "Number of bits needed to represent the set, i.e. highest set bit index + 1, or 0 if empty."
+*>
+fn sz GrowableBitSet.max_bit_set(&self)
+{
+	sz data_len = self.data.len();
+	if (!data_len) return 0;
+	sz index = data_len - 1;
+	while (index > 0 && !self.data[index]) index--;
+	if (index == -1) return 0;
+	sz leading_zeroes = self.data[index].clz();
+	if (index == 0) return BITS - leading_zeroes;
+	return (index + 1) * BITS - leading_zeroes;
 }
 
 fn void GrowableBitSet.set_bool(&self, sz i, bool value) @operator([]=) @inline

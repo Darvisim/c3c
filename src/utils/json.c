@@ -3,12 +3,12 @@
 
 #define PRINTF(file, string, ...) fprintf(file, string, ##__VA_ARGS__) /* NOLINT */
 
-JSONObject error = { .type = J_ERROR };
+JSONObject error_val = { .type = J_ERROR };
 JSONObject true_val = { .type = J_BOOL, .b = true };
 JSONObject false_val = { .type = J_BOOL, .b = false };
 JSONObject zero_val = { .type = J_NUMBER, .f = 0.0 };
 
-#define CONSUME(token_) do { if (!consume(parser, token_)) { json_error(parser, "Unexpected character encountered."); return &error; } } while(0)
+#define CONSUME(token_) do { if (!consume(parser, token_)) { json_error(parser, "Unexpected character encountered."); return &error_val; } } while(0)
 
 static inline void json_skip_whitespace(JsonParser *parser)
 {
@@ -281,7 +281,7 @@ JSONObject *json_parse_array(JsonParser *parser)
 	while (1)
 	{
 		JSONObject *parsed = json_parse(parser);
-		if (parser->error_message) return &error;
+		if (parser->error_message) return &error_val;
 		vec_add(array->elements, parsed);
 
 		if (consume(parser, T_RBRACKET)) break;
@@ -354,7 +354,7 @@ JSONObject *json_map_get(JSONObject *obj, const char *key)
 
 JSONObject *json_parse(JsonParser *parser)
 {
-	if (parser->error_message) return &error;
+	if (parser->error_message) return &error_val;
 	switch (parser->current_token_type)
 	{
 		case T_EOF:
@@ -414,7 +414,7 @@ void json_init_string(JsonParser *parser, const char *str)
 
 bool is_freable(JSONObject *obj)
 {
-	if (obj == &error) return false;
+	if (obj == &error_val) return false;
 	if (obj == &true_val) return false;
 	if (obj == &false_val) return false;
 	if (obj == &zero_val) return false;
@@ -509,5 +509,38 @@ static inline void print_json(JSONObject *obj, int indent_level, FILE *file)
 void print_json_to_file(JSONObject *obj, FILE *file)
 {
 	print_json(obj, 0, file);
+}
+
+void json_write_string(FILE *file, const char *str)
+{
+	if (!str)
+	{
+		fputs("null", file);
+		return;
+	}
+	fputs("\"", file);
+	while (*str)
+	{
+		switch (*str)
+		{
+			case '"': fputs("\\\"", file); break;
+			case '\\': fputs("\\\\", file); break;
+			case '\n': fputs("\\n", file); break;
+			case '\r': fputs("\\r", file); break;
+			case '\t': fputs("\\t", file); break;
+			default:
+				if ((unsigned char)*str < 32)
+				{
+					fprintf(file, "\\u%04x", *str);
+				}
+				else
+				{
+					fputc(*str, file);
+				}
+				break;
+		}
+		str++;
+	}
+	fputs("\"", file);
 }
 

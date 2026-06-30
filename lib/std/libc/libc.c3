@@ -63,8 +63,8 @@ const CInt SIGFPE = 8;
 const CInt SIGSEGV = 11;
 const CInt SIGTERM = 15;
 
-alias Time_t = $typefrom(env::WIN32 ? long.typeid : CLong.typeid);
-alias Off_t = $typefrom(env::WIN32 ? int.typeid : sz.typeid);
+alias Time_t = env::WIN32 || env::EMSCRIPTEN ? long : CLong;
+alias Off_t = env::WIN32 || env::EMSCRIPTEN ? long : sz;
 
 module libc @if(env::LIBC);
 
@@ -118,7 +118,7 @@ extern fn CLong labs(CLong x);
 extern fn LongDivResult ldiv(CLong number, CLong denom);
 extern fn Tm* localtime(Time_t* timer);
 extern fn Tm* localtime_r(Time_t* timer, Tm* result) @if(!env::WIN32 && !env::NETBSD);
-extern fn void longjmp(JmpBuf* buffer, CInt value) @if(!env::NETBSD && !env::OPENBSD);
+extern fn void longjmp(JmpBuf* buffer, CInt value) @if(!env::NETBSD && !env::OPENBSD && !env::EMSCRIPTEN);
 extern fn void* malloc(usz size);
 extern fn void* memchr(void* str, CInt c, usz n);
 extern fn CInt memcmp(void* buf1, void* buf2, usz count);
@@ -144,7 +144,7 @@ extern fn void rewind(CFile stream);
 extern fn CInt scanf(ZString format, ...);
 extern fn void setbuf(CFile stream, char* buffer);
 extern fn int setenv(ZString name, ZString value, CInt overwrite);
-extern fn CInt setjmp(JmpBuf* buffer) @if(!env::WIN32 && !env::NETBSD && !env::OPENBSD);
+extern fn CInt setjmp(JmpBuf* buffer) @if(!env::WIN32 && !env::NETBSD && !env::OPENBSD && !env::EMSCRIPTEN);
 extern fn void setvbuf(CFile stream, char* buf, CInt type, usz size);
 extern fn SignalFunction signal(CInt sig, SignalFunction function);
 extern fn CInt snprintf(char* buffer, usz size, ZString format, ...);
@@ -196,7 +196,7 @@ const CInt STDIN_FD = 0;
 const CInt STDOUT_FD = 1;
 const CInt STDERR_FD = 2;
 
-module libc @if(env::LINUX || env::ANDROID);
+module libc @if(env::LINUX || env::ANDROID || env::EMSCRIPTEN);
 extern CFile __stdin @cname("stdin");
 extern CFile __stdout @cname("stdout");
 extern CFile __stderr @cname("stderr");
@@ -206,6 +206,24 @@ extern fn void* aligned_alloc(usz align, usz size);
 macro CFile stdin() => __stdin;
 macro CFile stdout() => __stdout;
 macro CFile stderr() => __stderr;
+
+// WebAssembly doesn't natively support setjmp/longjmp.
+// Emscripten emulates them using JS exceptions, but this requires running
+// LLVM's `wasm-emscripten-sjlj` lowering pass to instrument caller functions
+// so they can actually catch the JS throw.
+//
+// Since c3c doesn't currently inject this pass into the LLVM pipeline,
+// binding directly to __wasm_setjmp or emscripten_longjmp will crash
+// with `unreachable` when the JS exception unwinds.
+//
+// For now, longjmp is stubbed to just exit cleanly.
+// See: https://emscripten.org/docs/porting/setjmp-longjmp.html
+// See: https://llvm.org/docs/ExceptionHandling.html#setjmp-longjmp-exception-handling-in-webassembly
+module libc @if(env::EMSCRIPTEN);
+import std::os;
+fn int setjmp(JmpBuf* ptr) => 0;
+fn void longjmp(JmpBuf* ptr, int i) => os::exit(i);
+
 
 module libc @if(env::NETBSD || env::OPENBSD);
 extern fn int fcntl(CInt socket, int cmd, ...);
@@ -246,7 +264,7 @@ macro CFile stdin() => __acrt_iob_func(STDIN_FD);
 macro CFile stdout() => __acrt_iob_func(STDOUT_FD);
 macro CFile stderr() => __acrt_iob_func(STDERR_FD);
 
-module libc @if(env::LIBC && !env::WIN32 && !env::LINUX && !env::ANDROID && !env::DARWIN && !env::BSD_FAMILY);
+module libc @if(env::LIBC && !env::WIN32 && !env::LINUX && !env::ANDROID && !env::DARWIN && !env::BSD_FAMILY && !env::EMSCRIPTEN);
 macro CFile stdin() { return (CFile*)(uptr)STDIN_FD; }
 macro CFile stdout() { return (CFile*)(uptr)STDOUT_FD; }
 macro CFile stderr() { return (CFile*)(uptr)STDERR_FD; }
@@ -264,6 +282,7 @@ fn CInt setjmp(JmpBuf* buffer) @weak @cname("setjmp") @nostrip
 {
 	unreachable("setjmp unavailable");
 }
+
 
 fn void* malloc(usz size) @weak @cname("malloc") @nostrip
 {
@@ -376,7 +395,7 @@ const int EOF = -1;
 const int FOPEN_MAX = 20;
 const int FILENAME_MAX = 1024;
 
-macro bool libc_S_ISTYPE(value, mask) @builtin => (value & S_IFMT) == mask;
+macro bool libc_S_ISTYPE(value, mask) @builtin => ((uint)value & (uint)S_IFMT) == ((uint)mask);
 const S_IFMT   = 0o170000; // type of file mask
 const S_IFIFO  = 0o010000; // named pipe (fifo)
 const S_IFCHR  = 0o020000; // character special
@@ -714,7 +733,253 @@ constdef Errno : inline CInt @if(env::WIN32)
 }
 
 
-constdef Errno : inline CInt @if(!env::WIN32 && !env::DARWIN && !env::NETBSD)
+constdef Errno : inline CInt @if(env::EMSCRIPTEN)
+{
+	OK                       = 0, // No error occurred. System call completed successfully.
+	E2BIG                    = 1, // Argument list too long.
+	EACCES                   = 2, // Permission denied.
+	EADDRINUSE               = 3, // Address in use.
+	EADDRNOTAVAIL            = 4, // Address not available.
+	EAFNOSUPPORT             = 5, // Address family not supported.
+	EAGAIN                   = 6, // Resource unavailable, or operation would block.
+	EWOULDBLOCK              = 6, // Operation would block
+	EALREADY                 = 7, // Connection already in progress.
+	EBADF                    = 8, // Bad file descriptor.
+	EBADMSG                  = 9, // Bad message.
+	EBUSY                    = 10, // Device or resource busy.
+	ECANCELED                = 11, // Operation canceled.
+	ECHILD                   = 12, // No child processes.
+	ECONNABORTED             = 13, // Connection aborted.
+	ECONNREFUSED             = 14, // Connection refused.
+	ECONNRESET               = 15, // Connection reset.
+	EDEADLK                  = 16, // Resource deadlock would occur.
+	EDEADLOCK                = 16, // Resource deadlock would occur
+	EDESTADDRREQ             = 17, // Destination address required.
+	EDOM                     = 18, // Mathematics argument out of domain of function.
+	EDQUOT                   = 19, // Reserved.
+	EEXIST                   = 20, // File exists.
+	EFAULT                   = 21, // Bad address.
+	EFBIG                    = 22, // File too large.
+	EHOSTUNREACH             = 23, // Host is unreachable.
+	EIDRM                    = 24, // Identifier removed.
+	EILSEQ                   = 25, // Illegal byte sequence.
+	EINPROGRESS              = 26, // Operation in progress.
+	EINTR                    = 27, // Interrupted function.
+	EINVAL                   = 28, // Invalid argument.
+	EIO                      = 29, // I/O error.
+	EISCONN                  = 30, // Socket is connected.
+	EISDIR                   = 31, // Is a directory.
+	ELOOP                    = 32, // Too many levels of symbolic links.
+	EMFILE                   = 33, // File descriptor value too large.
+	EMLINK                   = 34, // Too many links.
+	EMSGSIZE                 = 35, // Message too long.
+	EMULTIHOP                = 36, // Reserved.
+	ENAMETOOLONG             = 37, // Filename too long.
+	ENETDOWN                 = 38, // Network is down.
+	ENETRESET                = 39, // Connection aborted by network.
+	ENETUNREACH              = 40, // Network unreachable.
+	ENFILE                   = 41, // Too many files open in system.
+	ENOBUFS                  = 42, // No buffer space available.
+	ENODEV                   = 43, // No such device.
+	ENOENT                   = 44, // No such file or directory.
+	ENOEXEC                  = 45, // Executable file format error.
+	ENOLCK                   = 46, // No locks available.
+	ENOLINK                  = 47, // Reserved.
+	ENOMEM                   = 48, // Not enough space.
+	ENOMSG                   = 49, // No message of the desired type.
+	ENOPROTOOPT              = 50, // Protocol not available.
+	ENOSPC                   = 51, // No space left on device.
+	ENOSYS                   = 52, // Function not supported.
+	ENOTCONN                 = 53, // The socket is not connected.
+	ENOTDIR                  = 54, // Not a directory or a symbolic link to a directory.
+	ENOTEMPTY                = 55, // Directory not empty.
+	ENOTRECOVERABLE          = 56, // State not recoverable.
+	ENOTSOCK                 = 57, // Not a socket.
+	ENOTTY                   = 59, // Inappropriate I/O control operation.
+	ENXIO                    = 60, // No such device or address.
+	EOVERFLOW                = 61, // Value too large to be stored in data type.
+	EOWNERDEAD               = 62, // Previous owner died.
+	EPERM                    = 63, // Operation not permitted.
+	EPIPE                    = 64, // Broken pipe.
+	EPROTO                   = 65, // Protocol error.
+	EPROTONOSUPPORT          = 66, // Protocol not supported.
+	EPROTOTYPE               = 67, // Protocol wrong type for socket.
+	ERANGE                   = 68, // Result too large.
+	EROFS                    = 69, // Read-only file system.
+	ESPIPE                   = 70, // Invalid seek.
+	ESRCH                    = 71, // No such process.
+	ESTALE                   = 72, // Reserved.
+	ETIMEDOUT                = 73, // Connection timed out.
+	ETXTBSY                  = 74, // Text file busy.
+	EXDEV                    = 75, // Cross-device link.
+	ENOTCAPABLE              = 76, // Extension: Capabilities insufficient.
+	ENOSTR                   = 100, // Not a STREAM
+	EBFONT                   = 101, // Format of font file is unknown
+	EBADSLT                  = 102, // Invalid slot
+	EBADRQC                  = 103, // Invalid request code
+	ENOANO                   = 104, // No anode
+	ENOTBLK                  = 105, // Block device required
+	ECHRNG                   = 106, // Channel number out of range
+	EL3HLT                   = 107, // Level 3 halted
+	EL3RST                   = 108, // Level 3 reset
+	ELNRNG                   = 109, // Link number out of range
+	EUNATCH                  = 110, // Protocol driver not attached
+	ENOCSI                   = 111, // No CSI structure available
+	EL2HLT                   = 112, // Level 2 halted
+	EBADE                    = 113, // Invalid exchange
+	EBADR                    = 114, // Invalid request descriptor
+	EXFULL                   = 115, // Exchange full
+	ENODATA                  = 116, // No data available
+	ETIME                    = 117, // Timer expired
+	ENOSR                    = 118, // Out of streams resources
+	ENONET                   = 119, // Machine is not on the network
+	ENOPKG                   = 120, // Package not installed
+	EREMOTE                  = 121, // Object is remote
+	EADV                     = 122, // Advertise error
+	ESRMNT                   = 123, // Srmount error
+	ECOMM                    = 124, // Communication error on send
+	EDOTDOT                  = 125, // RFS specific error
+	ENOTUNIQ                 = 126, // Name not unique on network
+	EBADFD                   = 127, // File descriptor in bad state
+	EREMCHG                  = 128, // Remote address changed
+	ELIBACC                  = 129, // Can not access a needed shared library
+	ELIBBAD                  = 130, // Accessing a corrupted shared library
+	ELIBSCN                  = 131, // .lib section in a.out corrupted
+	ELIBMAX                  = 132, // Attempting to link in too many shared libraries
+	ELIBEXEC                 = 133, // Cannot exec a shared library directly
+	ERESTART                 = 134, // Interrupted system call should be restarted
+	ESTRPIPE                 = 135, // Streams pipe error
+	EUSERS                   = 136, // Too many users
+	ESOCKTNOSUPPORT          = 137, // Socket type not supported
+	ENOTSUP                  = 138, // Not supported.
+	EOPNOTSUPP               = ENOTSUP, // Operation not supported on socket.
+	EPFNOSUPPORT             = 139, // Protocol family not supported
+	ESHUTDOWN                = 140, // Cannot send after transport endpoint shutdown
+	ETOOMANYREFS             = 141, // Too many references: cannot splice
+	EHOSTDOWN                = 142, // Host is down
+	EUCLEAN                  = 143, // Structure needs cleaning
+	ENOTNAM                  = 144, // Not a XENIX named type file
+	ENAVAIL                  = 145, // No XENIX semaphores available
+	EISNAM                   = 146, // Is a named type file
+	EREMOTEIO                = 147, // Remote I/O error
+	ENOMEDIUM                = 148, // No medium found
+	EMEDIUMTYPE              = 149, // Wrong medium type
+	ENOKEY                   = 150, // Required key not available
+	EKEYEXPIRED              = 151, // Key has expired
+	EKEYREVOKED              = 152, // Key has been revoked
+	EKEYREJECTED             = 153, // Key was rejected by service
+	ERFKILL                  = 154, // Operation not possible due to RF-kill
+	EHWPOISON                = 155, // Memory page has hardware error
+	EL2NSYNC                 = 156, // Level 2 not synchronized
+}
+
+
+constdef Errno : inline CInt @if(env::FREEBSD)
+{
+	OK                       = 0,
+	EPERM                    = 1, // Operation not permitted
+	ENOENT                   = 2, // No such file or directory
+	ESRCH                    = 3, // No such process
+	EINTR                    = 4, // Interrupted system call
+	EIO                      = 5, // I/O error
+	ENXIO                    = 6, // No such device or address
+	E2BIG                    = 7, // Argument list too long
+	ENOEXEC                  = 8, // Exec format error
+	EBADF                    = 9, // Bad file number
+	ECHILD                   = 10, // No child processes
+	EDEADLK                  = 11, // Resource deadlock avoided
+	ENOMEM                   = 12, // Out of memory
+	EACCES                   = 13, // Permission denied
+	EFAULT                   = 14, // Bad address
+	ENOTBLK                  = 15, // Block device required, not on Win32
+	EBUSY                    = 16, // Device or resource busy
+	EEXIST                   = 17, // File exists
+	EXDEV                    = 18, // Cross-device link
+	ENODEV                   = 19, // No such device
+	ENOTDIR                  = 20, // Not a directory
+	EISDIR                   = 21, // Is a directory
+	EINVAL                   = 22, // Invalid argument
+	ENFILE                   = 23, // File table overflow
+	EMFILE                   = 24, // Too many open files
+	ENOTTY                   = 25, // Not a typewriter
+	ETXTBSY                  = 26, // Text file busy, not on Win32
+	EFBIG                    = 27, // File too large
+	ENOSPC                   = 28, // No space left on device
+	ESPIPE                   = 29, // Illegal seek
+	EROFS                    = 30, // Read-only file system
+	EMLINK                   = 31, // Too many links
+	EPIPE                    = 32, // Broken pipe
+	EDOM                     = 33, // Math argument out of domain of func
+	ERANGE                   = 34, // Math result not representable
+	EAGAIN                   = 35, // Try again
+	EWOULDBLOCK              = EAGAIN, // Operation would block
+	EINPROGRESS              = 36, // Operation now in progress
+	EALREADY                 = 37, // Operation already in progress
+	ENOTSOCK                 = 38, // Socket operation on non-socket
+	EDESTADDRREQ             = 39, // Destination address required
+	EMSGSIZE                 = 40, // Message too long
+	EPROTOTYPE               = 41, // Protocol wrong type for socket
+	ENOPROTOOPT              = 42, // Protocol not available
+	EPROTONOSUPPORT          = 43, // Protocol not supported
+	ESOCKTNOSUPPORT          = 44, // Socket type not supported
+	EOPNOTSUPP               = 45, // Operation not supported
+	ENOTSUP                  = EOPNOTSUPP, // FreeBSD defines ENOTSUP as alias of EOPNOTSUPP
+	EPFNOSUPPORT             = 46, // Protocol family not supported
+	EAFNOSUPPORT             = 47, // Address family not supported by protocol family
+	EADDRINUSE               = 48, // Address already in use
+	EADDRNOTAVAIL            = 49, // Cannot assign requested address
+	ENETDOWN                 = 50, // Network is down
+	ENETUNREACH              = 51, // Network is unreachable
+	ENETRESET                = 52, // Network dropped connection on reset
+	ECONNABORTED             = 53, // Software caused connection abort
+	ECONNRESET               = 54, // Connection reset by peer
+	ENOBUFS                  = 55, // No buffer space available
+	EISCONN                  = 56, // Socket is already connected
+	ENOTCONN                 = 57, // Socket is not connected
+	ESHUTDOWN                = 58, // Cannot send after socket shutdown
+	ETOOMANYREFS             = 59, // Too many references: cannot splice
+	ETIMEDOUT                = 60, // Operation timed out
+	ECONNREFUSED             = 61, // Connection refused
+	ELOOP                    = 62, // Too many levels of symbolic links
+	ENAMETOOLONG             = 63, // File name too long
+	EHOSTDOWN                = 64, // Host is down
+	EHOSTUNREACH             = 65, // No route to host
+	ENOTEMPTY                = 66, // Directory not empty
+	EPROCLIM                 = 67, // Too many processes
+	EUSERS                   = 68, // Too many users
+	EDQUOT                   = 69, // Disc quota exceeded
+	ESTALE                   = 70, // Stale NFS file handle
+	EREMOTE                  = 71, // Too many levels of remote in path
+	EBADRPC                  = 72, // RPC struct is bad
+	ERPCMISMATCH             = 73, // RPC version wrong
+	EPROGUNAVAIL             = 74, // RPC prog. not avail
+	EPROGMISMATCH            = 75, // Program version wrong
+	EPROCUNAVAIL             = 76, // Bad procedure for program
+	ENOLCK                   = 77, // No locks available
+	ENOSYS                   = 78, // Function not implemented
+	EFTYPE                   = 79, // Inappropriate file type or format
+	EAUTH                    = 80, // Authentication error
+	ENEEDAUTH                = 81, // Need authenticator
+	EIDRM                    = 82, // Identifier removed
+	ENOMSG                   = 83, // No message of desired type
+	EOVERFLOW                = 84, // Value too large to be stored in data type
+	ECANCELED                = 85, // Operation canceled
+	EILSEQ                   = 86, // Illegal byte sequence
+	ENOATTR                  = 87, // Attribute not found
+	EDOOFUS                  = 88, // FreeBSD: programming error
+	EBADMSG                  = 89, // Bad message
+	EMULTIHOP                = 90, // Multihop attempted
+	ENOLINK                  = 91, // Link has been severed
+	EPROTO                   = 92, // Protocol error
+	ENOTCAPABLE              = 93, // FreeBSD: capabilities insufficient
+	ECAPMODE                 = 94, // FreeBSD: not permitted in capability mode
+	ENOTRECOVERABLE          = 95, // State not recoverable
+	EOWNERDEAD               = 96, // Previous owner died
+	EINTEGRITY               = 97, // FreeBSD: integrity check failed
+}
+
+
+constdef Errno : inline CInt @if(!env::WIN32 && !env::DARWIN && !env::NETBSD && !env::EMSCRIPTEN && !env::FREEBSD)
 {
 	OK                       = 0,
 	EPERM                    = 1, // Operation not permitted

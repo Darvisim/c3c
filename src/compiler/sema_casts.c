@@ -389,6 +389,25 @@ static bool cast_if_valid(SemaContext *context, Expr *expr, Type *to_type, bool 
 	return true;
 }
 
+bool may_convert_int_float(CanonicalType *from, CanonicalType *to)
+{
+	assert(from->canonical == from && to->canonical == to);
+	if (from == to) return true;
+	if (type_is_float(from))
+	{
+		return type_size(from) <= type_size(to);
+	}
+	if (type_is_signed(from))
+	{
+		if (!type_is_signed(to)) return false;
+		return type_size(from) <= type_size(to);
+	}
+	if (type_is_signed(to))
+	{
+		return type_size(from) < type_size(to);
+	}
+	return type_size(from) <= type_size(to);
+}
 
 /**
  * Check whether an expression may narrow.
@@ -503,10 +522,7 @@ RETRY:
 			goto RETRY;
 		}
 		case EXPR_EXT_TRUNC:
-			if (type_size(type) >= type_size(expr->type))
-			{
-				return NULL;
-			}
+			if (may_convert_int_float(type_no_optional(expr->type)->canonical, type)) return NULL;
 			// Otherwise just look through it.
 			expr = expr->ext_trunc_expr.inner;
 			goto RETRY;
@@ -569,8 +585,8 @@ RETRY:
 			break;
 	}
 CHECK_SIZE:
-	if (type_size(expr->type) > type_size(type)) return expr;
-	return NULL;
+	if (may_convert_int_float(type_no_optional(expr->type)->canonical, type)) return NULL;
+	return expr;
 }
 
 
@@ -658,6 +674,7 @@ static void expr_recursively_rewrite_untyped_list(Expr *expr, Type *to_type)
 			return;
 		}
 		case TYPE_STRUCT:
+		case TYPE_BITSTRUCT:
 			break;
 		default:
 			UNREACHABLE_VOID
@@ -742,7 +759,7 @@ static bool report_cast_error(CastContext *cc, bool may_cast_explicit)
 		if (may_cast_explicit)
 		{
 			RETURN_CAST_ERROR(expr,
-			                  "Implicitly casting %s to the inner type %s is not permitted, but you may do an explicit cast by placing '($typefrom(%s.typeid))' before the expression.",
+			                  "Implicitly casting %s to the inner type %s is not permitted, but you may do an explicit cast by placing '($Typefrom(%s.typeid))' before the expression.",
 			                  type_quoted_error_string(type_no_optional(expr->type)),
 			                  type_quoted_error_string(to),
 			                  type_to_error_string(type_no_optional(to)));
@@ -760,14 +777,14 @@ static bool report_cast_error(CastContext *cc, bool may_cast_explicit)
 		{
 			RETURN_CAST_ERROR(expr,
 					   "Implicitly casting %s to %s is not permitted. It's possible to do an explicit cast by placing '(%s)' before the expression. However, explicit casts between distinct types are usually not intended and are not safe.",
-					   type_quoted_error_string_maybe_with_path(from, typeto),
+					   type_quoted_error_string_maybe_with_path(from, typeto), // NOLINT(readability-suspicious-call-argument)
 					   type_quoted_error_string_maybe_with_path(to, from),
 					   type_error_string_maybe_with_path(typeto, from));
 
 		}
 		RETURN_CAST_ERROR(expr,
 		           "Implicitly casting %s to %s is not permitted, but you may do an explicit cast by placing '(%s)' before the expression.",
-		           type_quoted_error_string_maybe_with_path(from, typeto),
+		           type_quoted_error_string_maybe_with_path(from, typeto), // NOLINT(readability-suspicious-call-argument)
 				   type_quoted_error_string_maybe_with_path(to, from),
 				   type_error_string_maybe_with_path(typeto, from));
 	}
@@ -1179,7 +1196,7 @@ static bool rule_slice_to_vecarr(CastContext *cc, bool is_explicit, bool is_sile
 	{
 		if (expr_is_const_string(expr) || expr_is_const_bytes(expr))
 		{
-			if (cc->to->array.len > size) size = cc->to->array.len;
+			if ((ArrayIndex)cc->to->array.len > size) size = (ArrayIndex)cc->to->array.len;
 		}
 		cast_context_set_from(cc, type_get_array(base, size));
 	}
@@ -1390,7 +1407,6 @@ static bool rule_widen_narrow(CastContext *cc, bool is_explicit, bool is_silent)
 		return false;
 	}
 
-
 	// If const, check in range.
 	if (is_const && expr_const_will_overflow(&expr->const_expr, cc->to->type_kind))
 	{
@@ -1416,16 +1432,17 @@ static bool rule_widen_narrow(CastContext *cc, bool is_explicit, bool is_silent)
 		// Otherwise require a cast.
 		if (expr_is_const_number(expr))
 		{
-			RETURN_CAST_ERROR(expr, "The value of the expression (%s) is out of range and cannot implicitly be converted to %s, but you may use a cast.",
+			RETURN_CAST_ERROR(expr, "The value of the expression (%s) is out of range and cannot implicitly be narrowed to %s, but you may use a cast.",
 				expr_const_to_error_string(&expr->const_expr),
 				type_quoted_error_string(cc->to_type));
 		}
 		if (expr_is_pointer_diff(expr))
 		{
-			RETURN_CAST_ERROR(expr, "A pointer diff has the type %s which cannot implicitly be converted to %s. You can use an explicit cast if you know the conversion is safe.",
+			RETURN_CAST_ERROR(expr, "A pointer diff has the type %s which cannot implicitly be narrowed to %s. You can use an explicit cast if you know the conversion is safe.",
 					   type_quoted_error_string(expr->type), type_quoted_error_string(cc->to_type));
 		}
-		RETURN_CAST_ERROR(expr, "%s cannot implicitly be converted to %s, but you may use a cast.",
+
+		RETURN_CAST_ERROR(expr, "%s cannot implicitly be narrowed to %s, but you may use a cast.",
 		           type_quoted_error_string(expr->type), type_quoted_error_string(cc->to_type));
 	}
 	return true;
@@ -1520,6 +1537,12 @@ static bool rule_to_distinct(CastContext *cc, bool is_explicit, bool is_silent)
 	cc->to_group = flat_group;
 	bool may_cast = cast_is_allowed(cc, true, true);
 	if (may_cast && is_explicit) return true;
+	if (is_explicit && cc->to_type == type_string && cc->from->type_kind == TYPE_ARRAY && cc->from->array.base == type_char)
+	{
+		if (is_silent) return false;
+		sema_error_at(cc->context, cc->expr->loc, "To convert a %s array to a String, you first have to take its address: '(String)&x'.", type_quoted_error_string(cc->from));
+		return false;
+	}
 	return sema_cast_error(cc, may_cast, is_silent);
 }
 
@@ -1636,7 +1659,7 @@ static bool rule_int_to_enum(CastContext *cc, bool is_explicit, bool is_silent)
 		if (int_comp(to_convert, max, BINARYOP_GE))
 		{
 			if (is_silent) return false;
-			RETURN_CAST_ERROR(cc->expr, "The value '%s' exceeds the max ordinal '%u'.", int_to_str(max, 10, false), max_enums - 1);
+			RETURN_CAST_ERROR(cc->expr, "The value '%s' exceeds the max ordinal '%u'.", int_to_str(to_convert, 10, false), max_enums - 1);
 		}
 	}
 	return true;
@@ -2086,6 +2109,7 @@ static void cast_vec_to_vec(Expr *expr, Type *to_type)
 				case TYPE_TYPEID:
 				case TYPE_ANYFAULT:
 					expr_rewrite_to_int_to_ptr(expr, to_type);
+					return;
 				default:
 					UNREACHABLE_VOID;
 			}
@@ -2336,6 +2360,7 @@ static void cast_vecarr_to_slice(Expr *expr, Type *to_type)
 		case CONST_UNTYPED_LIST:
 		case CONST_REF:
 		case CONST_MEMBER:
+		case CONST_REFLECTION:
 			UNREACHABLE_VOID
 		case CONST_BYTES:
 		case CONST_STRING:
@@ -2384,8 +2409,17 @@ static void expr_rewrite_bytes_to_const_initializer(Expr *expr, Type *target_typ
 	ConstInitializer **inits = MALLOC(sizeof(ConstInitializer*) * expr->const_expr.bytes.len);
 	for (int i = 0; i < expr->const_expr.bytes.len; i++)
 	{
-		Expr *int_expr = expr_new_const_int(expr->loc, base, (unsigned char)expr->const_expr.bytes.ptr[i]);
-		ConstInitializer *init = const_init_new_value(int_expr);
+		Expr *conv_expr;
+		if (type_is_float(base))
+		{
+			conv_expr = expr_new_const_float(expr->loc, base, (Real)(unsigned char)expr->const_expr.bytes.ptr[i]);
+		}
+		else
+		{
+			conv_expr = expr_new_const_int(expr->loc, base, (unsigned char)expr->const_expr.bytes.ptr[i]);
+		}
+
+		ConstInitializer *init = const_init_new_value(conv_expr);
 		inits[i] = init;
 	}
 	ASSERT(inits);
@@ -2676,11 +2710,12 @@ static ConvGroup group_from_type[TYPE_LAST + 1] = {
 	[TYPE_INFERRED_ARRAY]   = CONV_NO,
 	[TYPE_VECTOR]           = CONV_VECTOR,
 	[TYPE_INFERRED_VECTOR]  = CONV_NO,
-	[TYPE_UNTYPED_LIST]     = CONV_UNTYPED_LIST,
+	[TYPE_UNTYPEDLIST]      = CONV_UNTYPED_LIST,
 	[TYPE_OPTIONAL]         = CONV_NO,
 	[TYPE_WILDCARD]         = CONV_WILDCARD,
 	[TYPE_TYPEINFO]         = CONV_NO,
 	[TYPE_MEMBER]           = CONV_NO,
+	[TYPE_REFLECTION]		= CONV_NO,
 	[TYPE_SIMD_VECTOR]      = CONV_VECTOR,
 };
 

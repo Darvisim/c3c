@@ -102,6 +102,7 @@ const CharType[256] ASCII_LOOKUP @private = {
 };
 
 const char[256] HEX_VALUE = {
+	[0..255] = 255,
 	['0'] =  0, ['1'] =  1, ['2'] =  2, ['3'] =  3, ['4'] =  4,
 	['5'] =  5, ['6'] =  6, ['7'] =  7, ['8'] =  8, ['9'] =  9,
 	['A'] = 10, ['B'] = 11, ['C'] = 12, ['D'] = 13, ['E'] = 14,
@@ -130,7 +131,7 @@ fn AsciiCharset create_set(String string)
 	return set;
 }
 
-macro bool AsciiCharset.@contains($set, char $c) @const => !!($c < 128) & !!($set & (AsciiCharset)(1ULL << $c));
+macro bool AsciiCharset.@contains($set, char $c) @const => !!($c < 128) &&& !!($set & (AsciiCharset)(1ULL << $c));
 
 macro AsciiCharset @combine_sets(AsciiCharset $first, AsciiCharset... $sets) @const
 {
@@ -146,7 +147,7 @@ fn AsciiCharset combine_sets(AsciiCharset first, AsciiCharset... sets)
 	return first;
 }
 
-macro bool AsciiCharset.contains(set, char c) => !!(c < 128) & !!(set & (AsciiCharset)(1ULL << c));
+macro bool AsciiCharset.contains(set, char c) => !!(c < 128) && !!(set & (AsciiCharset)(1ULL << c));
 
 const AsciiCharset WHITESPACE_SET = @create_set("\t\n\v\f\r ");
 const AsciiCharset NUMBER_SET = @create_set("0123456789");

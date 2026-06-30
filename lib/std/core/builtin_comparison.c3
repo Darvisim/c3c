@@ -4,7 +4,7 @@
 module std::core::builtin;
 
 <*
- @require types::@comparable_value(a) && types::@comparable_value(b)
+ @require $defined(a < b) ||| $defined(a.less(b)) ||| $defined(a.compare_to(b))
 *>
 macro bool less(a, b) @builtin
 {
@@ -19,7 +19,7 @@ macro bool less(a, b) @builtin
 }
 
 <*
- @require types::@comparable_value(a) && types::@comparable_value(b)
+ @require $defined(a < b) ||| $defined(a.less(b)) ||| $defined(a.compare_to(b))
 *>
 macro bool less_eq(a, b) @builtin
 {
@@ -34,7 +34,7 @@ macro bool less_eq(a, b) @builtin
 }
 
 <*
- @require types::@comparable_value(a) && types::@comparable_value(b)
+ @require $defined(a < b) ||| $defined(a.less(b)) ||| $defined(a.compare_to(b))
 *>
 macro bool greater(a, b) @builtin
 {
@@ -49,7 +49,7 @@ macro bool greater(a, b) @builtin
 }
 
 <*
- @require types::@comparable_value(a) && types::@comparable_value(b)
+ @require $defined(a < b) ||| $defined(a.less(b)) ||| $defined(a.compare_to(b))
 *>
 macro int compare_to(a, b) @builtin
 {
@@ -63,7 +63,7 @@ macro int compare_to(a, b) @builtin
 	$endswitch
 }
 <*
- @require types::@comparable_value(a) && types::@comparable_value(b)
+ @require $defined(a < b) ||| $defined(a.less(b)) ||| $defined(a.compare_to(b))
 *>
 macro bool greater_eq(a, b) @builtin
 {
@@ -78,7 +78,7 @@ macro bool greater_eq(a, b) @builtin
 }
 
 <*
- @require types::@equatable_value(a) && types::@equatable_value(b) : `values must be equatable`
+ @require $defined(a == b) ||| $defined(a.equals(b)) ||| $defined(a.less(b)) ||| $defined(a.compare_to(b)) : `values must be equatable`
 *>
 macro bool equals(a, b) @builtin
 {
@@ -96,11 +96,11 @@ macro bool equals(a, b) @builtin
 
 macro min(x, ...) @builtin
 {
-	$if $vacount == 1:
+	$if $vaarg.len == 1:
 		return less(x, $vaarg[0]) ? x : $vaarg[0];
 	$else
 		var result = x;
-		$for var $i = 0; $i < $vacount; $i++:
+		$for var $i = 0; $i < $vaarg.len; $i++:
 			if (less($vaarg[$i], result))
 			{
 				 result = $vaarg[$i];
@@ -112,11 +112,11 @@ macro min(x, ...) @builtin
 
 macro max(x, ...) @builtin
 {
-	$if $vacount == 1:
+	$if $vaarg.len == 1:
 		return greater(x, $vaarg[0]) ? x : $vaarg[0];
 	$else
 		var result = x;
-		$for var $i = 0; $i < $vacount; $i++:
+		$for var $i = 0; $i < $vaarg.len; $i++:
 			if (greater($vaarg[$i], result))
 			{
 				 result = $vaarg[$i];
@@ -127,33 +127,36 @@ macro max(x, ...) @builtin
 }
 
 
+
 <*
- @require types::is_numerical($typeof($a))
+ @require types::is_numerical($Typeof($a))
+ @require values::@all_const(...$vaarg) : "All values must be constant"
 *>
 macro @max($a, ...) @builtin @const
 {
-	$if $vacount == 1:
-		return $a > $vaconst[0] ? $a : $vaconst[0];
+	$if $vaarg.len == 1:
+		return $a > $vaarg[0] ? $a : $vaarg[0];
 	$else
 		var $result = $a;
-		$for var $x = 0; $x < $vacount; ++$x:
-			$if $vaconst[$x] > $result: $result = $vaconst[$x]; $endif
+		$for var $x = 0; $x < $vaarg.len; ++$x:
+			$if $vaarg[$x] > $result: $result = $vaarg[$x]; $endif
 		$endfor
 		return $result;
 	$endif
 }
 
 <*
- @require types::is_numerical($typeof($a))
+ @require types::is_numerical($Typeof($a))
+ @require values::@all_const(...$vaarg) : "All values must be constant"
 *>
 macro @min($a, ...) @builtin @const
 {
-	$if $vacount == 1:
-		return $a < $vaconst[0] ? $a : $vaconst[0];
+	$if $vaarg.len == 1:
+		return $a < $vaarg[0] ? $a : $vaarg[0];
 	$else
 		var $result = $a;
-		$for var $x = 0; $x < $vacount; ++$x:
-			$if $vaconst[$x] < $result: $result = $vaconst[$x]; $endif
+		$for var $x = 0; $x < $vaarg.len; ++$x:
+			$if $vaarg[$x] < $result: $result = $vaarg[$x]; $endif
 		$endfor
 		return $result;
 	$endif

@@ -2,12 +2,108 @@ module std::core::dstring2 @test;
 
 const TEST_STRING = "hello world";
 
+
 fn void test_replace()
 {
 	DString hello = dstring::new(mem, "Hello world where are you? Are you here too?");
 	defer hello.free();
 	hello.replace("u", "ooo");
 	assert(hello.str_view() == "Hello world where are yoooo? Are yoooo here too?");
+}
+
+fn void test_replace_empty()
+{
+	DString hello = dstring::new(mem, "abc");
+	defer hello.free();
+	hello.replace("", "X");
+	assert(hello.str_view() == "XaXbXcX");
+}
+
+fn void test_replace_empty_in_empty()
+{
+	DString hello = dstring::new(mem, "");
+	defer hello.free();
+	hello.replace("", "X");
+	test::eq(hello.str_view(), "X");
+}
+
+fn void test_replace_empty_in_empty2()
+{
+	DString hello;
+	hello.replace("", "X");
+	test::eq(hello.str_view(), "X");
+}
+
+fn void test_replace_overlapping_needle_short()
+{
+	DString s = dstring::new(mem, "aab");
+	defer s.free();
+	s.replace("ab", "X");
+	test::eq(s.str_view(), "aX");
+}
+
+fn void test_replace_overlapping_needle_prefix_repeat()
+{
+	DString s = dstring::new(mem, "aaab");
+	defer s.free();
+	s.replace("aab", "X");
+	test::eq(s.str_view(), "aX");
+}
+
+fn void test_replace_overlapping_needle_three_a()
+{
+	DString s = dstring::new(mem, "aaaab");
+	defer s.free();
+	s.replace("aab", "X");
+	test::eq(s.str_view(), "aaX");
+}
+
+fn void test_replace_after_failed_match_restart()
+{
+	DString s = dstring::new(mem, "abaababc");
+	defer s.free();
+	s.replace("abc", "X");
+	test::eq(s.str_view(), "abaabX");
+}
+
+fn void test_replace_consecutive_non_overlap()
+{
+	DString s = dstring::new(mem, "abab");
+	defer s.free();
+	s.replace("ab", "X");
+	test::eq(s.str_view(), "XX");
+}
+
+fn void test_replace_no_match()
+{
+	DString s = dstring::new(mem, "hello world");
+	defer s.free();
+	s.replace("xyz", "Q");
+	test::eq(s.str_view(), "hello world");
+}
+
+fn void test_replace_at_end()
+{
+	DString s = dstring::new(mem, "foobar");
+	defer s.free();
+	s.replace("bar", "BAZ");
+	test::eq(s.str_view(), "fooBAZ");
+}
+
+fn void test_replace_at_start()
+{
+	DString s = dstring::new(mem, "foobar");
+	defer s.free();
+	s.replace("foo", "BAZ");
+	test::eq(s.str_view(), "BAZbar");
+}
+
+fn void test_append_string_repeat()
+{
+	DString hello = dstring::new(tmem, "Hello world:");
+	defer hello.free();
+	hello.append_repeat("abc", 10);
+	test::eq(hello.str_view(), "Hello world:abcabcabcabcabcabcabcabcabcabc");
 }
 
 fn void test_reverse()
@@ -159,7 +255,58 @@ fn void test_cmp()
 	str2.clear();
 	str2.append("hello you..");
 	assert(str.len() == str2.len());
-	assert(!str.less(str2));
+	assert(str.less(str2));
+}
+
+
+fn void test_less_lexicographic()
+{
+	// Case 1: equal-length strings that differ at a non-zero index.
+	DString abc = dstring::new(mem, "abc");
+	defer abc.free();
+	DString abd = dstring::new(mem, "abd");
+	defer abd.free();
+	assert(abc.less(abd), "lexicographic: \"abc\" < \"abd\" (differs at i=2, 'c' < 'd')");
+	assert(!abd.less(abc), "lexicographic: \"abd\" is not less than \"abc\"");
+
+	// Case 2: different lengths — order must be by characters first, length only as tiebreaker.
+	DString z = dstring::new(mem, "z");
+	defer z.free();
+	DString aa = dstring::new(mem, "aa");
+	defer aa.free();
+	assert(aa.less(z), "lexicographic: \"aa\" < \"z\" ('a' < 'z'), even though len(\"aa\") > len(\"z\")");
+	assert(!z.less(aa), "lexicographic: \"z\" is not less than \"aa\"");
+
+	// Case 3: identical strings are not strictly less than themselves.
+	DString eq1 = dstring::new(mem, "hello");
+	defer eq1.free();
+	DString eq2 = dstring::new(mem, "hello");
+	defer eq2.free();
+	assert(!eq1.less(eq2), "\"hello\" < \"hello\" must be false (equal, not less)");
+	assert(!eq2.less(eq1), "\"hello\" < \"hello\" must be false (equal, not less)");
+
+	// Case 4: proper prefix — common prefix equal, shorter is less.
+	DString prefix = dstring::new(mem, "abc");
+	defer prefix.free();
+	DString longer = dstring::new(mem, "abcd");
+	defer longer.free();
+	assert(prefix.less(longer), "lexicographic: \"abc\" < \"abcd\" (common prefix, then shorter < longer)");
+	assert(!longer.less(prefix), "lexicographic: \"abcd\" is not less than \"abc\"");
+
+	// Case 5: empty DString against null DString — neither is strictly less than the other.
+	DString empty = dstring::new(mem, "");
+	defer empty.free();
+	DString null_str = (DString)null;
+	assert(!empty.less(null_str), "empty < null must be false");
+	assert(!null_str.less(empty), "null < empty must be false");
+
+	// Case 6: a sanity-check on the case the original test_cmp got backwards.
+	DString hw = dstring::new(mem, "hello world");
+	defer hw.free();
+	DString hy = dstring::new(mem, "hello you..");
+	defer hy.free();
+	assert(hw.less(hy), "lexicographic: \"hello world\" < \"hello you..\" ('w' < 'y' at index 6)");
+	assert(!hy.less(hw), "lexicographic: \"hello you..\" is not less than \"hello world\"");
 }
 
 fn void test_join()
@@ -273,5 +420,39 @@ fn void test_operators()
 
 	char* c = &str[1];
 	assert(*c == 'e');
+}
+
+fn void test_replace_char_null_dstring()
+{
+	DString s;
+	s.replace_char('a', 'b');
+	assert(s.str_view() == "");
+}
+
+fn void test_replace_char_basic()
+{
+	DString s = dstring::new(mem, "abracadabra");
+	defer s.free();
+	s.replace_char('a', '*');
+	assert(s.str_view() == "*br*c*d*br*");
+}
+
+fn void test_replace_char_no_match()
+{
+	DString s = dstring::new(mem, "hello");
+	defer s.free();
+	s.replace_char('z', 'Q');
+	assert(s.str_view() == "hello");
+}
+
+fn void test_null_dstring_consistency()
+{
+	DString s;
+	assert(s.len() == 0);
+	assert(s.capacity() == 0);
+	assert(s.str_view() == "");
+	s.chop(0);
+	s.clear();
+	s.free();
 }
 

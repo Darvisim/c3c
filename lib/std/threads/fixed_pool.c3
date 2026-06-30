@@ -1,5 +1,4 @@
 module std::thread;
-faultdef THREAD_QUEUE_FULL;
 
 module std::thread::threadpool @if (env::POSIX || env::WIN32);
 import std::thread;
@@ -8,7 +7,7 @@ import std::thread;
 
 alias ThreadPoolFn = fn void(any[] args);
 
-struct FixedThreadPool
+struct FixedThreadPool @deprecated
 {
 	Mutex mu;
 	QueueItem[] queue;
@@ -87,7 +86,7 @@ fn void FixedThreadPool.join(&self)
 *>
 fn void? FixedThreadPool.destroy(&self)
 {
-	return self.@shutdown(self.stop_now);
+	return @_fixed_thread_pool_shutdown(self, self.stop_now);
 }
 
 <*
@@ -96,10 +95,10 @@ fn void? FixedThreadPool.destroy(&self)
 *>
 fn void FixedThreadPool.stop_and_destroy(&self)
 {
-	self.@shutdown(self.stop);
+	@_fixed_thread_pool_shutdown(self, self.stop);
 }
 
-macro void FixedThreadPool.@shutdown(&self, #stop) @private
+macro void @_fixed_thread_pool_shutdown(FixedThreadPool* self, #stop) @private
 {
 	if (self.initialized)
 	{

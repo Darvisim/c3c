@@ -29,8 +29,8 @@ struct BenchContext
 	HashMap { String, int } module_warmup;
 	Clock clock;
 	NanoDuration nano_seconds;
-	long cycle_start;
-	long cycle_stop;
+	ulong cycle_start;
+	ulong cycle_stop;
 	DString log;
 	bool is_warming;
 	int this_iteration;
@@ -116,7 +116,7 @@ macro void @end_benchmark() @builtin
 
 macro void @kill_benchmark(String format, ...) @builtin
 {
-	@log_benchmark(format, $vasplat);
+	@log_benchmark(format, ...$vaarg);
 	bench_context.stop = true;
 }
 
@@ -249,7 +249,7 @@ fn bool run_benchmarks(String[] args, BenchmarkUnit[] benchmarks)
 		ctx.is_warming = false;
 
 		NanoDuration running_timer;
-		long total_clocks;
+		ulong total_clocks;
 
 		char[] perc_str = { [0..19] = ' ', [20] = 0 };
 		int perc = 0;

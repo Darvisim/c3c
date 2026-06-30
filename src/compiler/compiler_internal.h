@@ -20,7 +20,7 @@ typedef uint16_t StructIndex;
 typedef uint32_t AlignSize;
 typedef uint64_t ArraySize;
 typedef uint64_t BitSize;
-typedef uint16_t FileId;
+typedef uint32_t FileId;
 
 #define INT5_MAX         15
 #define INT12_MAX        2047
@@ -57,7 +57,7 @@ typedef uint16_t FileId;
 #define UINT128_MAX ((Int128) { UINT64_MAX, UINT64_MAX })
 #define INT128_MAX ((Int128) { INT64_MAX, UINT64_MAX })
 #define INT128_MIN ((Int128) { (uint64_t)INT64_MIN, 0 })
-#define STDIN_FILE_ID 0xFFFF
+#define STDIN_FILE_ID (~(FileId)0)
 #define ABI_TYPE_EMPTY ((AbiType) { .type = NULL })
 #define RANGE_EXTEND_PREV(x)  do { *sourcelocptr((x)->loc) = extend_loc_with_token(sourcelocptr((x)->loc), &c->prev_span); } while (0)
 #define PRINT_ERROR_AT(_node, ...) print_error_at((_node)->loc, __VA_ARGS__)
@@ -213,6 +213,7 @@ typedef struct
 		ConstInitializer *initializer;
 		ConstInitializer *slice_init;
 		Expr **untyped_list;
+		Expr *reflection;
 		struct
 		{
 			AlignSize offset;
@@ -360,7 +361,6 @@ struct TypeInfo_
 	ResolveStatus resolve_status : 3;
 	TypeInfoKind kind : 6;
 	bool optional : 1;
-	bool in_def : 1;
 	bool is_simd : 1;
 	TypeInfoCompressedKind subtype : 4;
 	Type *type;
@@ -458,7 +458,6 @@ typedef struct
 typedef struct VarDecl_
 {
 	TypeInfoId type_info;
-	uint16_t va_index;
 	VarDeclKind kind : 8;
 	bool shadow : 1;
 	bool vararg : 1;
@@ -562,7 +561,6 @@ typedef struct
 	OperatorOverload operator : 6;
 	Signature signature;
 	AstId body;
-	DeclId docs;
 	union
 	{
 		struct // Function related
@@ -604,7 +602,6 @@ typedef struct
 typedef struct
 {
 	Signature signature;
-	DeclId docs;
 } FnTypeDecl;
 
 
@@ -638,11 +635,10 @@ typedef struct
 typedef struct
 {
 	bool is_func : 1;
-	bool is_redef : 1;
 	union
 	{
 		Decl *decl;
-		TypeInfo *type_info;
+		Expr *type_expr;
 	};
 } TypeAliasDecl;
 
@@ -661,6 +657,7 @@ typedef struct
 	SourceLocId loc;
 	InOutModifier modifier : 4;
 	bool by_ref : 1;
+	const char *description;
 } ContractParam;
 
 typedef struct
@@ -681,6 +678,8 @@ typedef struct
 		Expr **opt_returns;
 		Decl **opt_returns_resolved;
 	};
+	const char *comment;
+	const char *return_desc;
 } ContractsDecl;
 
 typedef struct
@@ -771,6 +770,7 @@ typedef struct Decl_
 		DeclId generic_id;
 		DeclId instance_id;
 	};
+	DeclId docs;
 	struct CompilationUnit_ *unit;
 	union
 	{
@@ -999,6 +999,13 @@ typedef struct
 
 typedef struct
 {
+	Expr *type;
+	SourceLocId token_span;
+	const char *property;
+} ExprTypeProperty;
+
+typedef struct
+{
 	Expr *parent;
 	Expr *child;
 	bool is_lvalue;
@@ -1033,6 +1040,12 @@ typedef struct
 	SourceLocId name_span;
 	Expr *value;
 } ExprNamedArgument;
+
+typedef struct
+{
+	Expr *name;
+	Expr *value;
+} ExprEvalNamedArgument;
 
 typedef struct
 {
@@ -1308,16 +1321,15 @@ struct Expr_
 		ExprCatch catch_expr;                       // 24
 		Expr** cond_expr;                           // 8
 		ExprConst const_expr;                       // 32
-		ExprCtArg ct_arg_expr;
 		Expr** ct_concat;
 		ExprOtherContext expr_other_context;
-		ExprCtCall ct_call_expr;                    // 24
 		ExprIdentifierRaw ct_ident_expr;            // 24
 		Decl *decl_expr;                            // 8
 		Decl *iota_decl_expr;                       // 8
 		ExprDesignatedInit designated_init;         // 16
 		ExprDesignator designator_expr;             // 16
 		ExprNamedArgument named_argument_expr;
+		ExprEvalNamedArgument eval_named_argument_expr;
 		ExprEmbedExpr embed_expr;                   // 16
 		Expr **exec_expr;                           // 8
 		ExprAsmArg expr_asm_arg;                    // 24
@@ -1334,6 +1346,8 @@ struct Expr_
 		Expr *inner_expr;                           // 8
 		ExprMakeAny make_any_expr;
 		ExprMakeSlice make_slice_expr;
+		SubscriptIndex vaarg_index;
+		ExprTypeProperty type_property_expr;
 		Decl *lambda_expr;                          // 8
 		ExprMacroBlock macro_block;                 // 24
 		ExprMacroBody macro_body_expr;              // 16
@@ -1579,6 +1593,7 @@ typedef struct
 	bool is_inline : 1;
 	bool is_goto : 1;
 	bool is_string : 1;
+	bool is_aligned : 1;
 	union
 	{
 		AsmInlineBlock *block;
@@ -1754,6 +1769,7 @@ struct CompilationUnit_
 	bool benchmark_by_default;
 	bool test_by_default;
 	bool module_generated;
+	DeclId module_doc;
 	Attr **attr_links;
 	Decl **aliases;
 	Decl **ct_asserts;
@@ -1778,6 +1794,26 @@ struct CompilationUnit_
 	} llvm;
 };
 
+typedef struct
+{
+	const char *comment;
+	SourceLocId comment_span;
+	unsigned comment_len;
+	Expr **requires;
+	Expr **ensures;
+	ContractParam *params;
+	bool pure;
+	bool has_contracts;
+	SourceLocId first;
+	SourceLocId first_non_require;
+	SourceLocId first_contract;
+	Expr **opt_returns;
+	const char *return_desc;
+	Attr *deprecated;
+} ContractDescription;
+
+#define EMPTY_CONTRACT ((ContractDescription){ NULL })
+
 typedef struct ParseContext_
 {
 	TokenData data;
@@ -1786,6 +1822,7 @@ typedef struct ParseContext_
 	SourceLoc prev_span;
 	CompilationUnit *unit;
 	Lexer lexer;
+	ContractDescription contracts;
 } ParseContext;
 
 typedef struct
@@ -1958,6 +1995,7 @@ typedef struct
 	Module *path_found;
 	bool suppress_error;
 	bool is_parameterized;
+	bool is_generic_parent;
 } NameResolve;
 
 typedef struct
@@ -2029,6 +2067,7 @@ typedef struct
 	int generic_depth;
 	double exec_time;
 	double script_time;
+	const char *base_dir;
 } CompilerState;
 
 extern CompilerState compiler;
@@ -2044,7 +2083,7 @@ extern Type *type_ichar, *type_short, *type_int, *type_long, *type_sz;
 extern Type *type_char, *type_ushort, *type_uint, *type_ulong, *type_usz;
 extern Type *type_iptr, *type_uptr;
 extern Type *type_u128, *type_i128;
-extern Type *type_typeid, *type_fault, *type_any, *type_typeinfo, *type_member;
+extern Type *type_typeid, *type_fault, *type_any, *type_typeinfo, *type_member, *type_reflection;
 extern Type *type_untypedlist;
 extern Type *type_wildcard;
 extern Type *type_cint;
@@ -2063,6 +2102,7 @@ extern const char *kw_std__core;
 extern const char *kw_std__core__types;
 extern const char *kw_std__core__runtime;
 extern const char *kw_std__io;
+extern const char *kw_tags;
 extern const char *kw_typekind;
 extern const char *kw_FILE_NOT_FOUND;
 extern const char *kw_IoError;
@@ -2077,22 +2117,41 @@ extern const char *kw_at_pure;
 extern const char *kw_at_require;
 extern const char *kw_at_return;
 extern const char *kw_at_simd;
+extern const char *kw_alignment;
+extern const char *kw_bitoffset;
+extern const char *kw_bitsize;
+extern const char *kw_cname;
 extern const char *kw_compiler_rt;
+extern const char *kw_description;
+extern const char *kw_generic_args;
+extern const char *kw_generic_qname;
+extern const char *kw_get;
+extern const char *kw_get_tag;
+extern const char *kw_has_tag;
 extern const char *kw_in;
 extern const char *kw_inout;
+extern const char *kw_is_anonymous;
+extern const char *kw_is_const;
+extern const char *kw_is_nested;
+extern const char *kw_is_ordered;
+extern const char *kw_has_equals;
+extern const char *kw_kind;
 extern const char *kw_len;
 extern const char *kw_libc;
 extern const char *kw_main;
+extern const char *kw_members;
 extern const char *kw_mainstub;
 extern const char *kw_memcmp;
 extern const char *kw_name;
-extern const char *kw_nameof;
-extern const char *kw_offsetof;
+extern const char *kw_offset;
 extern const char *kw_ordinal;
 extern const char *kw_out;
 extern const char *kw_ptr;
+extern const char *kw_qname;
 extern const char *kw_return;
 extern const char *kw_self;
+extern const char *kw_set;
+extern const char *kw_size;
 extern const char *kw_std;
 extern const char *kw_type;
 extern const char *kw_winmain;
@@ -2262,8 +2321,6 @@ Real i128_to_float_signed(Int128 op);
 bool i128_is_zero(Int128 op);
 uint32_t i128_clz(const Int128 *op);
 uint32_t i128_ctz(const Int128 *op);
-UNUSED int i128_lsb(const Int128 *op);
-UNUSED int i128_msb(const Int128 *op);
 Int128 i128_from_signed(int64_t i);
 UNUSED Int128 i128_from_unsigned(uint64_t i);
 UNUSED bool i128_get_bit(const Int128 *op, int bit);
@@ -2356,6 +2413,7 @@ const char *get_exe_extension(void);
 CompilationUnit * unit_create(File *file);
 void unit_register_global_decl(CompilationUnit *unit, Decl *decl);
 void unit_register_external_symbol(SemaContext *context, Decl *decl);
+void setup_exec_paths(const char **old_dir_ref, const char **script_dir_ref, const char **exec_dir_ref);
 
 bool unit_add_import(CompilationUnit *unit, Path *path, bool private_import, bool is_non_recursive);
 bool unit_add_alias(CompilationUnit *unit, Decl *alias);
@@ -2377,7 +2435,7 @@ const char *decl_to_name(Decl *decl);
 const char *decl_to_a_name(Decl *decl);
 int decl_count_elements(Decl *structlike);
 bool decl_is_defaulted_var(Decl *decl);
-bool decl_may_be_generic(Decl *decl);
+bool decl_inherits_module_generic(Decl *decl);
 void decl_append_links_to_global_during_codegen(Decl *decl);
 Decl *decl_template_get_generic(Decl *decl);
 
@@ -2405,6 +2463,7 @@ void scratch_buffer_set_extern_decl_name(Decl *decl, bool clear);
 Expr *expr_new(ExprKind kind, SourceLocId start);
 Expr *expr_new_loc(ExprKind kind, SourceLoc *start);
 Expr *expr_new_const_int(SourceLocId loc, Type *type, uint64_t v);
+Expr *expr_new_const_float(SourceLocId loc, Type *type, Real v);
 Expr *expr_new_const_bool(int loc, Type *type, bool value);
 Expr *expr_new_const_typeid(SourceLocId loc, Type *type);
 Expr *expr_new_const_string(SourceLocId loc, const char *string);
@@ -2424,7 +2483,7 @@ bool sema_expr_rewrite_insert_deref(SemaContext *context, Expr *original);
 Expr *expr_generate_decl(Decl *decl, Expr *assign);
 Expr *expr_variable(Decl *decl);
 Expr *expr_negate_expr(Expr *expr);
-bool expr_may_addr(Expr *expr);
+bool expr_may_ref(Expr *expr);
 bool expr_in_int_range(Expr *expr, int64_t low, int64_t high);
 bool expr_is_unwrapped_ident(Expr *expr);
 bool expr_is_zero(Expr *expr);
@@ -2448,6 +2507,7 @@ INLINE bool expr_is_const_string(Expr *expr);
 INLINE bool expr_is_const_initializer(Expr *expr);
 INLINE bool expr_is_const_untyped_list(Expr *expr);
 INLINE bool expr_is_const_member(Expr *expr);
+INLINE bool expr_is_const_reflection(Expr *expr);
 
 INLINE void expr_rewrite_const_null(Expr *expr, Type *type);
 INLINE void expr_rewrite_const_bool(Expr *expr, Type *type, bool b);
@@ -2456,7 +2516,9 @@ INLINE void expr_rewrite_const_int(Expr *expr, Type *type, uint64_t v);
 INLINE void expr_rewrite_const_typeid(Expr *expr, Type *type);
 INLINE void expr_rewrite_const_initializer(Expr *expr, Type *type, ConstInitializer *initializer);
 INLINE void expr_rewrite_const_untyped_list(Expr *expr, Expr **elements);
-void expr_rewrite_const_string(Expr *expr_to_rewrite, const char *string);
+INLINE void expr_rewrite_const_string_from_scratch(Expr *expr_to_rewrite);
+void expr_rewrite_const_string(Expr *expr_to_rewrite, const char *string, ArrayIndex len);
+void expr_rewrite_const_string_from_raw(Expr *expr_to_rewrite, const char *string);
 void expr_rewrite_const_ref(Expr *expr_to_rewrite, Decl *decl);
 
 void expr_rewrite_to_builtin_access(Expr *expr, Expr *parent, BuiltinAccessKind kind, Type *type);
@@ -2466,7 +2528,7 @@ bool expr_rewrite_to_const_initializer_index(Type *list_type, ConstInitializer *
 void expr_rewrite_to_binary(Expr *expr_to_rewrite, Expr *left, Expr *right, BinaryOp op);
 
 Expr *expr_from_const_expr_at_index(Expr *expr, ArrayIndex index);
-bool expr_const_in_range(const ExprConst *left, const ExprConst *right, const ExprConst *right_to);
+bool expr_const_in_range(const ExprConst *left, const ExprConst *left_to, const ExprConst *right, const ExprConst *right_to);
 bool expr_const_compare(const ExprConst *left, const ExprConst *right, BinaryOp op);
 void expr_contract_array(ExprConst *expr_const, ConstKind contract_type);
 bool expr_const_will_overflow(const ExprConst *expr, TypeKind kind);
@@ -2485,6 +2547,7 @@ void scratch_buffer_append_module(Module *module, bool is_export);
 Decl *module_find_symbol(Module *module, const char *symbol);
 const char *module_create_object_file_name(Module *module);
 Decl *module_find_symbol_in_unit(Module *module, CompilationUnit *unit, const char *symbol);
+bool module_is_stdlib(Module *module);
 
 bool parse_file(File *file);
 Decl **parse_include_file(File *file, CompilationUnit *unit);
@@ -2539,7 +2602,7 @@ bool sema_analyse_statement(SemaContext *context, Ast *statement);
 bool sema_expr_analyse_assign_right_side(SemaContext *context, Expr *expr, Type *left_type, Expr *right,
                                          bool is_unwrapped_var, bool is_declaration, bool *failed_ref);
 bool sema_expr_analyse_initializer_list(SemaContext *context, Type *to, Expr *expr, bool *no_match_ref);
-Expr **sema_expand_vasplat_exprs(SemaContext *context, Expr **exprs);
+Expr **sema_expand_vasplat_exprs(SemaContext *context, Expr **exprs, Decl ***macro_va_decl_ref);
 
 bool sema_expr_analyse_general_call(SemaContext *context, Expr *expr, Decl *decl, Expr *struct_var, bool optional,
                                     bool *no_match_ref);
@@ -2561,6 +2624,7 @@ Decl *sema_find_label_symbol_anywhere(SemaContext *context, const char *symbol);
 Decl *sema_find_local(SemaContext *context, const char *symbol);
 Decl *sema_resolve_symbol(SemaContext *context, const char *symbol, Path *path, SourceLocId loc);
 Decl *sema_resolve_parameterized_symbol(SemaContext *context, const char *symbol, Path *path, SourceLocId loc);
+Decl *sema_resolve_generic_symbol(SemaContext *context, const char *symbol, Path *path, SourceLocId loc);
 Decl *sema_resolve_maybe_parameterized_symbol(SemaContext *context, const char *symbol, Path *path, SourceLocId loc);
 BoolErr sema_symbol_is_defined_in_scope(SemaContext *c, const char *symbol);
 
@@ -3052,6 +3116,9 @@ INLINE bool type_may_negate(Type *type)
 		case TYPE_TYPEDEF:
 			type = type->decl->distinct->type;
 			goto RETRY;
+		case TYPE_CONSTDEF:
+			type = type->decl->enums.type_info->type;
+			goto RETRY;
 		case TYPE_ALIAS:
 			type = type->canonical;
 			goto RETRY;
@@ -3088,9 +3155,11 @@ INLINE const char *type_invalid_storage_type_name(Type *type)
 {
 	switch (type->type_kind)
 	{
+		case TYPE_REFLECTION:
+			return "a reflection reference";
 		case TYPE_MEMBER:
 			return "a member reference";
-		case TYPE_UNTYPED_LIST:
+		case TYPE_UNTYPEDLIST:
 			return "an untyped list";
 		case TYPE_TYPEINFO:
 			return "a typeinfo";
@@ -3688,6 +3757,31 @@ INLINE bool decl_is_struct_type(Decl *decl)
 	return (kind == DECL_UNION) | (kind == DECL_STRUCT);
 }
 
+INLINE bool decl_has_interface(Decl *decl)
+{
+	static bool map[DECL_LAST + 1] = {
+		[DECL_UNION] = true,
+		[DECL_STRUCT] = true,
+		[DECL_ENUM] = true,
+		[DECL_CONSTDEF] = true,
+		[DECL_TYPEDEF] = true,
+		[DECL_BITSTRUCT] = true
+	};
+	return map[decl->decl_kind];
+}
+
+INLINE bool decl_is_fn_macro(Decl *decl)
+{
+	DeclKind kind = decl->decl_kind;
+	return kind == DECL_FUNC || kind == DECL_MACRO;
+}
+
+INLINE bool decl_has_members(Decl *decl)
+{
+	DeclKind kind = decl->decl_kind;
+	return (kind == DECL_UNION) | (kind == DECL_STRUCT) | (kind == DECL_BITSTRUCT);
+}
+
 INLINE bool decl_is_user_defined_type(Decl *decl)
 {
 	DeclKind kind = decl->decl_kind;
@@ -3717,6 +3811,11 @@ static inline DeclKind decl_from_token(TokenType type)
 INLINE bool expr_is_deref(Expr *expr)
 {
 	return expr->expr_kind == EXPR_UNARY && expr->unary_expr.operator == UNARYOP_DEREF;
+}
+
+INLINE bool expr_is_named_param(Expr *expr)
+{
+	return expr->expr_kind == EXPR_NAMED_ARGUMENT || expr->expr_kind == EXPR_NAMED_EVAL_ARGUMENT;
 }
 
 INLINE bool expr_is_addr(Expr *expr)
@@ -3838,6 +3937,14 @@ static inline void expr_set_loc(Expr *expr, SourceLocId loc)
 			expr->named_argument_expr.name_span = loc;
 			expr_set_loc(expr->named_argument_expr.value, loc);
 			return;
+		case EXPR_NAMED_EVAL_ARGUMENT:
+			expr_set_loc(expr->eval_named_argument_expr.name, loc);
+			expr_set_loc(expr->eval_named_argument_expr.value, loc);
+			return;
+		case EXPR_TYPE_PROPERTY:
+			expr_set_loc(expr->type_property_expr.type, loc);
+			expr->type_property_expr.token_span = loc;
+			return;
 		case EXPR_CONST:
 			switch (expr->const_expr.const_kind)
 			{
@@ -3884,7 +3991,11 @@ static inline void expr_set_loc(Expr *expr, SourceLocId loc)
 		case EXPR_RECAST:
 		case EXPR_LENGTHOF:
 		case EXPR_MAYBE_DEREF:
+		case EXPR_CT_REFLECT:
 			expr_set_loc(expr->inner_expr, loc);
+			return;
+		case EXPR_VAARG:
+			exprid_set_loc(expr->vaarg_index.expr, loc);
 			return;
 		case EXPR_EXPRESSION_LIST:
 		case EXPR_ACCESS_RESOLVED:
@@ -3902,8 +4013,7 @@ static inline void expr_set_loc(Expr *expr, SourceLocId loc)
 		case EXPR_COMPILER_CONST:
 		case EXPR_COMPOUND_LITERAL:
 		case EXPR_COND:
-		case EXPR_CT_ARG:
-		case EXPR_CT_CALL:
+		case EXPR_CT_FEATURE:
 		case EXPR_CT_DEFINED:
 		case EXPR_CT_EVAL:
 		case EXPR_CT_IDENT:
@@ -3946,6 +4056,7 @@ static inline void expr_set_loc(Expr *expr, SourceLocId loc)
 		case EXPR_UNARY:
 		case EXPR_UNRESOLVED_IDENTIFIER:
 		case EXPR_VASPLAT:
+		case EXPR_VACOUNT:
 		case EXPR_MACRO_BODY:
 		case EXPR_DEFAULT_ARG:
 		case EXPR_TYPECALL:
@@ -4061,6 +4172,13 @@ INLINE SourceLocId make_loc(SourceLoc loc)
 {
 	SourceLoc *copy = sourceloc_calloc();
 	*copy = loc;
+	return sourcelocid(copy);
+}
+
+INLINE SourceLocId copy_loc(SourceLocId loc)
+{
+	SourceLoc *copy = sourceloc_calloc();
+	*copy = *sourcelocptr(loc);
 	return sourcelocid(copy);
 }
 
@@ -4196,6 +4314,15 @@ INLINE void expr_rewrite_const_fault(Expr *expr, Decl *fault)
 	expr->expr_kind = EXPR_CONST;
 	expr->type = type_fault;
 	expr->const_expr = (ExprConst) { .fault = fault, .const_kind = CONST_FAULT };
+	expr->resolve_status = RESOLVE_DONE;
+}
+
+INLINE void expr_rewrite_const_reflect(Expr *expr, Expr *reflect)
+{
+	ASSERT(reflect->resolve_status == RESOLVE_DONE);
+	expr->expr_kind = EXPR_CONST;
+	expr->type = type_reflection;
+	expr->const_expr = (ExprConst) { .reflection = reflect, .const_kind = CONST_REFLECTION };
 	expr->resolve_status = RESOLVE_DONE;
 }
 
@@ -4633,6 +4760,12 @@ INLINE bool expr_is_const_member(Expr *expr)
 	return expr->expr_kind == EXPR_CONST && expr->const_expr.const_kind == CONST_MEMBER;
 }
 
+INLINE bool expr_is_const_reflection(Expr *expr)
+{
+	ASSERT(expr->resolve_status == RESOLVE_DONE);
+	return expr->expr_kind == EXPR_CONST && expr->const_expr.const_kind == CONST_REFLECTION;
+}
+
 INLINE bool check_module_name(Path *path)
 {
 	if (!str_is_valid_module_name(path->module))
@@ -4660,3 +4793,8 @@ const char *default_c_compiler(void);
 void print_build_env(void);
 void print_asm(PlatformTarget *target);
 const char *os_type_to_string(OsType os);
+
+INLINE void expr_rewrite_const_string_from_scratch(Expr *expr_to_rewrite)
+{
+	expr_rewrite_const_string(expr_to_rewrite, scratch_buffer_copy(), scratch_buffer.len);
+}

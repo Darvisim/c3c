@@ -2,7 +2,7 @@
 // Use of self source code is governed by the MIT license
 // a copy of which can be found in the LICENSE_STDLIB file.
 <*
- @require Type.kindof == INTERFACE || Type.kindof == ANY : "The kind of an interfacelist must be an interface or `any`"
+ @require Type::kind == INTERFACE || Type::kind == ANY : "The kind of an interfacelist must be an interface or `any`"
 *>
 module std::collections::interfacelist <Type>;
 import std::io,std::math;
@@ -11,7 +11,7 @@ alias InterfacePredicate = fn bool(Type value);
 alias InterfaceTest = fn bool(Type type, Type context);
 
 <*
- The InterfaceList contains a heterogenous set of types implementing an interface. anything placed in the
+ The InterfaceList contains a heterogeneous set of types implementing an interface. anything placed in the
  list will shallowly copied in order to be stored as the interface. This means
  that the list will copy and free its elements.
 
@@ -153,7 +153,6 @@ fn Type? InterfaceList.pop_first_retained(&self)
 fn Type? InterfaceList.copy_pop_first(&self, Allocator allocator)
 {
 	if (!self.size) return NO_MORE_ELEMENT~;
-	defer self.free_element(self.entries[self.size]);
 	defer self.remove_at(0);
 	return (Type)alloc::clone_any(allocator, self.entries[0]);
 }
@@ -174,8 +173,8 @@ fn Type? InterfaceList.tcopy_pop_first(&self) => self.copy_pop_first(tmem);
 *>
 fn void InterfaceList.remove_at(&self, sz index)
 {
-	if (!--self.size || index == self.size) return;
 	self.free_element(self.entries[index]);
+	if (!--self.size || index == self.size) return;
 	self.entries[index .. self.size - 1] = self.entries[index + 1 .. self.size];
 }
 
@@ -200,7 +199,7 @@ fn void InterfaceList.add_all(&self, InterfaceList* other_list)
 fn void InterfaceList.reverse(&self)
 {
 	if (self.size < 2) return;
-	sz half = self.size / 2U;
+	sz half = self.size / 2;
 	sz end = self.size - 1;
 	for (sz i = 0; i < half; i++)
 	{
@@ -365,7 +364,7 @@ fn sz? InterfaceList.to_format(&self, Formatter* formatter) @dynamic
 			sz n = formatter.print("[")!;
 			foreach (i, element : self.entries[:self.size])
 			{
-				if (i != 0) formatter.print(", ")!;
+				if (i != 0) n += formatter.print(", ")!;
 				n += formatter.printf("%s", element)!;
 			}
 			n += formatter.print("]")!;
@@ -431,7 +430,7 @@ fn void InterfaceList.reserve(&self, sz min_capacity)
 	if (self.capacity >= min_capacity) return;
 	if (!self.allocator) self.allocator = tmem;
 	min_capacity = math::next_power_of_2(min_capacity);
-	self.entries = alloc::realloc(self.allocator, self.entries, Type.sizeof * min_capacity);
+	self.entries = alloc::realloc(self.allocator, self.entries, Type::size * min_capacity);
 	self.capacity = min_capacity;
 }
 
@@ -440,7 +439,7 @@ fn void InterfaceList.reserve(&self, sz min_capacity)
 
  @param index : "The index where to set the value."
  @param value : "The value to set"
- @require index <= self.size || index >= 0 : "Index out of range"
+ @require index <= self.size && index >= 0 : "Index out of range"
  @require $defined(Type t = &value) : "Value must implement the interface"
 *>
 macro void InterfaceList.set(&self, sz index, value)
@@ -461,9 +460,9 @@ fn void interfacelist_ensure_capacity(InterfaceList* self, sz added = 1) @inline
 	sz new_size = self.size + added;
 	if (self.capacity >= new_size) return;
 
-	assert(new_size < sz.max / 2U);
-	sz new_capacity = self.capacity ? 2U * self.capacity : 16U;
-	while (new_capacity < new_size) new_capacity *= 2U;
+	assert(new_size < sz::max / 2);
+	sz new_capacity = self.capacity ? 2 * self.capacity : 16;
+	while (new_capacity < new_size) new_capacity *= 2;
 	self.reserve(new_capacity);
 }
 
@@ -474,7 +473,7 @@ fn void interfacelist_append(InterfaceList* self, Type element) @local
 }
 
 <*
- @require index <= self.size || index >= 0 : "Index out of range"
+ @require index <= self.size && index >= 0 : "Index out of range"
 *>
 fn void interfacelist_insert_at(InterfaceList* self, sz index, Type value) @local
 {

@@ -3,7 +3,7 @@ import std::time;
 
 fn void test_parse_and_add()
 {
-	DateTime d = datetime::from_date(1973, APRIL, 27);
+	DateTime d = datetime::at(1973, APRIL, 27);
 	assert(d.year == 1973);
 	assert(d.month == APRIL);
 	assert(d.day == 27);
@@ -51,7 +51,7 @@ fn void test_parse_and_add()
 
 fn void datetime_eq()
 {
-	DateTime d = datetime::from_date(1973, APRIL, 27, 12, 23, 55, 34);
+	DateTime d = datetime::at(1973, APRIL, 27, 12, 23, 55, 34);
 	DateTime d2 = d;
 
 	assert(d == d2);
@@ -71,8 +71,8 @@ fn void tzdatetime_eq()
 	int offset1_hours = 7;
 	int offset2_hours = -1;
 
-	TzDateTime d1 = datetime::from_date_tz(2022, OCTOBER, 15, 9, 07, 45, gmt_offset: offset1_hours * 3600);
-	TzDateTime d2 = datetime::from_date_tz(2022, OCTOBER, 15, 1, 07, 45, gmt_offset: offset2_hours * 3600);
+	TzDateTime d1 = datetime::at_tz(2022, OCTOBER, 15, 9, 07, 45, gmt_offset: offset1_hours * 3600);
+	TzDateTime d2 = datetime::at_tz(2022, OCTOBER, 15, 1, 07, 45, gmt_offset: offset2_hours * 3600);
 
 	assert(d1 == d2);
 
@@ -82,8 +82,8 @@ fn void tzdatetime_eq()
 	offset1_hours = 12;
 	offset2_hours = -10;
 
-	d1 = datetime::from_date_tz(2022, OCTOBER, 15, 20, 15, 31, gmt_offset: offset1_hours * 3600);
-	d2 = datetime::from_date_tz(2022, OCTOBER, 14, 22, 15, 31, gmt_offset: offset2_hours * 3600);
+	d1 = datetime::at_tz(2022, OCTOBER, 15, 20, 15, 31, gmt_offset: offset1_hours * 3600);
+	d2 = datetime::at_tz(2022, OCTOBER, 14, 22, 15, 31, gmt_offset: offset2_hours * 3600);
 	assert(d1 == d2);
 }
 
@@ -95,8 +95,8 @@ fn void test_timezone()
 	int target_offset_hours = -4;
 	int target_offset = target_offset_hours * 3600;
 
-	DateTime d1 = datetime::from_date(2022, OCTOBER, 15);
-	TzDateTime d2 = datetime::from_date_tz(2022, OCTOBER, 15, gmt_offset: offset);
+	DateTime d1 = datetime::at(2022, OCTOBER, 15);
+	TzDateTime d2 = datetime::at_tz(2022, OCTOBER, 15, gmt_offset: offset);
 
 	DateTime dt;
 	TzDateTime tz;
@@ -195,4 +195,88 @@ fn void test_timezone()
 	assert(tz.hour == d2.hour);
 	assert(tz.time == t2);
 	assert(tz.gmt_offset == offset);
+}
+
+fn void test_diff_years_simple_anniversary() @test
+{
+	DateTime from = datetime::at(2020, JUNE, 15);
+	DateTime to = datetime::at(2025, JUNE, 15);
+	test::eq(to.diff_years(from), 5);
+}
+
+fn void test_diff_years_anniversary_not_reached() @test
+{
+	DateTime from = datetime::at(2020, JUNE, 15);
+	DateTime to = datetime::at(2025, JUNE, 14);
+	test::eq(to.diff_years(from), 4);
+}
+
+fn void test_diff_years_anniversary_passed() @test
+{
+	DateTime from = datetime::at(2020, JUNE, 15);
+	DateTime to = datetime::at(2025, JUNE, 16);
+	test::eq(to.diff_years(from), 5);
+}
+
+fn void test_diff_years_same_date_zero() @test
+{
+	DateTime from = datetime::at(2024, MARCH, 15);
+	DateTime to = datetime::at(2024, MARCH, 15);
+	test::eq(to.diff_years(from), 0);
+}
+
+fn void test_diff_years_negative() @test
+{
+	DateTime from = datetime::at(2024, JUNE, 15);
+	DateTime to = datetime::at(2020, JUNE, 15);
+	test::eq(to.diff_years(from), -4);
+}
+
+fn void test_diff_years_leap_to_nonleap_anniversary() @test
+{
+	DateTime from = datetime::at(2024, MARCH, 15);
+	DateTime to = datetime::at(2025, MARCH, 15);
+	test::eq(to.diff_years(from), 1);
+}
+
+fn void test_diff_years_leap_to_nonleap_anniversary_march1() @test
+{
+	DateTime from = datetime::at(2024, MARCH, 1);
+	DateTime to = datetime::at(2025, MARCH, 1);
+	test::eq(to.diff_years(from), 1);
+}
+
+fn void test_diff_years_leap_to_nonleap_day_before() @test
+{
+	DateTime from = datetime::at(2024, MARCH, 15);
+	DateTime to = datetime::at(2025, MARCH, 14);
+	test::eq(to.diff_years(from), 0);
+}
+
+fn void test_diff_years_nonleap_to_leap_anniversary() @test
+{
+	DateTime from = datetime::at(2023, MARCH, 15);
+	DateTime to = datetime::at(2024, MARCH, 15);
+	test::eq(to.diff_years(from), 1);
+}
+
+fn void test_diff_years_feb29_to_feb28() @test
+{
+	DateTime from = datetime::at(2024, FEBRUARY, 29);
+	DateTime to = datetime::at(2025, FEBRUARY, 28);
+	test::eq(to.diff_years(from), 0);
+}
+
+fn void test_diff_years_feb29_to_mar1() @test
+{
+	DateTime from = datetime::at(2024, FEBRUARY, 29);
+	DateTime to = datetime::at(2025, MARCH, 1);
+	test::eq(to.diff_years(from), 1);
+}
+
+fn void test_diff_years_jan_before_march_works() @test
+{
+	DateTime from = datetime::at(2024, JANUARY, 15);
+	DateTime to = datetime::at(2025, JANUARY, 15);
+	test::eq(to.diff_years(from), 1);
 }

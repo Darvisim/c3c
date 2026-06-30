@@ -2,9 +2,9 @@ module libc::os @if(env::LIBC);
 import std::core::env;
 
 // Linux
-extern fn int* __errno_location() @if(env::LINUX);
-macro int errno() @if(env::LINUX) => *__errno_location();
-macro void errno_set(int err) @if(env::LINUX) => *(__errno_location()) = err;
+extern fn int* __errno_location() @if(env::LINUX || env::EMSCRIPTEN);
+macro int errno() @if(env::LINUX || env::EMSCRIPTEN) => *__errno_location();
+macro void errno_set(int err) @if(env::LINUX || env::EMSCRIPTEN) => *(__errno_location()) = err;
 
 // Android 9
 extern fn int* __errno() @if(env::ANDROID);
@@ -17,9 +17,9 @@ macro int errno() @if(env::OPENBSD || env::NETBSD) => *__errno();
 macro void errno_set(int err) @if(env::OPENBSD || env::NETBSD) => *(__errno()) = err;
 
 // Darwin
-extern fn int* __error() @if(env::DARWIN);
-macro int errno() @if(env::DARWIN) => *__error();
-macro void errno_set(int err) @if(env::DARWIN) => *(__error()) = err;
+extern fn int* __error() @if(env::DARWIN || env::FREEBSD);
+macro int errno() @if(env::DARWIN || env::FREEBSD) => *__error();
+macro void errno_set(int err) @if(env::DARWIN || env::FREEBSD) => *(__error()) = err;
 
 // Win32
 macro int errno() @if(env::WIN32)

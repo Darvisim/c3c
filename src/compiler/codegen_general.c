@@ -125,6 +125,7 @@ bool type_is_homogenous_base_type(Type *type)
 		case ABI_WASM:
 		case ABI_PPC32:
 		case ABI_RISCV:
+		case ABI_AVR:
 		case ABI_XTENSA:
 			return false;
 	}
@@ -151,6 +152,7 @@ bool type_homogenous_aggregate_small_enough(Type *type, unsigned members)
 		case ABI_WASM:
 		case ABI_PPC32:
 		case ABI_RISCV:
+		case ABI_AVR:
 		case ABI_XTENSA:
 			return false;
 	}
@@ -159,20 +161,21 @@ bool type_homogenous_aggregate_small_enough(Type *type, unsigned members)
 
 
 /**
- * Calculate whether this is a homogenous aggregate for the ABI.
+ * Calculate whether this is a homogeneous aggregate for the ABI.
  * // Based on bool ABIInfo::isHomogeneousAggregate in Clang
  * @param type the (flattened) type to check.
  * @param base the base type of the aggregate
  * @param elements the elements found
  * @return true if it is an aggregate, false otherwise.
  */
-bool type_is_homogenous_aggregate(LoweredType *type, Type **base, unsigned *elements)
+bool type_is_homogeneous_aggregate(LoweredType *type, Type **base, unsigned *elements)
 {
 	ASSERT(base && type && elements);
 	*elements = 0;
 	switch (type->type_kind)
 	{
 		case LOWERED_TYPES:
+		case TYPE_UNTYPEDLIST:
 			UNREACHABLE
 		case TYPE_VECTOR:
 			// Converted in ABI
@@ -204,8 +207,8 @@ bool type_is_homogenous_aggregate(LoweredType *type, Type **base, unsigned *elem
 					}
 					unsigned member_members = 0;
 
-					// Check recursively if the field member is homogenous
-					if (!type_is_homogenous_aggregate(member_type, base, &member_members)) return false;
+					// Check recursively if the field member is homogeneous
+					if (!type_is_homogeneous_aggregate(member_type, base, &member_members)) return false;
 					member_members *= member_mult;
 					// In the case of a union, grab the bigger set of elements.
 					if (type->type_kind == TYPE_UNION)
@@ -228,10 +231,10 @@ bool type_is_homogenous_aggregate(LoweredType *type, Type **base, unsigned *elem
 			// Same with scaled vectors
 			return false;
 		case TYPE_ARRAY:
-			// Empty arrays? Not homogenous.
+			// Empty arrays? Not homogeneous.
 			if (type->array.len == 0) return false;
 			// Check the underlying type and multiply by length.
-			if (!type_is_homogenous_aggregate(lowered_array_element_type(type), base, elements)) return false;
+			if (!type_is_homogeneous_aggregate(lowered_array_element_type(type), base, elements)) return false;
 			*elements *= type->array.len;
 			goto TYPECHECK;
 		case TYPE_BOOL:

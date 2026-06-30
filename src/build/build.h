@@ -44,6 +44,7 @@ typedef enum
 	COMMAND_PRINT_SYNTAX,
 	COMMAND_PROJECT,
 	COMMAND_FETCH_SDK,
+	COMMAND_DOCGEN,
 } CompilerCommand;
 
 typedef enum
@@ -170,6 +171,7 @@ typedef struct BuildOptions_
 		const char *sdk;
 		const char *def;
 		const char *vs_dirs;
+		WinSubsystem subsystem;
 		WinCrtLinking crt_linking;
 	} win;
 	struct
@@ -188,6 +190,7 @@ typedef struct BuildOptions_
 		const char *ndk_path;
 		int api_version;
 	} android;
+	const char *bsd_sysroot;
 	int build_threads;
 	const char *echo_prefix;
 	const char **libraries_to_fetch;
@@ -262,6 +265,8 @@ typedef struct BuildOptions_
 	bool print_input;
 	bool run_once;
 	bool suppress_run;
+	bool docgen_json_out;
+	bool docgen_append;
 	bool fetch_accept_license;
 	bool msvc_show_versions;
 	const char *msvc_version_override;
@@ -278,6 +283,7 @@ typedef struct BuildOptions_
 	const char *asm_out;
 	const char *header_out;
 	const char *obj_out;
+	const char *exec_dir;
 	const char *script_dir;
 	const char **emit_only;
 	RelocModel reloc_model;
@@ -381,12 +387,14 @@ typedef struct
 	const char *echo_prefix;
 	const char **link_args;
 	const char *build_dir;
+	const char *project_dir;
 	const char *object_file_dir;
 	const char *output_dir;
 	const char *ir_file_dir;
 	const char *asm_file_dir;
 	const char *header_file_dir;
 	const char *script_dir;
+	const char *exec_dir;
 	const char *run_dir;
 	const char **emit_only;
 	bool is_non_project;
@@ -397,6 +405,9 @@ typedef struct
 	bool benchmark_output;
 	bool test_output;
 	bool lsp_output;
+	bool docgen;
+	bool docgen_json_out;
+	bool docgen_append;
 	bool output_headers;
 	bool output_ast;
 	bool lex_only;
@@ -492,8 +503,8 @@ typedef struct
 		const char *sdk;
 		const char *def;
 		const char *vs_dirs;
+		WinSubsystem subsystem;
 		WinCrtLinking crt_linking;
-		bool use_win_subsystem;
 	} win;
 	struct
 	{
@@ -506,6 +517,7 @@ typedef struct
 		const char *ndk_path;
 		int api_version;
 	} android;
+	const char *bsd_sysroot;
 } BuildTarget;
 
 static const char *x86_cpu_set[8] = {
@@ -569,6 +581,7 @@ static BuildTarget default_build_target = {
 		.feature.panic_level = PANIC_NOT_SET,
 		.win.crt_linking = WIN_CRT_DEFAULT,
 		.win.def = NULL,
+		.win.subsystem = WIN_SUBSYSTEM_DEFAULT,
 		.linuxpaths.libc = LINUX_LIBC_NOT_SET,
 		.switchrange_max_size = DEFAULT_SWITCHRANGE_MAX_SIZE,
 		.switchjump_max_size = DEFAULT_SWITCH_JUMP_MAX_SIZE,

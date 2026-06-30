@@ -83,7 +83,7 @@ fn bool terminal_has_ansi_codes() @private => @pool()
 	{
 		if (v.contains("xterm") || v.contains("vt100") || v.contains("screen")) return true;
 	}
-	$if env::WIN32 || env::NO_LIBC:
+	$if env::WIN32 || env::NO_LIBC || env::EMSCRIPTEN:
 		return false;
 	$else
 		return io::stdout().isatty();
@@ -142,7 +142,7 @@ fn void mute_output() @local
 	File* stderr = io::stderr();
 	*stderr = test_context.fake_stdout;
 	*stdout = test_context.fake_stdout;
-	(void)test_context.fake_stdout.set_cursor(0)!!;
+	(void)test_context.fake_stdout.seek(0)!!;
 }
 
 fn void unmute_output(bool has_error) @local
@@ -165,7 +165,7 @@ fn void unmute_output(bool has_error) @local
 	{
 		test_context.fake_stdout.write_byte('\n')!!;
 		test_context.fake_stdout.write_byte('\0')!!;
-		test_context.fake_stdout.set_cursor(0)!!;
+		test_context.fake_stdout.seek(0)!!;
 
 		io::printfn("\n========== TEST LOG ============");
 		io::printfn("%s\n", test_context.current_test_name);
@@ -320,6 +320,7 @@ $endif
 		TrackingAllocator mem;
 
 		mem.init(context.stored.allocator);
+		Clock start_time = clock::now();
 		if (libc::setjmp(&context.buf) == 0)
 		{
 			// We might arrive here from a different thread
@@ -339,10 +340,11 @@ $endif
 			if (context.check_leaks) allocators::thread_allocator = context.stored.allocator;
 
 			unmute_output(false); // all good, discard output
+			NanoDuration duration = start_time.to_now();
 			if (mem.has_leaks())
 			{
 				if (context.is_quiet_mode) io::printf("\n%s ", context.current_test_name);
-				io::print(context.has_ansi_codes ? "[\e[0;31mFAIL\e[0m]" : "[FAIL]");
+				io::printf(context.has_ansi_codes ? "[\e[0;31mFAIL\e[0m] (%s)" : "[FAIL] (%s)", duration.tunit_str(true));
 				io::printn(" LEAKS DETECTED!");
 				mem.print_report();
 			}
@@ -350,7 +352,7 @@ $endif
 			{
 				if (!context.is_quiet_mode)
 				{
-					io::printfn(context.has_ansi_codes ? "[\e[0;32mPASS\e[0m]" : "[PASS]");
+					io::printfn(context.has_ansi_codes ? "[\e[0;32mPASS\e[0m] (%s)" : "[PASS] (%s)", duration.tunit_str(true));
 				}
 				tests_passed++;
 			}

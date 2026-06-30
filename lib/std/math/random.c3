@@ -45,7 +45,7 @@ macro int next(random, int range)
 	{
 		x = random.next_int() & mask;
 	}
-	while (x > range);
+	while ((long)x > (long)range);
 	return (int)x;
 }
 
@@ -53,7 +53,7 @@ macro int next(random, int range)
  Get a random in the range [min, max], both included.
 
  @require is_random(random)
- @require max >= min
+ @require max >= min && (long)max - min < int::max : "Invalid range"
 *>
 macro int next_in_range(random, int min, int max)
 {
@@ -142,7 +142,7 @@ macro ushort @char_to_short(#function) => (ushort)#function << 8 + #function;
 
 macro void @random_value_to_bytes(#function, char[] bytes)
 {
-	var $byte_size = $sizeof(#function());
+	var $byte_size = @sizeof(#function());
 	sz len = bytes.len;
 	// Same size or smaller? Then just copy.
 	while (len > 0)

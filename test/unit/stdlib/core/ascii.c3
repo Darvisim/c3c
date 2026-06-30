@@ -8,21 +8,21 @@ fn void test_all()
 	check.init();
 	for (char c = 0; c < 255; c++)
 	{
-		check.updatec(c);
-		if (c.is_upper()) check.updatec(1);
-		if (c.is_lower()) check.updatec(2);
-		if (c.is_alpha()) check.updatec(4);
-		if (c.is_bdigit()) check.updatec(8);
-		if (c.is_odigit()) check.updatec(16);
-		if (c.is_xdigit()) check.updatec(16);
-		if (c.is_digit()) check.updatec(32);
-		if (c.is_graph()) check.updatec(64);
-		check.updatec(128);
-		if (c.is_punct()) check.updatec(1);
-		if (c.is_cntrl()) check.updatec(2);
-		if (c.is_space()) check.updatec(4);
-		check.updatec(c.to_upper());
-		check.updatec(c.to_lower());
+		check.update_byte(c);
+		if (c.is_upper()) check.update_byte(1);
+		if (c.is_lower()) check.update_byte(2);
+		if (c.is_alpha()) check.update_byte(4);
+		if (c.is_bdigit()) check.update_byte(8);
+		if (c.is_odigit()) check.update_byte(16);
+		if (c.is_xdigit()) check.update_byte(16);
+		if (c.is_digit()) check.update_byte(32);
+		if (c.is_graph()) check.update_byte(64);
+		check.update_byte(128);
+		if (c.is_punct()) check.update_byte(1);
+		if (c.is_cntrl()) check.update_byte(2);
+		if (c.is_space()) check.update_byte(4);
+		check.update_byte(c.to_upper());
+		check.update_byte(c.to_lower());
 	}
 	test::eq(check.final(), 7327699757963224526UL);
 }
@@ -43,6 +43,12 @@ fn void asciicharset_contains()
 	test::@check(ALPHANUMERIC_WHITESPACE.contains('t'));
 	test::@check(ALPHANUMERIC_WHITESPACE.contains('8'));
 	test::@check(ALPHANUMERIC_WHITESPACE.contains(' '));
+}
+
+fn void asciicharset_contains_rejects_non_ascii()
+{
+	test::@check(!ALPHANUMERIC_WHITESPACE.contains((char)128));
+	test::@check(!ALPHANUMERIC_WHITESPACE.contains((char)200));
 }
 
 fn void asciicharset_create_set()

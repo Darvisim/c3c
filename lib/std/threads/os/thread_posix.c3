@@ -89,7 +89,10 @@ fn void? NativeMutex.lock_timeout(&self, long ms)
 	{
 		if (!ms) break;
 		long sleep = min(5, ms);
-		if (!libc::nanosleep(&&time::ms(ms).to_timespec(), null)) return thread::LOCK_TIMEOUT~;
+		if (libc::nanosleep(&&time::ms(sleep).to_timespec(), null))
+		{
+			return libc::errno() == EINTR ? thread::INTERRUPTED~ : thread::LOCK_TIMEOUT~;
+		}
 		ms -= sleep;
 	}
 	switch (result)
@@ -208,6 +211,8 @@ fn bool NativeThread.set_priority(&self, ThreadPriority priority)
 {
 	if (priority == DEFAULT) priority = NORMAL;
 	$switch:
+		$case env::EMSCRIPTEN:
+			return true;
 		$case ANDROID_LINUX:
 			if (priority == REALTIME)
 			{
@@ -255,16 +260,13 @@ fn void? NativeThread.create(&thread, ThreadFn thread_fn, void* arg, ThreadSetti
 	{
 		if (posix::pthread_attr_init(&attr)) return thread::INIT_FAILED~;
 		attr_ptr = &attr;
-		if (settings.stack_size > 0)
-		{
-			if (posix::pthread_attr_setstacksize(attr_ptr, settings.stack_size)) return thread::INVALID_THREAD_SETTINGS~;
-		}
+		if (posix::pthread_attr_setstacksize(attr_ptr, (usz)settings.stack_size)) return thread::INVALID_THREAD_SETTINGS~;
 	}
 	$if ANDROID_LINUX:
 		os::sem_init(&thread.sem, 0, 0);
 		defer os::sem_destroy(&thread.sem);
 	$endif
-	if (posix::pthread_create(&thread.pthread, null, &callback, thread) != 0)
+	if (posix::pthread_create(&thread.pthread, attr_ptr, &callback, thread) != 0)
 	{
 		return thread::INIT_FAILED~;
 	}
@@ -301,7 +303,7 @@ fn bool NativeThread.equals(thread, NativeThread other)
 
 <*
  @return "the return value of the thread"
- @return? thread::THREAD_NOT_FOUND : "If the thread was not running"
+ @return? thread::THREAD_NOT_FOUND : "If the thread was not found"
 *>
 fn int? NativeThread.join(thread) @maydiscard
 {

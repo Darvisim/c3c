@@ -14,6 +14,12 @@ fn void test_starts_with()
 	assert(!s.starts_with("o"));
 }
 
+fn void string_trim()
+{
+	String s = "     ";
+	assert(s.trim_charset() == "");
+}
+
 fn void test_count()
 {
 	String s = "aaabcabd";
@@ -44,27 +50,27 @@ fn void test_print_null()
 fn void test_strip()
 {
 	String s = "ofke";
-	assert(s.strip("of") == "ke");
-	assert(s.strip("ofke") == "");
-	assert(s.strip("ofkes") == "ofke");
-	assert(s.strip("ofkf") == "ofke");
-	assert(s.strip("") == "ofke");
+	assert(s.strip_prefix("of") == "ke");
+	assert(s.strip_prefix("ofke") == "");
+	assert(s.strip_prefix("ofkes") == "ofke");
+	assert(s.strip_prefix("ofkf") == "ofke");
+	assert(s.strip_prefix("") == "ofke");
 	s = "";
-	assert(s.strip("") == "");
-	assert(s.strip("o") == "");
+	assert(s.strip_prefix("") == "");
+	assert(s.strip_prefix("o") == "");
 }
 
 fn void test_strip_end()
 {
 	String s = "ofke";
-	assert(s.strip_end("ke") == "of");
-	assert(s.strip_end("ofke") == "");
-	assert(s.strip_end("ofkes") == "ofke");
-	assert(s.strip_end("ofkf") == "ofke");
-	assert(s.strip_end("") == "ofke");
+	assert(s.strip_suffix("ke") == "of");
+	assert(s.strip_suffix("ofke") == "");
+	assert(s.strip_suffix("ofkes") == "ofke");
+	assert(s.strip_suffix("ofkf") == "ofke");
+	assert(s.strip_suffix("") == "ofke");
 	s = "";
-	assert(s.strip_end("") == "");
-	assert(s.strip_end("o") == "");
+	assert(s.strip_suffix("") == "");
+	assert(s.strip_suffix("o") == "");
 }
 
 fn void test_ends_with()
@@ -110,6 +116,25 @@ fn void test_trim_right()
 	assert("  \n\tok".trim_right() == "  \n\tok");
 	assert("!! \n\t ".trim_right() == "!!");
 	assert("".trim_right() == "");
+}
+
+// Regression test for String.trim_charset edge cases.
+// The buggy implementation used an inclusive `self[start..len - 1]` slice, which
+// underflows or inverts the range when start >= len (i.e., empty input or input
+// that consists entirely of trimmed characters).
+fn void test_trim_charset_edge_cases()
+{
+	// Empty input: must produce empty, not panic on `self[0..-1]`.
+	assert("".trim_charset() == "");
+
+	// All-whitespace inputs: must produce empty, not panic on `self[len..len-1]`.
+	assert("   ".trim_charset() == "");
+	assert("\t".trim_charset() == "");
+	assert("\t\n\r ".trim_charset() == "");
+
+	// Sanity: the non-edge case still works.
+	assert(" hello ".trim_charset() == "hello");
+	assert("hello".trim_charset() == "hello");
 }
 
 fn void test_split()

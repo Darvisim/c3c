@@ -2,7 +2,7 @@ module std::sort;
 
 <*
 Perform a binary search over the sorted array and return the index
-in [0, array.len) where x would be inserted or cmp(i) is true and cmp(j) is true for j in [i, array.len).
+in [0..array.len] where x would be inserted or cmp(i) is true and cmp(j) is true for j in [i..array.len - 1).
 
  @require @list_is_by_ref(list) : "Expected a list passed by reference or a slice"
  @require @is_sortable(list) : "The list must be sortable"
@@ -13,16 +13,16 @@ macro sz binarysearch(list, element, cmp = ..., context = ...) @builtin
 {
 	var used_cmp = $defined(cmp) ??? cmp : (TypeNotSet)null;
 	var used_ctx = $defined(context) ??? context : (TypeNotSet)null;
-	return _binarysearch{$typeof(list), $typeof(element), $typeof(used_cmp), $typeof(used_ctx)}(list, element, used_cmp, used_ctx);
+	return _binarysearch{$Typeof(list), $Typeof(element), $Typeof(used_cmp), $Typeof(used_ctx)}(list, element, used_cmp, used_ctx);
 }
 
 fn sz _binarysearch(ListType list, ElementType element, CmpFnType cmp, ContextType context) <ListType, ElementType, CmpFnType, ContextType> @noinline @local
 {
 	sz i;
-	var $no_cmp = $typeof(cmp) == TypeNotSet;
-	var $has_context = $typeof(context) != TypeNotSet;
+	var $no_cmp = $Typeof(cmp) == TypeNotSet;
+	var $has_context = $Typeof(context) != TypeNotSet;
 
-	$if $kindof(list) == SLICE:
+	$if @kindof(list) == SLICE:
 		sz len = lengthof(list);
 		for (sz j = len; i < j;)
 		{
@@ -73,7 +73,7 @@ fn sz _binarysearch(ListType list, ElementType element, CmpFnType cmp, ContextTy
 			$else
 				$switch:
 					$case $defined(cmp((*list)[0], (*list)[0], context)):
-						int res = cmp(list[half], element, context);
+						int res = cmp((*list)[half], element, context);
 					$case $defined(cmp((*list)[0], (*list)[0])):
 						assert(!$has_context);
 						int res = cmp((*list)[half], element);

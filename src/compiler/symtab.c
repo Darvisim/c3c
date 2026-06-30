@@ -50,27 +50,47 @@ const char *kw_at_pure;
 const char *kw_at_require;
 const char *kw_at_return;
 const char *kw_at_simd;
+const char *kw_alignment;
+const char *kw_bitoffset;
+const char *kw_bitsize;
+const char *kw_cname;
+const char *kw_description;
+const char *kw_generic_args;
+const char *kw_generic_qname;
+const char *kw_get;
+const char *kw_get_tag;
+const char *kw_has_tag;
 const char *kw_in;
 const char *kw_inout;
+const char *kw_is_anonymous;
+const char *kw_is_const;
+const char *kw_is_nested;
+const char *kw_is_ordered;
+const char *kw_has_equals;
+const char *kw_kind;
 const char *kw_len;
 const char *kw_libc;
 const char *kw_main;
+const char *kw_members;
 const char *kw_memcmp;
 const char *kw_mainstub;
 const char *kw_name;
-const char *kw_nameof;
-const char *kw_offsetof;
+const char *kw_qname;
+const char *kw_offset;
 const char *kw_ordinal;
 const char *kw_out;
 const char *kw_ptr;
 const char *kw_return;
 const char *kw_self;
+const char *kw_set;
+const char *kw_size;
 const char *kw_std;
 const char *kw_compiler_rt;
 const char *kw_std__core;
 const char *kw_std__core__types;
 const char *kw_std__core__runtime;
 const char *kw_std__io;
+const char *kw_tags;
 const char *kw_type;
 const char *kw_typekind;
 const char *kw_winmain;
@@ -93,7 +113,7 @@ void symtab_init(uint32_t capacity)
 	symtab.bucket_mask = capacity - 1;
 
 	size_t size = capacity * sizeof(SymtabEntry*);
-	symtab.bucket = malloc(size);
+	symtab.bucket = cmalloc(size);
 	// Touch all pages to improve perf(!)
 	memset(symtab.bucket, 0, size);
 
@@ -139,20 +159,40 @@ void symtab_init(uint32_t capacity)
 	kw_IoError = KW_DEF("IoError");
 
 	type = TOKEN_IDENT;
+	kw_alignment = KW_DEF("alignment");
+	kw_bitoffset = KW_DEF("bitoffset");
+	kw_bitsize = KW_DEF("bitsize");
+	kw_cname = KW_DEF("cname");
+	kw_description = KW_DEF("description");
+	kw_generic_args = KW_DEF("generic_args");
+	kw_generic_qname = KW_DEF("generic_qname");
+	kw_get = KW_DEF("get");
+	kw_get_tag = KW_DEF("get_tag");
+	kw_has_equals = KW_DEF("has_equals");
+	kw_has_tag = KW_DEF("has_tag");
 	kw_in = KW_DEF("in");
 	kw_inout = KW_DEF("inout");
+	kw_is_anonymous = KW_DEF("is_anonymous");
+	kw_is_const = KW_DEF("is_const");
+	kw_is_nested = KW_DEF("is_nested");
+	kw_is_ordered = KW_DEF("is_ordered");
+	kw_kind = KW_DEF("kind");
 	kw_libc = KW_DEF("libc");
 	kw_mainstub = KW_DEF("_$main");
 	kw_main = KW_DEF("main");
+	kw_members = KW_DEF("members");
 	kw_memcmp = KW_DEF("memcmp");
 	kw_name = KW_DEF("name");
-	kw_nameof = KW_DEF("nameof");
-	kw_offsetof = KW_DEF("offsetof");
+	kw_offset = KW_DEF("offset");
 	kw_ordinal = KW_DEF("ordinal");
 	kw_out = KW_DEF("out");
 	kw_ptr = KW_DEF("ptr");
+	kw_qname = KW_DEF("qname");
 	kw_self = KW_DEF("self");
+	kw_set = KW_DEF("set");
+	kw_size = KW_DEF("size");
 	kw_std = KW_DEF("std");
+	kw_tags = KW_DEF("tags");
 	kw_compiler_rt = KW_DEF("compiler_rt");
 	kw_std__core = KW_DEF("std::core");
 	kw_std__core__types = KW_DEF("std::core::types");
@@ -164,34 +204,35 @@ void symtab_init(uint32_t capacity)
 
 	type_property_list[TYPE_PROPERTY_MAX] = builtin_list[BUILTIN_MAX] = KW_DEF("max");
 	type_property_list[TYPE_PROPERTY_MIN] = builtin_list[BUILTIN_MIN] = KW_DEF("min");
-
 	type_property_list[TYPE_PROPERTY_LEN] = kw_len = KW_DEF("len");
-
-	type_property_list[TYPE_PROPERTY_ALIGNOF] = KW_DEF("alignof");
-	type_property_list[TYPE_PROPERTY_EXTNAMEOF] = KW_DEF("extnameof");
+	type_property_list[TYPE_PROPERTY_ALIGNMENT] = kw_alignment;
+	type_property_list[TYPE_PROPERTY_CNAME] = kw_cname;
 	type_property_list[TYPE_PROPERTY_FROM_ORDINAL] = KW_DEF("from_ordinal");
-
-	type_property_list[TYPE_PROPERTY_GET] = KW_DEF("get");
+	type_property_list[TYPE_PROPERTY_GENERIC_ARGS] = kw_generic_args;
+	type_property_list[TYPE_PROPERTY_GENERIC_QNAME] = kw_generic_qname;
 	type_property_list[TYPE_PROPERTY_INF] = KW_DEF("inf");
 	type_property_list[TYPE_PROPERTY_INNER] = KW_DEF("inner");
-	type_property_list[TYPE_PROPERTY_IS_EQ] = KW_DEF("is_eq");
-	type_property_list[TYPE_PROPERTY_IS_ORDERED] = KW_DEF("is_ordered");
+	type_property_list[TYPE_PROPERTY_HAS_EQUALS] = kw_has_equals;
+	type_property_list[TYPE_PROPERTY_IS_ANONYMOUS] = kw_is_anonymous;
+	type_property_list[TYPE_PROPERTY_IS_NESTED] = kw_is_nested;
+	type_property_list[TYPE_PROPERTY_IS_ORDERED] = kw_is_ordered;
 	type_property_list[TYPE_PROPERTY_IS_SUBSTRUCT] = KW_DEF("is_substruct");
+	type_property_list[TYPE_PROPERTY_IS_GENERIC] = KW_DEF("is_generic");
 	type_property_list[TYPE_PROPERTY_LOOKUP_FIELD] = KW_DEF("lookup_field");
-	type_property_list[TYPE_PROPERTY_KINDOF] = KW_DEF("kindof");
-	type_property_list[TYPE_PROPERTY_MEMBERSOF] = KW_DEF("membersof");
-	type_property_list[TYPE_PROPERTY_METHODSOF] = KW_DEF("methodsof");
-	type_property_list[TYPE_PROPERTY_NAMEOF] = KW_DEF("nameof");
+	type_property_list[TYPE_PROPERTY_KIND] = kw_kind;
+	type_property_list[TYPE_PROPERTY_MEMBERS] = kw_members;
+	type_property_list[TYPE_PROPERTY_METHODS] = KW_DEF("methods");
+	type_property_list[TYPE_PROPERTY_NAME] = kw_name;
 	type_property_list[TYPE_PROPERTY_NAMES] = KW_DEF("names");
 	type_property_list[TYPE_PROPERTY_NAN] = KW_DEF("nan");
-	type_property_list[TYPE_PROPERTY_PARAMSOF] = KW_DEF("paramsof");
-	type_property_list[TYPE_PROPERTY_PARENTOF] = KW_DEF("parentof");
-	type_property_list[TYPE_PROPERTY_QNAMEOF] = KW_DEF("qnameof");
+	type_property_list[TYPE_PROPERTY_PARAMS] = KW_DEF("params");
+	type_property_list[TYPE_PROPERTY_PARENT] = KW_DEF("parent");
+	type_property_list[TYPE_PROPERTY_QNAME] = kw_qname;
 	type_property_list[TYPE_PROPERTY_RETURNS] = KW_DEF("returns");
-	type_property_list[TYPE_PROPERTY_SET] = KW_DEF("set");
-	type_property_list[TYPE_PROPERTY_SIZEOF] = KW_DEF("sizeof");
-	type_property_list[TYPE_PROPERTY_TAGOF] = KW_DEF("tagof");
-	type_property_list[TYPE_PROPERTY_HAS_TAGOF] = KW_DEF("has_tagof");
+	type_property_list[TYPE_PROPERTY_SIZE] = kw_size;
+	type_property_list[TYPE_PROPERTY_TAGS] = kw_tags;
+	type_property_list[TYPE_PROPERTY_GET_TAG] = kw_get_tag;
+	type_property_list[TYPE_PROPERTY_HAS_TAG] = kw_has_tag;
 	type_property_list[TYPE_PROPERTY_VALUES] = KW_DEF("values");
 
 	builtin_list[BUILTIN_ABS] = KW_DEF("abs");
@@ -340,7 +381,7 @@ void symtab_init(uint32_t capacity)
 
 	kw_at_deprecated = KW_DEF("@deprecated");
 	kw_at_ensure = KW_DEF("@ensure");
-	kw_at_enum_lookup = KW_DEF("@enum_lookup_new");
+	kw_at_enum_lookup = KW_DEF("@enum_lookup");
 	kw_at_jump = KW_DEF("@jump");
 	kw_at_align = KW_DEF("@align");
 	kw_at_simd = KW_DEF("@simd");
@@ -478,7 +519,7 @@ void stable_init(STable *table, uint32_t initial_size)
 	ASSERT(initial_size && "Size must be larger than 0");
 	assert (is_power_of_two(initial_size) && "Must be a power of two");
 
-	SEntry *entries = CALLOC(initial_size * sizeof(Entry));
+	SEntry *entries = CALLOC(initial_size * sizeof(SEntry));
 	table->count = 0;
 	table->capacity = initial_size;
 	table->max_load = initial_size * TABLE_MAX_LOAD;
@@ -487,7 +528,7 @@ void stable_init(STable *table, uint32_t initial_size)
 
 void stable_clear(STable *table)
 {
-	memset(table->entries, 0, table->capacity * sizeof(Entry));
+	memset(table->entries, 0, table->capacity * sizeof(SEntry));
 	table->count = 0;
 }
 

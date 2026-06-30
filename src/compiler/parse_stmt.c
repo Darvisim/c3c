@@ -22,7 +22,7 @@ INLINE bool next_is_end_parens(ParseContext *c)
 static Ast *parse_decl_stmt_after_type(ParseContext *c, TypeInfo *type)
 {
 	Ast *ast = ast_calloc();
-	ast->loc = type->loc;
+	ast->loc = copy_loc(type->loc);
 	ast->ast_kind = AST_DECLARE_STMT;
 	ASSIGN_DECL_OR_RET(ast->declare_stmt, parse_local_decl_after_type(c, type), poisoned_ast);
 	Decl *decl = ast->declare_stmt;
@@ -288,6 +288,7 @@ static inline bool parse_asm_addr(ParseContext *c, ExprAsmArg *asm_arg)
 			CONSUME_OR_RET(TOKEN_RBRACKET, false);
 			return true;
 		case TOKEN_SHL:
+			advance(c);
 			asm_arg->offset_type = ASM_SCALE_SHL;
 			if (!parse_asm_offset(c, asm_arg)) return false;
 			CONSUME_OR_RET(TOKEN_RBRACKET, false);
@@ -432,8 +433,41 @@ static inline Ast *parse_asm_stmt(ParseContext *c)
 	return asm_stmt;
 }
 
+static inline bool read_asm_attributes(ParseContext *c, bool* is_volatile_ref, bool *is_aligned_ref, bool after_start)
+{
+	bool is_volatile = true;
+	bool is_aligned = false;
+	while (tok_is(c, TOKEN_AT_IDENT))
+	{
+		const char *kw = symstr(c);
+		if (kw == kw_at_pure)
+		{
+			if (!is_volatile) RETURN_PRINT_ERROR_HERE("'@pure' should only appear once.");
+			is_volatile = false;
+		}
+		else if (kw == kw_at_align)
+		{
+			if (is_aligned) RETURN_PRINT_ERROR_HERE("'@align' should only appear once.");
+			is_aligned = true;
+		}
+		else
+		{
+			RETURN_PRINT_ERROR_HERE("Only '@pure' and '@align' attributes are allowed.");
+		}
+		advance_and_verify(c, TOKEN_AT_IDENT);
+		if (!tok_is(c, TOKEN_AT_IDENT))
+		{
+			if (after_start && !tok_is(c, TOKEN_LBRACE)) RETURN_PRINT_ERROR_HERE("Expected '{' after the attribute.");
+			break;
+		}
+	}
+	*is_volatile_ref = is_volatile;
+	*is_aligned_ref = is_aligned;
+	return true;
+}
+
 /**
- * asm ::= 'asm' @pure? '{' asm_stmt* '}' | 'asm' '(' string ')'
+ * asm ::= 'asm' @pure? @inline? '{' asm_stmt* '}' | 'asm' '(' string ')' @pure? @inline?
  * @param c
  * @return
  */
@@ -441,24 +475,9 @@ static inline Ast* parse_asm_block_stmt(ParseContext *c)
 {
 	Ast *ast = new_ast_loc(AST_ASM_BLOCK_STMT, c->span);
 	advance_and_verify(c, TOKEN_ASM);
-	bool is_volatile = true;
-	if (tok_is(c, TOKEN_AT_IDENT))
-	{
-		if (symstr(c) == kw_at_pure)
-		{
-			is_volatile = false;
-		}
-		else
-		{
-			PRINT_ERROR_HERE("Only the '@pure' attribute is allowed.");
-			return poisoned_ast;
-		}
-		advance_and_verify(c, TOKEN_AT_IDENT);
-		if (!tok_is(c, TOKEN_LBRACE))
-		{
-			PRINT_ERROR_HERE("Expected '{' after the attribute.");
-		}
-	}
+	bool is_volatile = false;
+	bool is_aligned = false;
+	if (!read_asm_attributes(c, &is_volatile, &is_aligned, true)) return poisoned_ast;
 	if (try_consume(c, TOKEN_LBRACE))
 	{
 		AsmInlineBlock *block = CALLOCS(AsmInlineBlock);
@@ -471,26 +490,16 @@ static inline Ast* parse_asm_block_stmt(ParseContext *c)
 		}
 		ast->asm_block_stmt.block = block;
 		ast->asm_block_stmt.is_volatile = is_volatile;
+		ast->asm_block_stmt.is_aligned = is_aligned;
 		return ast;
 	}
 	ast->asm_block_stmt.is_string = true;
 	CONSUME_OR_RET(TOKEN_LPAREN, poisoned_ast);
 	ASSIGN_EXPRID_OR_RET(ast->asm_block_stmt.asm_string, parse_expr(c), poisoned_ast);
 	CONSUME_OR_RET(TOKEN_RPAREN, poisoned_ast);
-	if (tok_is(c, TOKEN_AT_IDENT))
-	{
-		if (symstr(c) == kw_at_pure)
-		{
-			is_volatile = false;
-		}
-		else
-		{
-			PRINT_ERROR_HERE("Only the '@pure' attribute is allowed.");
-			return poisoned_ast;
-		}
-		advance_and_verify(c, TOKEN_AT_IDENT);
-	}
+	if (!read_asm_attributes(c, &is_volatile, &is_aligned, false)) return poisoned_ast;
 	ast->asm_block_stmt.is_volatile = is_volatile;
+	ast->asm_block_stmt.is_aligned = is_aligned;
 	RANGE_EXTEND_PREV(ast);
 	CONSUME_EOS_OR_RET(poisoned_ast);
 	return ast;
@@ -1117,6 +1126,20 @@ static inline Ast *parse_return_stmt(ParseContext *c)
 }
 
 /**
+ * ct_expand_stmt :: CT_EXPAND '(' expr ')'
+ */
+static inline Ast* parse_ct_expand_stmt(ParseContext  *c)
+{
+	Ast *ast = ast_new_curr(c, AST_CT_EXPAND_STMT);
+	advance_and_verify(c, TOKEN_CT_EXPAND);
+	CONSUME_OR_RET(TOKEN_LPAREN, poisoned_ast);
+	ASSIGN_EXPR_OR_RET(ast->expand_stmt, parse_expr(c), poisoned_ast);
+	CONSUME_OR_RET(TOKEN_RPAREN, poisoned_ast);
+	CONSUME_EOS_OR_RET(poisoned_ast);
+	return ast;
+}
+
+/**
  * ct_foreach_stmt ::= CT_FOREACH CT_IDENT (',' CT_IDENT)? ':' expr ':' statement* CT_ENDFOREACH
  */
 static inline Ast* parse_ct_foreach_stmt(ParseContext *c)
@@ -1371,6 +1394,8 @@ Ast *parse_stmt(ParseContext *c)
 			return parse_ct_assert_stmt(c);
 		case TOKEN_CT_ERROR:
 			return parse_ct_error_stmt(c);
+		case TOKEN_CT_EXPAND:
+			return parse_ct_expand_stmt(c);
 		case TOKEN_CT_IF:
 			return parse_ct_if_stmt(c);
 		case TOKEN_CT_SWITCH:
@@ -1391,7 +1416,6 @@ Ast *parse_stmt(ParseContext *c)
 		case TOKEN_BUILTIN:
 		case TOKEN_BYTES:
 		case TOKEN_CHAR_LITERAL:
-		case TOKEN_CT_ALIGNOF:
 		case TOKEN_CT_AND:
 		case TOKEN_CT_CONCAT:
 		case TOKEN_CT_CONCAT_ASSIGN:
@@ -1399,21 +1423,13 @@ Ast *parse_stmt(ParseContext *c)
 		case TOKEN_CT_DEFINED:
 		case TOKEN_CT_EMBED:
 		case TOKEN_CT_EVAL:
-		case TOKEN_CT_EXTNAMEOF:
 		case TOKEN_CT_FEATURE:
 		case TOKEN_CT_IDENT:
-		case TOKEN_CT_KINDOF:
-		case TOKEN_CT_NAMEOF:
-		case TOKEN_CT_OFFSETOF:
 		case TOKEN_CT_OR:
-		case TOKEN_CT_TERNARY:
-		case TOKEN_CT_QNAMEOF:
-		case TOKEN_CT_SIZEOF:
+		case TOKEN_CT_REFLECT:
 		case TOKEN_CT_STRINGIFY:
+		case TOKEN_CT_TERNARY:
 		case TOKEN_CT_VAARG:
-		case TOKEN_CT_VACONST:
-		case TOKEN_CT_VACOUNT:
-		case TOKEN_CT_VAEXPR:
 		case TOKEN_FALSE:
 		case TOKEN_INTEGER:
 		case TOKEN_LENGTHOF:
@@ -1455,7 +1471,6 @@ Ast *parse_stmt(ParseContext *c)
 		case TOKEN_CT_ENDSWITCH:
 		case TOKEN_CT_EXEC:
 		case TOKEN_CT_INCLUDE:
-		case TOKEN_CT_VASPLAT:
 		case TOKEN_DIV:
 		case TOKEN_DIV_ASSIGN:
 		case TOKEN_DOCS_END:

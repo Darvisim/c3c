@@ -117,7 +117,7 @@ static bool add_members_to_decl_stack(SemaContext *context, Decl *decl, FindMemb
 	{
 		if (!add_interface_to_decl_stack(context, decl)) return false;
 	}
-	if (decl_is_struct_type(decl) || decl->decl_kind == DECL_BITSTRUCT)
+	if (decl_has_members(decl))
 	{
 		FOREACH(Decl *, member, decl->strukt.members)
 		{
@@ -282,7 +282,13 @@ INLINE Type *sema_fold_weak(SemaContext *context, Decl *decl)
 		{
 			if (!sema_analyse_decl(context, decl)) return NULL;
 		}
-		Type *type = decl->type_alias_decl.type_info->type;
+		if (decl->type_alias_decl.is_func)
+		{
+			decl = decl->type_alias_decl.decl;
+			continue;
+		}
+		Expr *expr = decl->type_alias_decl.type_expr;
+		Type *type = expr->expr_kind == EXPR_TYPEINFO ? expr->type_expr->type : expr->const_expr.typeid;
 		if (type->type_kind != TYPE_ALIAS) return type;
 		decl = type->decl;
 	}
@@ -568,14 +574,14 @@ int damerau_levenshtein_distance(const char *a, int a_len, const char *b, int b_
 	if (!b_len) return a_len;
 	if (a_len >= MAX_TEST || b_len >= MAX_TEST) return MAX_TEST;
 	int score[MAX_TEST][MAX_TEST];
-	memset(score, 0, (size_t)MAX_TEST *  (size_t)MAX_TEST);
+	memset(score, 0, sizeof(int) * (size_t)MAX_TEST * (size_t)MAX_TEST);
 	for (int i = 0; i <= a_len; i++) score[i][0] = i;
 	for (int i = 0; i <= b_len; i++) score[0][i] = i;
 	for (int i = 0; i < a_len; i++)
 	{
 		for (int j = 0; j < b_len; j++)
 		{
-			int cost = a[i] == b[i] ? 0 : 1;
+			int cost = a[i] == b[j] ? 0 : 1;
 			int del = score[i][j + 1] + 1;
 			int insert = score[i + 1][j] + 1;
 			int substitute = score[i][j] + cost;
@@ -640,7 +646,7 @@ static int module_closest_ident_names(Module *module, const char *name, Decl* ma
 
 	int count = 0;
 	int len = (int)strlen(name);
-	int distance = MAX(1, (int)(len * 0.8));
+	int distance = MAX(1, (int)(len / 3));
 	FOREACH(CompilationUnit *, unit, module->units)
 	{
 		find_closest(name, len, unit->functions, &count, matches, &distance);
@@ -649,6 +655,7 @@ static int module_closest_ident_names(Module *module, const char *name, Decl* ma
 	}
 	return count;
 }
+
 static void sema_report_error_on_decl(SemaContext *context, NameResolve *name_resolve)
 {
 	ASSERT(!name_resolve->suppress_error);
@@ -666,8 +673,8 @@ static void sema_report_error_on_decl(SemaContext *context, NameResolve *name_re
 			              symbol);
 			return;
 		}
-		sema_error_at(context, loc, "The %s '%s' is '@private' and not visible from other modules.",
-		              private_name, symbol);
+		sema_error_at(context, loc, "The %s '%s' in %s is '@private' and not visible from other modules.",
+		              private_name, symbol, name_resolve->private_decl->unit->module->name->module);
 		return;
 	}
 	if (!found && name_resolve->maybe_decl)
@@ -749,17 +756,33 @@ static void sema_report_error_on_decl(SemaContext *context, NameResolve *name_re
 				default:
 					break;
 			}
-			if (matches > 0)
-			{
-				return;
-			}
 		}
 		sema_error_at(context, loc, "'%s::%s' could not be found, did you spell it right?", path_name, symbol);
+		return;
 	}
-	else
+	if (!str_is_type(name_resolve->symbol))
 	{
-		sema_error_at(context, loc, "'%s' could not be found, did you spell it right?", symbol);
+		Decl *closest[3];
+		int matches = module_closest_ident_names(context->unit->module, symbol, closest);
+		switch (matches)
+		{
+			case 1:
+				sema_error_at(context, loc, "'%s' could not be found, did you perhaps want '%s'?", symbol, closest[0]->name);
+				return;
+			case 2:
+				sema_error_at(context, loc, "'%s' could not be found, did you perhaps want '%s' or '%s'?",
+							  symbol, closest[0]->name, closest[1]->name);
+				return;
+			case 3:
+				sema_error_at(context, loc, "'%s' could not be found, did you perhaps want '%s', '%s' or '%s'?",
+							  symbol, closest[0]->name, closest[1]->name,
+							  closest[2]->name);
+				return;
+			default:
+				break;
+		}
 	}
+	sema_error_at(context, loc, "'%s' could not be found, did you spell it right?", symbol);
 }
 
 INLINE Module *sema_module_matches_path(SemaContext *context, Module *module, Path *path)
@@ -909,9 +932,17 @@ NOT_GENERIC:;
 	if (decl_is_user_defined_type(found)
 		|| (found->decl_kind == DECL_VAR && (found->var.kind == VARDECL_PARAM_CT_TYPE || found->var.kind == VARDECL_LOCAL_CT_TYPE)))
 	{
+		if (name_resolve->is_generic_parent)
+		{
+			RETURN_SEMA_ERROR_AT(name_resolve->loc, "'%s' is not a generic type.", name_resolve->symbol);
+		}
 		RETURN_SEMA_ERROR_AT(name_resolve->loc, "'%s' is not a generic type. Did you want an initializer "
 									   "but forgot () around the type? That is, you typed '%s { ... }' but intended '(%s) { ... }'?",
 									   name_resolve->symbol, name_resolve->symbol, name_resolve->symbol);
+	}
+	if (name_resolve->is_generic_parent)
+	{
+		RETURN_SEMA_ERROR_AT(name_resolve->loc, "'%s' is not a generic symbol.", name_resolve->symbol);
 	}
 	RETURN_SEMA_ERROR_AT(name_resolve->loc, "Found '%s', but it is not generic so the { ... } after looks like a mistake?", found->name);
 
@@ -1011,16 +1042,14 @@ bool sema_resolve_type_decl(SemaContext *context, Type *type)
 		case TYPE_TYPEID:
 		case TYPE_POINTER:
 		case TYPE_FUNC_PTR:
-		case TYPE_UNTYPED_LIST:
-		case TYPE_MEMBER:
+		case SPECIAL_TYPES:
 		case TYPE_SLICE:
 		case TYPE_ANY:
 		case TYPE_INTERFACE:
+		case TYPE_UNTYPEDLIST:
 			return true;
 		case TYPE_OPTIONAL:
 			return sema_resolve_type_decl(context, type->optional);
-		case TYPE_TYPEINFO:
-			UNREACHABLE
 		case TYPE_ALIAS:
 			return sema_resolve_type_decl(context, type->canonical);
 		case TYPE_TYPEDEF:
@@ -1065,7 +1094,15 @@ Decl *sema_resolve_type_method(SemaContext *context, CanonicalType *type, const 
 	if (!decl_ok(type_decl)) return poisoned_decl;
 	Methods *methods = type_decl->method_table;
 	Decl *found = methods ? declptrzero(decltable_get(&methods->method_table, method_name)) : NULL;
-	if (found || !type_decl->is_substruct) return found;
+	if (found) return found;
+	if (type->type_kind == TYPE_INTERFACE)
+	{
+		FOREACH (Decl *, m, type_decl->interface_methods)
+		{
+			if (m->name == method_name) return m;
+		}
+	}
+	if (!type_decl->is_substruct) return NULL;
 	if (!sema_analyse_decl(context, type_decl)) return poisoned_decl;
 	switch (type->type_kind)
 	{
@@ -1183,7 +1220,7 @@ Decl *sema_resolve_symbol(SemaContext *context, const char *symbol, Path *path, 
 }
 
 /**
- * Resolves a symbol, return NULL if an error was found (and signalled),
+ * Resolves a symbol, return NULL if an error was found (and signaled),
  * otherwise the decl.
  */
 Decl *sema_resolve_parameterized_symbol(SemaContext *context, const char *symbol, Path *path, SourceLocId loc)
@@ -1193,6 +1230,26 @@ Decl *sema_resolve_parameterized_symbol(SemaContext *context, const char *symbol
 		.loc = loc,
 		.symbol = symbol,
 		.is_parameterized = true
+	};
+	if (!sema_resolve_symbol_common(context, &resolve)) return NULL;
+	Decl *found = resolve.found;
+	ASSERT(found);
+	if (!decl_ok(found)) return NULL;
+	return resolve.found;
+}
+
+/**
+ * Resolves a generic symbol, return NULL if an error was found (and signaled),
+ * otherwise the decl.
+ */
+Decl *sema_resolve_generic_symbol(SemaContext *context, const char *symbol, Path *path, SourceLocId loc)
+{
+	NameResolve resolve = {
+		.path = path,
+		.loc = loc,
+		.symbol = symbol,
+		.is_parameterized = true,
+		.is_generic_parent = true
 	};
 	if (!sema_resolve_symbol_common(context, &resolve)) return NULL;
 	Decl *found = resolve.found;
@@ -1254,7 +1311,7 @@ INLINE bool sema_add_ct_local(SemaContext *context, Decl *decl)
 	ASSERT(decl_is_ct_var(decl));
 
 	Decl *other = sema_find_ct_local(context, decl->name);
-	if (other)
+	if (other && !(other->var.defaulted && !other->var.init_expr))
 	{
 		sema_shadow_error(context, decl, other);
 		decl_poison(decl);

@@ -11,7 +11,7 @@ import std::thread;
 const BLOCK_SIZE = 64;
 const CHUNK_SIZE = 1024;
 const KEY_SIZE = 32;
-const KEY_SIZE_WORDS = KEY_SIZE / uint.sizeof;
+const KEY_SIZE_WORDS = KEY_SIZE / uint::size;
 const OUT_SIZE = 32;
 const MAX_DEPTH = 54;
 
@@ -228,7 +228,7 @@ fn void Blake3.init(&self, char[] key = {}, char explicit_flags = 0)
 
 	if (key.len)
 	{
-		foreach (i, &w : self.key) *w = mem::load((uint*)&key[i * $sizeof(self.key[0])], 1);
+		foreach (i, &w : self.key) *w = mem::load((uint*)&key[i * @sizeof(self.key[0])], 1);
 		if (!explicit_flags) explicit_flags = Blake3Flags.KEYED_HASH;
 	}
 	else
@@ -565,8 +565,8 @@ fn void Blake3Output.root_bytes(&self, sz seek, char[] into)
 //
 //
 macro uint @popcnt(#x) @local => (uint)#x.popcount();
-macro uint @highest_one(#x) @local => 63u ^ (uint)#x.clz();
-macro sz @round_down_to_power_of_2(#x) @local => (sz)1 << @highest_one(#x | 1u);
+macro uint @highest_one(#x) @local => (uint)(@bitsizeof(#x) - 1) ^ (uint)#x.clz();
+macro sz @round_down_to_power_of_2(#x) @local => (sz)1 << @highest_one((usz)#x | (usz)1);
 
 macro left_subtree_len(sz input_len) @local
 	=> @round_down_to_power_of_2((input_len - 1) / CHUNK_SIZE) * CHUNK_SIZE;

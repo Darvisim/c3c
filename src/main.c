@@ -101,6 +101,16 @@ int main_real(int argc, const char *argv[])
 		case COMMAND_COMPILE_TEST:
 			compile_target(&build_options);
 			break;
+		case COMMAND_DOCGEN:
+			if (vec_size(build_options.files) > 0)
+			{
+				compile_target(&build_options);
+			}
+			else
+			{
+				compile_file_list(&build_options);
+			}
+			break;
 		case COMMAND_CLEAN:
 			compile_clean(&build_options);
 			break;
@@ -150,7 +160,7 @@ int main_real(int argc, const char *argv[])
 
 int wmain(int argc, const uint16_t *argv[])
 {
-	char **args = malloc(sizeof(void *) * (unsigned)argc);
+	char **args = cmalloc(sizeof(void *) * (unsigned)argc);
 	for (unsigned i = 0; i < (unsigned)argc; i++)
 	{
 		args[i] = win_utf16to8(argv[i]);

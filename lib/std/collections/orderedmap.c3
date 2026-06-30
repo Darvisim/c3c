@@ -1,607 +1,608 @@
-//  orderedmap.c3
-//  An ordered map using a skip list for C3.
-//
-//  Copyright (c) 2026 Christian Reifberger
-//
-//  Permission is hereby granted, free of charge, to any person obtaining a copy
-//  of this software and associated documentation files (the "Software"), to deal
-//  in the Software without restriction, including without limitation the rights
-//  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-//  copies of the Software, and to permit persons to whom the Software is
-//  furnished to do so, subject to the following conditions:
-//
-//  The above copyright notice and this permission notice shall be included in all
-//  copies or substantial portions of the Software.
-//
-//  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-//  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-//  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-//  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-//  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-//  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-//  SOFTWARE.
-
-module std::collections::orderedmap <Key, Value>;
-import std::io, std::math::random;
-
-const int MAX_LEVEL = 32;
-
-int dummy @local;
-const Allocator ONHEAP_ALLOCATOR = (Allocator)&dummy;
-
-struct SkipNode
-{
-	Key key;
-	Value value;
-	int level;
-	SkipNode*[MAX_LEVEL] forward;
-}
-
-// CmpFn is a comparator: returns true if a should come before b in the list.
-alias CmpFn = fn bool(Key, Key);
-
-struct Entry
-{
-	Key key;
-	Value value;
-}
-
+// Copyright (c) 2023 Christoffer Lerno. All rights reserved.
+// Use of this source code is governed by the MIT license
+// a copy of which can be found in the LICENSE_STDLIB file.
 <*
- @require types::@comparable_value((Key){}) : "The Key must support ordered comparison"
+ @require $defined((Key){}.hash()) : `No .hash function found on the key`
 *>
-struct OrderedMap (Printable) @mustinit
+module std::collections::map <Key, Value>;
+import std::math;
+import std::io @norecurse;
+
+const OrderedMap ORDEREDONHEAP = { .allocator = MAP_HEAP_ALLOCATOR };
+alias LINKEDONHEAP = ORDEREDONHEAP;
+
+struct LinkedEntry
 {
+	uint hash;
+	Key key;
+	Value value;
+	<* For bucket chain *>
+	LinkedEntry* next;
+	<* Previous in insertion order *>
+	LinkedEntry* before;
+	<* Next in insertion order *>
+	LinkedEntry* after;
+}
+
+alias LinkedHashMap @deprecated("Use OrderedMap") = OrderedMap;
+struct OrderedMap (Printable)
+{
+	LinkedEntry*[] table;
 	Allocator allocator;
-	SkipNode* head;
-	int current_level;
-	sz count;
-	SimpleRandom rng;
-	CmpFn custom_cmp; // null = use built-in less() ordering
+	int count;
+	int threshold;
+	float load_factor;
+	<* First inserted LinkedEntry *>
+	LinkedEntry* head;
+	<* Last inserted LinkedEntry *>
+	LinkedEntry* tail;
 }
 
-const OrderedMap ONHEAP = { .allocator = ONHEAP_ALLOCATOR };
-
-struct OrderedMapIterator
-{
-	OrderedMap* map;
-	SkipNode* current;
-	sz index;
-}
-
-struct OrderedMapRangeIterator
-{
-	OrderedMap* map;
-	SkipNode* start_node;
-	SkipNode* current;
-	sz current_idx;
-	sz count;
-}
-
-fn int orderedmap_random_level(SimpleRandom* rng) @private
-{
-	int level = 1;
-	while (level < MAX_LEVEL && (rng.next_int() & 1) == 0) level++;
-	return level;
-}
-
-// Returns true if 'a' should come before 'b' in the list.
-macro bool orderedmap_cmp(custom_cmp, a, b) @private
-{
-	if (custom_cmp != null) return custom_cmp(a, b);
-	return less(a, b);
-}
 
 <*
+ @param [&inout] allocator : "The allocator to use"
+ @require capacity > 0 : "The capacity must be 1 or higher"
+ @require load_factor > 0.0 && load_factor <= 1 : "The load factor must be higher than 0 and less or equal to 1"
  @require !self.is_initialized() : "Map was already initialized"
+ @require capacity <= MAXIMUM_CAPACITY : "Capacity cannot exceed maximum"
 *>
-fn OrderedMap* OrderedMap.init(&self, Allocator allocator)
+fn LinkedHashMap* LinkedHashMap.init(&self, Allocator allocator, sz capacity = DEFAULT_INITIAL_CAPACITY, float load_factor = DEFAULT_LOAD_FACTOR)
 {
-	*self = { .allocator = allocator };
-	self.head = alloc::new(allocator, SkipNode);
-	random::seed_entropy(&self.rng);
+	capacity = math::next_power_of_2(capacity);
+	self.allocator = allocator;
+	self.load_factor = load_factor;
+	self.threshold = (int)(capacity * load_factor);
+	self.table = alloc::new_array(allocator, LinkedEntry*, capacity);
+	self.head = null;
+	self.tail = null;
 	return self;
 }
 
 <*
+ @require capacity > 0 : "The capacity must be 1 or higher"
+ @require load_factor > 0.0 && load_factor <= 1 : "The load factor must be higher than 0 and less or equal to 1"
  @require !self.is_initialized() : "Map was already initialized"
+ @require capacity <= MAXIMUM_CAPACITY : "Capacity cannot exceed maximum"
 *>
-fn OrderedMap* OrderedMap.tinit(&self)
+fn LinkedHashMap* LinkedHashMap.tinit(&self, sz capacity = DEFAULT_INITIAL_CAPACITY, float load_factor = DEFAULT_LOAD_FACTOR)
 {
-	return self.init(tmem) @inline;
+	return self.init(tmem, capacity, load_factor) @inline;
 }
 
 <*
- Init with a custom comparator. The comparator replaces the built-in ordering.
- @param cmp_fn : "Returns true if a should come before b in iteration order."
+ @param [&inout] allocator : "The allocator to use"
+ @require $vaarg.len % 2 == 0 : "There must be an even number of arguments provided for keys and values"
+ @require capacity > 0 : "The capacity must be 1 or higher"
+ @require load_factor > 0.0 && load_factor <= 1 : "The load factor must be higher than 0 and less or equal to 1"
  @require !self.is_initialized() : "Map was already initialized"
+ @require capacity <= MAXIMUM_CAPACITY : "Capacity cannot exceed maximum"
 *>
-fn OrderedMap* OrderedMap.init_with_cmp(&self, Allocator allocator, CmpFn cmp_fn)
+macro OrderedMap* OrderedMap.init_with_key_values(&self, Allocator allocator, ..., sz capacity = DEFAULT_INITIAL_CAPACITY, float load_factor = DEFAULT_LOAD_FACTOR)
 {
-	self.init(allocator);
-	self.custom_cmp = cmp_fn;
+	self.init(allocator, capacity, load_factor);
+	$for var $i = 0; $i < $vaarg.len; $i += 2:
+		self.set($vaarg[$i], $vaarg[$i + 1]);
+	$endfor
 	return self;
 }
 
 <*
+ @require $vaarg.len % 2 == 0 : "There must be an even number of arguments provided for keys and values"
+ @require capacity > 0 : "The capacity must be 1 or higher"
+ @require load_factor > 0.0 && load_factor <= 1 : "The load factor must be higher than 0 and less or equal to 1"
+ @require !self.is_initialized() : "Map was already initialized"
+ @require capacity <= MAXIMUM_CAPACITY : "Capacity cannot exceed maximum"
+*>
+macro OrderedMap* OrderedMap.tinit_with_key_values(&self, ..., sz capacity = DEFAULT_INITIAL_CAPACITY, float load_factor = DEFAULT_LOAD_FACTOR)
+{
+	return self.init_with_key_values(tmem, ...$vaarg, capacity: capacity, load_factor: load_factor);
+}
+
+<*
+ @param [in] keys : "The keys for the OrderedMap entries"
+ @param [in] values : "The values for the OrderedMap entries"
+ @param [&inout] allocator : "The allocator to use"
+ @require keys.len == values.len : "Both keys and values arrays must be the same length"
+ @require capacity > 0 : "The capacity must be 1 or higher"
+ @require load_factor > 0.0 && load_factor <= 1 : "The load factor must be higher than 0 and less or equal to 1"
+ @require capacity <= MAXIMUM_CAPACITY : "Capacity cannot exceed maximum"
+*>
+fn OrderedMap* OrderedMap.init_from_keys_and_values(&self, Allocator allocator, Key[] keys, Value[] values, sz capacity = DEFAULT_INITIAL_CAPACITY, float load_factor = DEFAULT_LOAD_FACTOR)
+{
+	self.init(allocator, capacity, load_factor);
+	foreach (i, key : keys)
+	{
+		self.set(key, values[i]);
+	}
+	return self;
+}
+
+<*
+ @param [in] keys : "The keys for the OrderedMap entries"
+ @param [in] values : "The values for the OrderedMap entries"
+ @require keys.len == values.len : "Both keys and values arrays must be the same length"
+ @require capacity > 0 : "The capacity must be 1 or higher"
+ @require load_factor > 0.0 && load_factor <= 1 : "The load factor must be higher than 0 and less or equal to 1"
+ @require !self.is_initialized() : "Map was already initialized"
+ @require capacity <= MAXIMUM_CAPACITY : "Capacity cannot exceed maximum"
+*>
+fn OrderedMap* OrderedMap.tinit_from_keys_and_values(&self, Key[] keys, Value[] values, sz capacity = DEFAULT_INITIAL_CAPACITY, float load_factor = DEFAULT_LOAD_FACTOR)
+{
+	return self.init_from_keys_and_values(tmem, keys, values, capacity, load_factor);
+}
+
+<*
+ Has this hash map been initialized yet?
+
+ @param [&in] map : "The hash map we are testing"
+ @return "Returns true if it has been initialized, false otherwise"
+*>
+fn bool OrderedMap.is_initialized(&map)
+{
+	return map.allocator && map.allocator.ptr != &dummy;
+}
+
+<*
+ @param [&inout] allocator : "The allocator to use"
+ @param [&in] other_map : "The map to copy from."
  @require !self.is_initialized() : "Map was already initialized"
 *>
-fn OrderedMap* OrderedMap.tinit_with_cmp(&self, CmpFn cmp_fn)
+fn OrderedMap* OrderedMap.init_from_map(&self, Allocator allocator, OrderedMap* other_map)
 {
-	return self.init_with_cmp(tmem, cmp_fn) @inline;
-}
-
-fn bool OrderedMap.is_initialized(&self)
-{
-	return self.allocator && self.allocator.ptr != &dummy;
+	self.init(allocator, other_map.table.len, other_map.load_factor);
+	orderedmap_put_all_for_create(self, other_map);
+	return self;
 }
 
 <*
- Insert or update the value associated with key.
+ @param [&in] other_map : "The map to copy from."
+ @require !map.is_initialized() : "Map was already initialized"
 *>
-fn bool OrderedMap.set(&self, Key key, Value value) @operator([]=)
+fn OrderedMap* OrderedMap.tinit_from_map(&map, OrderedMap* other_map)
 {
-	// If the map isn't initialized, use the defaults to initialize it.
-	switch (self.allocator.ptr)
-	{
-		case &dummy:
-			self.init(mem);
-		case null:
-			self.tinit();
-		default:
-			break;
-	}
-	SkipNode*[MAX_LEVEL] update;
-	SkipNode* current = self.head;
-
-	for (int i = self.current_level - 1; i >= 0; i--)
-	{
-		while (current.forward[i] && orderedmap_cmp(self.custom_cmp, current.forward[i].key, key))
-		{
-			current = current.forward[i];
-		}
-		update[i] = current;
-	}
-
-	current = current.forward[0];
-
-	// Key already exists -- update value
-	if (current && !orderedmap_cmp(self.custom_cmp, current.key, key) && !orderedmap_cmp(self.custom_cmp, key, current.key))
-	{
-		current.value = value;
-		return true;
-	}
-
-	// Insert new node
-	int new_level = orderedmap_random_level(&self.rng);
-	if (new_level > self.current_level)
-	{
-		for (int i = self.current_level; i < new_level; i++) update[i] = self.head;
-		self.current_level = new_level;
-	}
-
-	SkipNode* node = alloc::alloc(self.allocator, SkipNode);
-	*node = { .key = key, .value = value, .level = new_level };
-
-	for (int i = 0; i < new_level; i++)
-	{
-		node.forward[i] = update[i].forward[i];
-		update[i].forward[i] = node;
-	}
-
-	self.count++;
-	return false;
+	return map.init_from_map(tmem, other_map) @inline;
 }
 
-<*
- @return "the value for key, or NOT_FOUND if absent"
-*>
-fn Value? OrderedMap.get(&self, Key key) @operator([])
+fn bool OrderedMap.is_empty(&map) @inline
 {
-	SkipNode* current = self.head;
-	for (int i = self.current_level - 1; i >= 0; i--)
+	return !map.count;
+}
+
+fn sz OrderedMap.len(&map) @inline => map.count;
+
+fn Value*? OrderedMap.get_ref(&map, Key key)
+{
+	if (!map.count) return NOT_FOUND~;
+	uint hash = rehash(key.hash());
+	for (LinkedEntry *e = map.table[index_for(hash, map.table.len)]; e != null; e = e.next)
 	{
-		while (current.forward[i] && orderedmap_cmp(self.custom_cmp, current.forward[i].key, key))
-		{
-			current = current.forward[i];
-		}
+		if (e.hash == hash && equals(key, e.key)) return &e.value;
 	}
-	current = current.forward[0];
-	if (current && !orderedmap_cmp(self.custom_cmp, current.key, key) && !orderedmap_cmp(self.custom_cmp, key, current.key))
+	return NOT_FOUND~;
+}
+
+fn LinkedEntry*? OrderedMap.get_entry(&map, Key key)
+{
+	if (!map.count) return NOT_FOUND~;
+	uint hash = rehash(key.hash());
+	for (LinkedEntry *e = map.table[index_for(hash, map.table.len)]; e != null; e = e.next)
 	{
-		return current.value;
+		if (e.hash == hash && equals(key, e.key)) return e;
 	}
 	return NOT_FOUND~;
 }
 
 <*
- @return "a pointer to the value for key, or NOT_FOUND if absent"
-*>
-fn Value*? OrderedMap.get_ref(&self, Key key) @operator(&[])
-{
-	SkipNode* current = self.head;
-	for (int i = self.current_level - 1; i >= 0; i--)
-	{
-		while (current.forward[i] && orderedmap_cmp(self.custom_cmp, current.forward[i].key, key))
-		{
-			current = current.forward[i];
-		}
-	}
-	current = current.forward[0];
-	if (current && !orderedmap_cmp(self.custom_cmp, current.key, key) && !orderedmap_cmp(self.custom_cmp, key, current.key))
-	{
-		return &current.value;
-	}
-	return NOT_FOUND~;
-}
+ Get the value or set it to the value
 
-<*
- Returns the value for key; inserts and returns #default_value if key is absent.
- #default_value is only evaluated if the key doesn't exist.
-
- @require $defined(Value val = #default_value)
+ @require $defined(Value val = #expr)
 *>
-macro Value OrderedMap.@get_or_set(&self, Key key, Value #default_value)
+macro Value OrderedMap.@get_or_set(&map, Key key, Value #expr)
 {
-	if (try v = self.get(key)) return v;
-	Value val = #default_value;
-	self.set(key, val);
+	if (!map.count)
+	{
+		Value val = #expr;
+		map.set(key, val);
+		return val;
+	}
+	uint hash = rehash(key.hash());
+	int index = index_for(hash, map.table.len);
+	for (LinkedEntry *e = map.table[index]; e != null; e = e.next)
+	{
+		if (e.hash == hash && equals(key, e.key)) return e.value;
+	}
+	Value val = #expr;
+	orderedmap_add_entry(map, hash, key, val, index);
 	return val;
 }
 
-<*
- @return "true if key exists in the map"
-*>
-fn bool OrderedMap.has_key(&self, Key key) => @ok(self.get(key));
+fn Value? OrderedMap.get(&map, Key key) @operator([]) => *map.get_ref(key) @inline;
 
-<*
- @return "true if the key was found and removed"
-*>
-fn bool OrderedMap.remove(&self, Key key)
+fn bool OrderedMap.has_key(&map, Key key) => @ok(map.get_ref(key));
+
+fn bool OrderedMap.set(&map, Key key, Value value) @operator([]=)
 {
-	SkipNode*[MAX_LEVEL] update;
-	SkipNode* current = self.head;
-
-	for (int i = self.current_level - 1; i >= 0; i--)
+	// If the map isn't initialized, use the defaults to initialize it.
+	switch (map.allocator.ptr)
 	{
-		while (current.forward[i] && orderedmap_cmp(self.custom_cmp, current.forward[i].key, key))
+		case &dummy:
+			map.init(mem);
+		case null:
+			map.tinit();
+		default:
+			break;
+	}
+	uint hash = rehash(key.hash());
+	int index = index_for(hash, map.table.len);
+	for (LinkedEntry *e = map.table[index]; e != null; e = e.next)
+	{
+		if (e.hash == hash && equals(key, e.key))
 		{
-			current = current.forward[i];
-		}
-		update[i] = current;
-	}
-
-	current = current.forward[0];
-
-	if (!current || orderedmap_cmp(self.custom_cmp, current.key, key) || orderedmap_cmp(self.custom_cmp, key, current.key)) return false;
-
-	for (int i = 0; i < self.current_level; i++)
-	{
-		if (update[i].forward[i] != current) break;
-		update[i].forward[i] = current.forward[i];
-	}
-
-	alloc::free(self.allocator, current);
-
-	while (self.current_level > 0 && !self.head.forward[self.current_level - 1])
-	{
-		self.current_level--;
-	}
-
-	self.count--;
-	return true;
-}
-
-<*
- @return "the first key in iteration order, or NOT_FOUND if empty"
-*>
-fn Key? OrderedMap.first_key(&self)
-{
-	if (!self.head.forward[0]) return NOT_FOUND~;
-	return self.head.forward[0].key;
-}
-
-<*
- @return "the last key in iteration order, or NOT_FOUND if empty"
-*>
-fn Key? OrderedMap.last_key(&self)
-{
-	SkipNode* current = self.head;
-	for (int i = self.current_level - 1; i >= 0; i--)
-	{
-		while (current.forward[i] != null) current = current.forward[i];
-	}
-	if (current == self.head) return NOT_FOUND~;
-	return current.key;
-}
-
-<*
- Remove and return the first entry in iteration order.
- @return "the first Entry, or NOT_FOUND if empty"
- @return? NOT_FOUND
-*>
-fn Entry? OrderedMap.pop_first(&self)
-{
-	SkipNode* node = self.head.forward[0];
-	if (!node) return NOT_FOUND~;
-	Entry result = { node.key, node.value };
-	self.remove(node.key);
-	return result;
-}
-
-<*
- Remove and return the last entry in iteration order.
- @return "the last Entry, or NOT_FOUND if empty"
- @return? NOT_FOUND
-*>
-fn Entry? OrderedMap.pop_last(&self)
-{
-	if (!self.head.forward[0]) return NOT_FOUND~;
-	Key k = self.last_key()!!;
-	Value v = self.get(k)!!;
-	self.remove(k);
-	return { k, v };
-}
-
-// --- Floor / ceiling / lower / higher ---
-//
-// All four operate in the map's iteration (cmp) order.
-
-<*
- @return "the greatest key <= key in cmp order, or NOT_FOUND"
- @return? NOT_FOUND
-*>
-fn Key? OrderedMap.floor_key(&self, Key key)
-{
-	SkipNode* current = self.head;
-	for (int i = self.current_level - 1; i >= 0; i--)
-	{
-		while (current.forward[i] && orderedmap_cmp(self.custom_cmp, current.forward[i].key, key))
-		{
-			current = current.forward[i];
+			e.value = value;
+			return true;
 		}
 	}
-	// current is the last node strictly before key; check for exact match
-	SkipNode* next = current.forward[0];
-	if (next && !orderedmap_cmp(self.custom_cmp, next.key, key) && !orderedmap_cmp(self.custom_cmp, key, next.key)) return next.key;
-	if (current != self.head) return current.key;
-	return NOT_FOUND~;
+	orderedmap_add_entry(map, hash, key, value, index);
+	return false;
 }
 
-<*
- @return "the least key >= key in cmp order, or NOT_FOUND"
- @return? NOT_FOUND
-*>
-fn Key? OrderedMap.ceiling_key(&self, Key key)
+fn void? OrderedMap.remove(&map, Key key) @maydiscard
 {
-	SkipNode* current = self.head;
-	for (int i = self.current_level - 1; i >= 0; i--)
+	if (!orderedmap_remove_entry_for_key(map, key)) return NOT_FOUND~;
+}
+
+fn void OrderedMap.clear(&map)
+{
+	if (!map.count) return;
+
+	LinkedEntry* entry = map.head;
+	while (entry)
 	{
-		while (current.forward[i] && orderedmap_cmp(self.custom_cmp, current.forward[i].key, key))
+		LinkedEntry* next = entry.after;
+		orderedmap_free_entry(map, entry);
+		entry = next;
+	}
+
+	foreach (LinkedEntry** &bucket : map.table)
+	{
+		*bucket = null;
+	}
+
+	map.count = 0;
+	map.head = null;
+	map.tail = null;
+}
+
+fn void OrderedMap.free(&map)
+{
+	if (!map.is_initialized()) return;
+	map.clear();
+	orderedmap_free_internal(map, map.table.ptr);
+	map.table = {};
+}
+
+fn Key[] OrderedMap.tkeys(&self)
+{
+	return self.keys(tmem) @inline;
+}
+
+fn Key[] OrderedMap.keys(&self, Allocator allocator)
+{
+	if (!self.count) return {};
+
+	Key[] list = alloc::alloc_array(allocator, Key, self.count);
+	int index = 0;
+
+	LinkedEntry* entry = self.head;
+	while (entry)
+	{
+		$if COPY_KEYS:
+			list[index++] = entry.key.copy(allocator);
+		$else
+			list[index++] = entry.key;
+		$endif
+		entry = entry.after;
+	}
+	return list;
+}
+
+macro OrderedMap.@each(map; @body(key, value))
+{
+	map.@each_entry(; LinkedEntry* entry)
+	{
+		@body(entry.key, entry.value);
+	};
+}
+
+macro OrderedMap.@each_entry(map; @body(entry))
+{
+	LinkedEntry* entry = map.head;
+	while (entry)
+	{
+		@body(entry);
+		entry = entry.after;
+	}
+}
+
+fn Value[] OrderedMap.tvalues(&map) => map.values(tmem) @inline;
+
+fn Value[] OrderedMap.values(&self, Allocator allocator)
+{
+	if (!self.count) return {};
+	Value[] list = alloc::alloc_array(allocator, Value, self.count);
+	int index = 0;
+	LinkedEntry* entry = self.head;
+	while (entry)
+	{
+		list[index++] = entry.value;
+		entry = entry.after;
+	}
+	return list;
+}
+
+fn bool OrderedMap.has_value(&map, Value v) @if(VALUE_IS_EQUATABLE)
+{
+	if (!map.count) return false;
+
+	LinkedEntry* entry = map.head;
+	while (entry)
+	{
+		if (equals(v, entry.value)) return true;
+		entry = entry.after;
+	}
+	return false;
+}
+
+fn OrderedMapIterator OrderedMap.iter(&self) => { .map = self, .current = self.head, .started = false };
+
+fn OrderedMapValueIterator OrderedMap.value_iter(&self) => { .map = self, .current = self.head, .started = false };
+
+fn OrderedMapKeyIterator OrderedMap.key_iter(&self) => { .map = self, .current = self.head, .started = false };
+
+fn bool OrderedMapIterator.next(&self)
+{
+	if (!self.started)
+	{
+		self.current = self.map.head;
+		self.started = true;
+	}
+	else if (self.current)
+	{
+		self.current = self.current.after;
+	}
+	return self.current != null;
+}
+
+fn LinkedEntry*? OrderedMapIterator.get(&self)
+{
+	return self.current ? self.current : NOT_FOUND~;
+}
+
+fn Value*? OrderedMapValueIterator.get(&self)
+{
+	return self.current ? &self.current.value : NOT_FOUND~;
+}
+
+fn Key*? OrderedMapKeyIterator.get(&self)
+{
+	return self.current ? &self.current.key : NOT_FOUND~;
+}
+
+fn bool OrderedMapIterator.has_next(&self)
+{
+	if (!self.started) return self.map.head != null;
+	return self.current && self.current.after != null;
+}
+
+// --- private methods
+
+fn void orderedmap_add_entry(OrderedMap* map, uint hash, Key key, Value value, int bucket_index) @private
+{
+	$if COPY_KEYS:
+	key = key.copy(map.allocator);
+	$endif
+
+	LinkedEntry* entry = alloc::new(map.allocator, LinkedEntry, {
+		.hash = hash,
+		.key = key,
+		.value = value,
+		.next = map.table[bucket_index],
+		.before = map.tail,
+		.after = null
+	});
+
+	// Update bucket chain
+	map.table[bucket_index] = entry;
+
+	// Update linked list
+	if (map.tail)
+	{
+		map.tail.after = entry;
+	}
+	else
+	{
+		map.head = entry;
+	}
+	map.tail = entry;
+
+	if (map.count++ >= map.threshold)
+	{
+		orderedmap_resize(map, map.table.len * 2);
+	}
+}
+
+fn void orderedmap_resize(OrderedMap* map, int new_capacity) @private
+{
+	LinkedEntry*[] old_table = map.table;
+	int old_capacity = old_table.len;
+
+	if (old_capacity == MAXIMUM_CAPACITY)
+	{
+		map.threshold = int::max;
+		return;
+	}
+
+	LinkedEntry*[] new_table = alloc::new_array(map.allocator, LinkedEntry*, new_capacity);
+	map.table = new_table;
+	map.threshold = (int)(new_capacity * map.load_factor);
+
+	// Rehash all entries - linked list order remains unchanged
+	foreach (i, LinkedEntry *e : old_table)
+	{
+		if (!e) continue;
+
+		// Split the bucket chain into two chains based on new bit
+		LinkedEntry* lo_head = null;
+		LinkedEntry* lo_tail = null;
+		LinkedEntry* hi_head = null;
+		LinkedEntry* hi_tail = null;
+
+		do
 		{
-			current = current.forward[i];
+			LinkedEntry* next = e.next;
+			if ((e.hash & (uint)old_capacity) == 0)
+			{
+				if (!lo_tail)
+				{
+					lo_head = e;
+				}
+				else
+				{
+					lo_tail.next = e;
+				}
+				lo_tail = e;
+			}
+			else
+			{
+				if (!hi_tail)
+				{
+					hi_head = e;
+				}
+				else
+				{
+					hi_tail.next = e;
+				}
+				hi_tail = e;
+			}
+			e.next = null;
+			e = next;
+		}
+		while (e);
+
+		if (lo_tail)
+		{
+			lo_tail.next = null;
+			new_table[i] = lo_head;
+		}
+		if (hi_tail)
+		{
+			hi_tail.next = null;
+			new_table[i + old_capacity] = hi_head;
 		}
 	}
-	SkipNode* next = current.forward[0];
-	if (!next) return NOT_FOUND~;
-	return next.key;
-}
 
-<*
- @return "the greatest key strictly before key in cmp order, or NOT_FOUND"
- @return? NOT_FOUND
-*>
-fn Key? OrderedMap.lower_key(&self, Key key)
-{
-	SkipNode* current = self.head;
-	for (int i = self.current_level - 1; i >= 0; i--)
-	{
-		while (current.forward[i] && orderedmap_cmp(self.custom_cmp, current.forward[i].key, key))
-		{
-			current = current.forward[i];
-		}
-	}
-	if (current != self.head) return current.key;
-	return NOT_FOUND~;
-}
-
-<*
- @return "the least key strictly after key in cmp order, or NOT_FOUND"
- @return? NOT_FOUND
-*>
-fn Key? OrderedMap.higher_key(&self, Key key)
-{
-	SkipNode* current = self.head;
-	for (int i = self.current_level - 1; i >= 0; i--)
-	{
-		while (current.forward[i] != null && orderedmap_cmp(self.custom_cmp, current.forward[i].key, key))
-		{
-			current = current.forward[i];
-		}
-	}
-	SkipNode* next = current.forward[0];
-	if (!next) return NOT_FOUND~;
-	// If next equals key, advance one more
-	if (!orderedmap_cmp(self.custom_cmp, next.key, key) && !orderedmap_cmp(self.custom_cmp, key, next.key)) next = next.forward[0];
-	if (!next) return NOT_FOUND~;
-	return next.key;
-}
-
-fn sz OrderedMap.len(&self) @inline => self.count;
-
-fn bool OrderedMap.is_empty(&self) @inline => self.count == 0;
-
-fn void OrderedMap.clear(&self)
-{
-	if (!self.allocator) return;
-	SkipNode* node = self.head.forward[0];
-	while (node != null)
-	{
-		SkipNode* next = node.forward[0];
-		alloc::free(self.allocator, node);
-		node = next;
-	}
-	*self.head = {};
-	self.count = 0;
-	self.current_level = 0;
-}
-
-fn void OrderedMap.free(&self)
-{
-	self.clear();
-	alloc::free(self.allocator, self.head);
-	self.head = null;
+	orderedmap_free_internal(map, old_table.ptr);
 }
 
 fn sz? OrderedMap.to_format(&self, Formatter* f) @dynamic
 {
 	sz len;
 	len += f.print("{ ")!;
-	SkipNode* node = self.head ? self.head.forward[0] : null;
-	while (node)
+	self.@each_entry(; LinkedEntry* entry)
 	{
 		if (len > 2) len += f.print(", ")!;
-		len += f.printf("%s: %s", node.key, node.value)!;
-		node = node.forward[0];
-	}
+		len += f.printf("%s: %s", entry.key, entry.value)!;
+	};
 	return len + f.print(" }");
 }
 
-<*
- Copy all entries of this map into a new map backed by allocator.
- The clone inherits the custom comparator (if any).
-*>
-fn OrderedMap OrderedMap.clone(&self, Allocator allocator)
+fn void orderedmap_put_all_for_create(OrderedMap* map, OrderedMap* other_map) @private
 {
-	OrderedMap result;
-	result.init_with_cmp(allocator, self.custom_cmp);
-	SkipNode* node = self.head.forward[0];
-	while (node)
+	if (!other_map.count) return;
+	other_map.@each(; Key key, Value value) {
+		map.set(key, value);
+	};
+}
+
+fn void orderedmap_free_internal(OrderedMap* map, void* ptr) @inline @private
+{
+	alloc::free(map.allocator, ptr);
+}
+
+fn bool orderedmap_remove_entry_for_key(OrderedMap* map, Key key) @private
+{
+	if (!map.count) return false;
+
+	uint hash = rehash(key.hash());
+	int i = index_for(hash, map.table.len);
+	LinkedEntry* prev = null;
+	LinkedEntry* e = map.table[i];
+
+	while (e)
 	{
-		result.set(node.key, node.value);
-		node = node.forward[0];
-	}
-	return result;
-}
-
-fn OrderedMap OrderedMap.tclone(&self)
-{
-	return self.clone(tmem) @inline;
-}
-
-<*
- Insert all entries from other into self, overwriting on key collision.
-*>
-fn void OrderedMap.merge(&self, OrderedMap* other)
-{
-	SkipNode* node = other.head.forward[0];
-	while (node)
-	{
-		self.set(node.key, node.value);
-		node = node.forward[0];
-	}
-}
-
-// --- Iteration ---
-
-<*
- Returns an iterator that yields Entry values in sorted key order.
- Use with: foreach (entry : m.iter()) { ... }
-*>
-fn OrderedMapIterator OrderedMap.iter(&self)
-{
-	return { .map = self, .current = self.head.forward[0], .index = 0 };
-}
-
-<*
- Returns an iterator starting at the first key >= from_key in cmp order.
- Use with: foreach (entry : m.iter_from(key)) { ... }
-*>
-fn OrderedMapRangeIterator OrderedMap.iter_from(&self, Key from_key)
-{
-	SkipNode* current = self.head;
-	for (int i = self.current_level - 1; i >= 0; i--)
-	{
-		while (current.forward[i] != null && orderedmap_cmp(self.custom_cmp, current.forward[i].key, from_key))
+		if (e.hash == hash && equals(key, e.key))
 		{
-			current = current.forward[i];
+			if (prev)
+			{
+				prev.next = e.next;
+			}
+			else
+			{
+				map.table[i] = e.next;
+			}
+
+			if (e.before)
+			{
+				e.before.after = e.after;
+			}
+			else
+			{
+				map.head = e.after;
+			}
+
+			if (e.after)
+			{
+				e.after.before = e.before;
+			}
+			else
+			{
+				map.tail = e.before;
+			}
+
+			map.count--;
+			orderedmap_free_entry(map, e);
+			return true;
 		}
+		prev = e;
+		e = e.next;
 	}
-	SkipNode* start = current.forward[0];
-
-	sz count = 0;
-	SkipNode* n = start;
-	while (n)
-	{
-		count++;
-		n = n.forward[0];
-	}
-
-	return { .map = self, .start_node = start, .current = start, .current_idx = 0, .count = count };
+	return false;
 }
 
-<*
- Returns an iterator over keys in [from_key, to_key) in cmp order.
- Use with: foreach (entry : m.iter_range(from, to)) { ... }
-*>
-fn OrderedMapRangeIterator OrderedMap.iter_range(&self, Key from_key, Key to_key)
+fn void orderedmap_free_entry(OrderedMap* self, LinkedEntry *entry) @local
 {
-	SkipNode* current = self.head;
-	for (int i = self.current_level - 1; i >= 0; i--)
-	{
-		while (current.forward[i] && orderedmap_cmp(self.custom_cmp, current.forward[i].key, from_key))
-		{
-			current = current.forward[i];
-		}
-	}
-	SkipNode* start = current.forward[0];
-
-	sz count = 0;
-	SkipNode* n = start;
-	while (n && orderedmap_cmp(self.custom_cmp, n.key, to_key))
-	{
-		count++;
-		n = n.forward[0];
-	}
-
-	return { .map = self, .start_node = start, .current = start, .current_idx = 0, .count = count };
+	$if COPY_KEYS:
+		alloc::free(self.allocator, entry.key);
+	$endif
+	orderedmap_free_internal(self, entry);
 }
 
-<*
- @require idx < self.map.count
-*>
-fn Entry OrderedMapIterator.get(&self, sz idx) @operator([])
+alias LinkedHashMapLiterator @deprecated("Use OrderedMapIterator") = OrderedMapIterator;
+
+struct OrderedMapIterator
 {
-	if (idx < self.index)
-	{
-		self.current = self.map.head.forward[0];
-		self.index = 0;
-	}
-	while (self.index < idx)
-	{
-		self.current = self.current.forward[0];
-		self.index++;
-	}
-	return { .key = self.current.key, .value = self.current.value };
+	OrderedMap* map;
+	LinkedEntry* current;
+	bool started;
 }
+alias LinkedHashMapValueIterator @deprecated("Use OrderedMapValueIterator") = OrderedMapValueIterator;
+alias LinkedHashMapKeyIterator @deprecated("Use OrderedMapKeyIterator") = OrderedMapKeyIterator;
 
-fn sz OrderedMapIterator.len(&self) @operator(len) => self.map.count;
+typedef OrderedMapValueIterator = inline OrderedMapIterator;
+typedef OrderedMapKeyIterator = inline OrderedMapIterator;
 
-<*
- @require idx < self.count
-*>
-fn Entry OrderedMapRangeIterator.get(&self, sz idx) @operator([])
-{
-	if (idx < self.current_idx)
-	{
-		self.current = self.start_node;
-		self.current_idx = 0;
-	}
-	while (self.current_idx < idx)
-	{
-		self.current = self.current.forward[0];
-		self.current_idx++;
-	}
-	return { .key = self.current.key, .value = self.current.value };
-}
+fn sz OrderedMapValueIterator.len(self) @operator(len) => self.map.count;
+fn sz OrderedMapKeyIterator.len(self) @operator(len) => self.map.count;
+fn sz OrderedMapIterator.len(self) @operator(len) => self.map.count;
 
-fn sz OrderedMapRangeIterator.len(&self) @operator(len) => self.count;
+int dummy @local;

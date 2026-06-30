@@ -122,6 +122,7 @@ static bool x86_should_return_type_in_reg(Type *type)
 		case TYPE_VECTOR:
 		case TYPE_SIMD_VECTOR:
 		case TYPE_VOID:
+		case TYPE_UNTYPEDLIST:
 			UNREACHABLE
 		case ALL_INTS:
 		case ALL_FLOATS:
@@ -164,7 +165,7 @@ ABIArgInfo *x86_classify_return(CallABI call, Regs *regs, ParamInfo param)
 	// 2. Void is ignored
 	if (type_is_void(type)) return abi_arg_ignore();
 
-	// 3. In the case of a vector or regcall, a homogenous aggregate
+	// 3. In the case of a vector or regcall, a homogeneous aggregate
 	//    should be passed directly in a register.
 	Type *base = NULL;
 	unsigned elements = 0;
@@ -451,6 +452,7 @@ static ABIArgInfo *x86_classify_argument(CallABI call, Regs *regs, ParamInfo par
 	switch (type->type_kind)
 	{
 		case LOWERED_TYPES:
+		case TYPE_UNTYPEDLIST:
 		case TYPE_VOID:
 		case TYPE_FUNC_RAW:
 		case TYPE_FLEXIBLE_ARRAY:

@@ -312,7 +312,7 @@ macro double? decfloat(char[] chars, int $bits, int $emin, int sign)
 	y += frac;
 	y -= bias;
 
-	if (((e2 + math::DOUBLE_MANT_DIG) & int.max) > emax - 5)
+	if (((e2 + math::DOUBLE_MANT_DIG) & int::max) > emax - 5)
 	{
 		if (math::abs(y) >= 0x1p53)
 		{
@@ -376,7 +376,7 @@ macro double? hexfloat(char[] chars, int $bits, int $emin, int sign)
 		else
 		{
 			got_digit = true;
-			int d = c > '9' ? ((c | 32) + 10 - 'a') : (c - '0');
+			uint d = c > '9' ? ((c | 32) + 10 - 'a') : (c - '0');
 			switch
 			{
 				case dc < 8:
@@ -403,6 +403,10 @@ macro double? hexfloat(char[] chars, int $bits, int $emin, int sign)
 		long e2val = String.to_long((String)chars[index + 1..]) ?? MALFORMED_FLOAT~!;
 		e2 = e2val;
 	}
+	else if (index != chars.len)
+    {
+    	return MALFORMED_FLOAT~;
+    }
 	e2 += 4 * rp - 32;
 	if (!x) return sign * 0.0;
 	if (e2 > -$emin) return FLOAT_OUT_OF_RANGE~;
@@ -446,7 +450,7 @@ macro double? hexfloat(char[] chars, int $bits, int $emin, int sign)
 	return math::scalbn(y, (int)e2);
 }
 
-macro String.to_real(chars, $Type) @private
+macro _string_to_real(String chars, $Type) @private
 {
 	int sign = 1;
 	$switch $Type:
@@ -479,8 +483,8 @@ macro String.to_real(chars, $Type) @private
 	chars = chars.trim();
 	if (!chars.len) return MALFORMED_FLOAT~;
 
-	if (chars == "infinity" || chars == "INFINITY") return sign * $Type.inf;
-	if (chars == "NAN" || chars == "nan") return $Type.nan;
+	if (chars == "infinity" || chars == "INFINITY") return sign * $Type::inf;
+	if (chars == "NAN" || chars == "nan") return $Type::nan;
 
 	if (chars.len > 2 && chars[0] == '0' && (chars[1] | 32) == 'x')
 	{

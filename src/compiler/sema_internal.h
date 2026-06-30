@@ -65,7 +65,7 @@ void sema_context_destroy(SemaContext *context);
 unsigned sema_context_push_ct_stack(SemaContext *context);
 void sema_context_pop_ct_stack(SemaContext *context, unsigned old_state);
 
-bool sema_analyse_function_body(SemaContext *context, Decl *func);
+bool sema_analyse_function_body(SemaContext *context, Decl *func, unsigned macro_depth_start);
 bool sema_analyse_contracts(SemaContext *context, Decl *contracts, Expr **requires, Expr **ensures, AstId **asserts, SourceLocId call_loc, bool *has_ensures);
 void sema_append_contract_asserts(AstId assert_first, Ast* compound_stmt);
 
@@ -88,7 +88,7 @@ void sema_analysis_pass_lambda(Module *module);
 void sema_analyze_stage(Module *module, AnalysisStage stage);
 void sema_trace_liveness(void);
 
-Expr *sema_expr_resolve_access_child(SemaContext *context, Expr *child, bool *missing);
+Expr *sema_expr_resolve_access_child(SemaContext *context, Expr *child, bool *missing, bool *was_reflect);
 
 bool sema_analyse_expr_lvalue(SemaContext *context, Expr *expr, bool *failed_ref);
 
@@ -108,9 +108,9 @@ bool sema_expr_analyse_builtin_call(SemaContext *context, Expr *expr);
 void sema_add_methods_to_decl_stack(SemaContext *context, Decl *decl);
 
 bool sema_expr_analyse_macro_call(SemaContext *context, Expr *call_expr, Expr *struct_var, Decl *decl, bool call_var_optional, bool *no_match_ref);
-Expr *sema_expr_analyse_ct_arg_index(SemaContext *context, Expr *index_expr, unsigned *index_ref);
+Expr *sema_expr_analyse_ct_arg_index(SemaContext *context, SubscriptIndex *range);
 
-Expr *sema_ct_eval_expr(SemaContext *context, CtEvalKind eval_kind, Expr *inner, bool report_missing);
+Expr *sema_ct_eval_expr(SemaContext *context, CtEvalKind eval_kind, Expr *inner, bool report_missing, bool *was_reflect);
 Expr *sema_resolve_string_ident(SemaContext *context, Expr *inner, bool report_missing);
 bool sema_analyse_asm(SemaContext *context, AsmInlineBlock *block, Ast *asm_stmt);
 bool sema_expr_analyse_sprintf(SemaContext *context, Expr *expr, Expr *format_string, Expr **args, unsigned num_args);
@@ -144,7 +144,7 @@ bool sema_analyse_attributes(SemaContext *context, Decl *decl, Attr **attrs, Att
 void unit_register_optional_global_decl(CompilationUnit *unit, Decl *decl);
 bool analyse_func_body(SemaContext *context, Decl *decl);
 bool sema_check_interfaces(SemaContext *context, Decl *decl);
-bool sema_analyse_optional_returns(SemaContext *context, Decl *contract);
+bool sema_analyse_optional_returns(SemaContext *context, Decl *contracts);
 
 INLINE bool sema_analyse_stmt_chain(SemaContext *context, Ast *statement)
 {
@@ -252,11 +252,11 @@ static inline IndexDiff range_const_len(Range *range)
 		case RANGE_SINGLE_ELEMENT:
 			UNREACHABLE;
 		case RANGE_CONST_LEN:
-			return range->const_end;
+			return (IndexDiff)range->const_end;
 		case RANGE_CONST_END:
 			return -1;
 		case RANGE_CONST_RANGE:
-			return range->len_index;
+			return (IndexDiff)range->len_index;
 		case RANGE_DYNAMIC:
 			break;
 	}
@@ -276,7 +276,7 @@ static inline IndexDiff range_const_len(Range *range)
 
 static inline StorageType sema_resolve_storage_type(SemaContext *context, Type *type)
 {
-	if (!type) return STORAGE_NORMAL;
+	if (!type) return STORAGE_UNKNOWN;
 	bool is_distinct = false;
 	RETRY:
 	if (type == type_wildcard_optional) return STORAGE_WILDCARD;
@@ -286,9 +286,8 @@ static inline StorageType sema_resolve_storage_type(SemaContext *context, Type *
 			return is_distinct ? STORAGE_UNKNOWN : STORAGE_VOID;
 		case TYPE_WILDCARD:
 			return STORAGE_WILDCARD;
-		case TYPE_MEMBER:
-		case TYPE_UNTYPED_LIST:
-		case TYPE_TYPEINFO:
+		case TYPE_UNTYPEDLIST:
+		case SPECIAL_TYPES:
 		case TYPE_FUNC_RAW:
 			return STORAGE_COMPILE_TIME;
 		case TYPE_OPTIONAL:

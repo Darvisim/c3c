@@ -65,6 +65,7 @@ fn DString temp(String s = "") => new(tmem, s) @inline;
 fn void DString.replace_char(self, char ch, char replacement)
 {
 	StringData* data = self.data();
+	if (!data) return;
 	foreach (&c : data.chars[:data.len])
 	{
 		if (*c == ch) *c = replacement;
@@ -75,11 +76,34 @@ fn void DString.replace(&self, String needle, String replacement)
 {
 	StringData* data = self.data();
 	sz needle_len = needle.len;
-	if (!data || data.len < needle_len) return;
+	if (!data)
+	{
+		if (needle_len > 0) return;
+		if (!replacement) return;
+		self.append(replacement);
+		return;
+	}
+	if (data.len < needle_len) return;
 	sz replace_len = replacement.len;
 	if (needle_len == 1 && replace_len == 1)
 	{
 		self.replace_char(needle[0], replacement[0]);
+		return;
+	}
+	if (needle_len == 0)
+	{
+		if (!replace_len) return;
+		@pool()
+		{
+			String str = self.tcopy_str();
+			self.clear();
+			self.append_string(replacement);
+			foreach (i, c : str)
+			{
+				self.append_char(c);
+				self.append_string(replacement);
+			}
+		};
 		return;
 	}
 	@pool()
@@ -88,27 +112,29 @@ fn void DString.replace(&self, String needle, String replacement)
 		self.clear();
 		sz len = str.len;
 		sz match = 0;
-		foreach (i, c : str)
+		sz run_start = 0;
+		for (sz i = 0; i < len; i++)
 		{
-			if (c == needle[match])
+			if (str[i] == needle[match])
 			{
 				match++;
 				if (match == needle_len)
 				{
+					sz match_start = i - needle_len + 1;
+					if (match_start > run_start) self.append_string(str[run_start:match_start - run_start]);
 					self.append_string(replacement);
+					run_start = i + 1;
 					match = 0;
-					continue;
 				}
 				continue;
 			}
 			if (match > 0)
 			{
-				self.append_string(str[i - match:match]);
+				i -= match;
 				match = 0;
 			}
-			self.append_char(c);
 		}
-		if (match > 0) self.append_string(str[^match:match]);
+		if (run_start < len) self.append_string(str[run_start..]);
 	};
 }
 
@@ -129,7 +155,7 @@ fn ZString DString.zstr_view(&self)
 	if (!data) return "";
 	if (data.capacity == data.len)
 	{
-		self.reserve(1);
+		_reserve_inline(self, 1);
 		data = self.data();
 		data.chars[data.len] = 0;
 	}
@@ -146,7 +172,7 @@ fn sz DString.capacity(self)
 	return self.data().capacity;
 }
 
-fn sz DString.len(&self) @dynamic @operator(len)
+fn sz DString.len(&self) @operator(len)
 {
 	if (!*self) return 0;
 	return self.data().len;
@@ -163,8 +189,8 @@ fn void DString.chop(self, sz new_size)
 
 fn String DString.str_view(self)
 {
+	if (!self) return "";
 	StringData* data = self.data();
-	if (!data) return "";
 	return (String)data.chars[:data.len];
 }
 
@@ -205,7 +231,7 @@ fn void DString.set(self, sz index, char c) @operator([]=)
 	self.data().chars[index] = c;
 }
 
-fn void DString.append_repeat(&self, char c, sz times)
+fn void DString.append_char_repeat(&self, char c, sz times)
 {
 	if (times == 0) return;
 	self.reserve(times);
@@ -214,6 +240,36 @@ fn void DString.append_repeat(&self, char c, sz times)
 	{
 		data.chars[data.len++] = c;
 	}
+}
+
+macro void DString.append_repeat(&self, c, sz times)
+{
+	if (times == 0) return;
+	$switch $Typeof(c):
+		$case String:
+			self.append_string_repeat(c, times);
+		$case char:
+			self.append_char_repeat(c, times);
+		$default:
+			for (sz i = 0; i < times; i++)
+			{
+				self.append(c);
+			}
+	$endswitch
+}
+
+fn void DString.append_string_repeat(&self, String c, sz times)
+{
+	sz strlen = c.len;
+	if (!times || !strlen) return;
+	self.reserve(times * strlen);
+	StringData* data = self.data();
+	sz len = data.len;
+	for (sz i = 0; i < times; i++, len += strlen)
+	{
+		mem::copy(&data.chars[len], c, strlen);
+	}
+	data.len = len;
 }
 
 <*
@@ -238,7 +294,7 @@ fn DString DString.copy(self, Allocator allocator) @nodiscard
 	if (!self) return new(allocator);
 	StringData* data = self.data();
 	DString new_string = new_with_capacity(allocator, data.capacity);
-	mem::copy((char*)new_string.data(), (char*)data, StringData.sizeof + data.len);
+	mem::copy((char*)new_string.data(), (char*)data, StringData::size + data.len);
 	return new_string;
 }
 
@@ -272,7 +328,7 @@ fn bool DString.equals(self, DString other_string)
 	if (!str2) return str1.len == 0;
 	sz str1_len = str1.len;
 	if (str1_len != str2.len) return false;
-	for (int i = 0; i < str1_len; i++)
+	for (sz i = 0; i < str1_len; i++)
 	{
 		if (str1.chars[i] != str2.chars[i]) return false;
 	}
@@ -292,30 +348,35 @@ fn bool DString.less(self, DString other_string)
 {
 	StringData* str1 = self.data();
 	StringData* str2 = other_string.data();
-	if (str1 == str2) return false;
-	if (!str1) return str2.len != 0;
-	if (!str2) return str1.len == 0;
+	if (str1 == str2 || !str2) return false;
+	if (!str1) return str2.len > 0;
 	sz str1_len = str1.len;
 	sz str2_len = str2.len;
-	if (str1_len != str2_len) return str1_len < str2_len;
-	for (int i = 0; i < str1_len; i++)
+	sz len = math::min(str1_len, str2_len);
+	foreach (i, s : str1.chars[:len])
 	{
-		if (str1.chars[i] >= str2.chars[i]) return false;
+		char c = str2.chars[i];
+		if (c > s) return true;
+		if (c < s) return false;
 	}
-	return true;
+	return str1_len < str2_len;
 }
 
 fn void DString.append_bytes(&self, char[] bytes)
 {
 	sz other_len = bytes.len;
 	if (!other_len) return;
-	if (!*self)
-	{
-		*self = temp((String)bytes);
-		return;
-	}
-	self.reserve(other_len);
 	StringData* data = self.data();
+	if (@unlikely(!data))
+	{
+		*self = temp_with_capacity(MIN_CAPACITY > other_len ? MIN_CAPACITY : other_len);
+		data = self.data();
+	}
+	else if (@unlikely(data.len + other_len > data.capacity))
+	{
+		_reserve_inline(self, other_len);
+		data = self.data();
+	}
 	mem::copy(&data.chars[data.len], bytes.ptr, other_len);
 	data.len += other_len;
 }
@@ -327,14 +388,14 @@ fn Char32[] DString.copy_utf32(&self, Allocator allocator)
 
 fn void DString.append_string(&self, String str)
 {
-	self.append_bytes((String)str);
+	self.append_bytes((String)str) @inline;
 }
 
 fn void DString.append_dstring(&self, DString str)
 {
 	StringData* other = str.data();
 	if (!other) return;
-	self.append(str.str_view());
+	self.append_bytes(str.str_view()) @inline;
 }
 
 fn void DString.clear(self)
@@ -345,21 +406,17 @@ fn void DString.clear(self)
 
 fn sz? DString.write(&self, char[] buffer) @dynamic
 {
-	self.append_bytes(buffer);
+	self.append_bytes(buffer) @inline;
 	return buffer.len;
 }
 
 fn void? DString.write_byte(&self, char c) @dynamic
 {
-	self.append_char(c);
+	self.append_char(c) @inline;
 }
 
 fn void DString.append_char(&self, char c)
 {
-	if (!*self)
-	{
-		*self = temp_with_capacity(MIN_CAPACITY);
-	}
 	self.reserve(1);
 	StringData* data = self.data();
 	data.chars[data.len++] = c;
@@ -399,7 +456,7 @@ fn void DString.delete(&self, sz start, sz len = 1)
 
 macro void DString.append(&self, value)
 {
-	var $Type = $typeof(value);
+	var $Type = $Typeof(value);
 	$switch $Type:
 		$case char:
 		$case ichar:
@@ -418,6 +475,34 @@ macro void DString.append(&self, value)
 					self.append_string((String)value);
 				$default:
 					$error "Unsupported type for append – use appendf instead.";
+			$endswitch
+	$endswitch
+}
+
+<*
+ Same as DString.append, but may be faster due to inlining.
+*>
+macro void DString.append_inline(&self, value)
+{
+	var $Type = $Typeof(value);
+	$switch $Type:
+		$case char:
+		$case ichar:
+			self.append_char(value) @inline;
+		$case DString:
+			self.append_dstring(value) @inline;
+		$case String:
+			self.append_string(value) @inline;
+		$case Char32:
+			self.append_char32(value) @inline;
+		$default:
+			$switch:
+				$case $defined((Char32)value):
+					self.append_char32((Char32)value) @inline;
+				$case $defined((String)value):
+					self.append_string((String)value) @inline;
+				$default:
+					$error "Unsupported type for append_inline – use appendf instead.";
 			$endswitch
 	$endswitch
 }
@@ -531,7 +616,7 @@ fn sz DString.insert_utf32_at(&self, sz index, Char32[] chars)
 
 macro void DString.insert_at(&self, sz index, value)
 {
-	var $Type = $typeof(value);
+	var $Type = $Typeof(value);
 	$switch $Type:
 		$case char:
 		$case ichar:
@@ -596,7 +681,7 @@ fn DString join(Allocator allocator, String[] s, String joiner) @nodiscard
 fn void? append_fn(void* data, char c)
 {
 	DString* s = data;
-	s.append_char(c);
+	s.append_char(c) @inline;
 }
 
 fn void DString.reverse(self)
@@ -613,26 +698,19 @@ fn void DString.reverse(self)
 	}
 }
 
-fn StringData* DString.data(self) @inline
+macro StringData* DString.data(self)
 {
 	return (StringData*)self;
 }
 
-fn void DString.reserve(&self, sz addition)
+fn void DString.reserve(&self, sz addition) @inline
 {
-	StringData* data = self.data();
-	if (!data)
+	if (!*self)
 	{
 		*self = dstring::temp_with_capacity(addition);
 		return;
 	}
-	sz len = data.len + addition;
-	if (data.capacity >= len) return;
-	sz new_capacity = data.capacity * 2;
-	if (new_capacity < MIN_CAPACITY) new_capacity = MIN_CAPACITY;
-	if (new_capacity < len) new_capacity = math::next_power_of_2(len);
-	data.capacity = new_capacity;
-	*self = (DString)alloc::realloc(data.allocator, data, StringData.sizeof + new_capacity);
+	_reserve_inline(self, addition);
 }
 
 fn sz? DString.read_from_stream(&self, InStream reader)
@@ -642,7 +720,7 @@ fn sz? DString.read_from_stream(&self, InStream reader)
 		sz total_read = 0;
 		while (long available = reader.available()!)
 		{
-			if (available > sz.max) available = (ulong)sz.max;
+			if (available > sz::max) available = (ulong)sz::max;
 			self.reserve((sz)available);
 			StringData* data = self.data();
 			sz len = reader.read(data.chars[data.len..(data.capacity - 1)])!;
@@ -660,6 +738,7 @@ fn sz? DString.read_from_stream(&self, InStream reader)
 		// Read into the rest of the buffer
 		sz read = reader.read(data.chars[data.len..(data.capacity - 1)])!;
 		data.len += read;
+		total_read += read;
 		// Ok, we reached the end.
 		if (read < 16) return total_read;
 		// Otherwise go another round
@@ -672,4 +751,24 @@ struct StringData @private
 	sz len;
 	sz capacity;
 	char[*] chars;
+}
+
+<* @require self.data() != null *>
+macro _reserve_inline(DString *self, sz addition)
+{
+	StringData* data = self.data();
+	sz len = data.len + addition;
+	if (@likely(data.capacity >= len)) return;
+	*self = (DString)_reserve_slow(data, len);
+}
+
+<* @require data.len + addition > data.capacity *>
+fn StringData* _reserve_slow(StringData* data, sz addition) @local
+{
+	sz len = data.len + addition;
+	sz new_capacity = data.capacity * 2;
+	if (new_capacity < MIN_CAPACITY) new_capacity = MIN_CAPACITY;
+	if (new_capacity < len) new_capacity = math::next_power_of_2(len);
+	data.capacity = new_capacity;
+	return alloc::realloc(data.allocator, data, StringData::size + new_capacity);
 }

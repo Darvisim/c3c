@@ -64,12 +64,12 @@ fn bool LinkedList.is_initialized(&self) @inline => self.allocator != null;
 <*
  @require self.is_initialized()
 *>
-macro void LinkedList.free_node(&self, Node* node) @private
+macro void linked_list_free_node(LinkedList* self, Node* node) @private
 {
 	alloc::free(self.allocator, node);
 }
 
-macro Node* LinkedList.alloc_node(&self) @private
+macro Node* linked_list_alloc_node(LinkedList* self) @private
 {
 	if (!self.allocator) self.allocator = tmem;
 	return alloc::alloc(self.allocator, Node);
@@ -78,7 +78,7 @@ macro Node* LinkedList.alloc_node(&self) @private
 fn void LinkedList.push_front(&self, Type value)
 {
 	Node *first = self._first;
-	Node *new_node = self.alloc_node();
+	Node *new_node = linked_list_alloc_node(self);
 	*new_node = { .next = first, .value = value };
 	self._first = new_node;
 	if (!first)
@@ -100,7 +100,7 @@ fn void LinkedList.push_front_all(&self, Type[] value)
 fn void LinkedList.push(&self, Type value)
 {
 	Node *last = self._last;
-	Node *new_node = self.alloc_node();
+	Node *new_node = linked_list_alloc_node(self);
 	*new_node = { .prev = last, .value = value };
 	self._last = new_node;
 	if (!last)
@@ -141,7 +141,7 @@ fn void LinkedList.clear(&self)
 	for (Node* node = self._first; node != null;)
 	{
 		Node* next = node.next;
-		self.free_node(node);
+		linked_list_free_node(self, node);
 		node = next;
 	}
 	self._first = null;
@@ -241,7 +241,7 @@ fn void LinkedList.insert_at(&self, sz index, Type element)
 fn void linked_list_link_before(LinkedList* l, Node *succ, Type value) @private
 {
 	Node* pred = succ.prev;
-	Node* new_node = l.alloc_node();
+	Node* new_node = linked_list_alloc_node(l);
 	*new_node = { .prev = pred, .next = succ, .value = value };
 	succ.prev = new_node;
 	if (!pred)
@@ -262,7 +262,7 @@ fn void linked_list_unlink_first(LinkedList* l) @private
 {
 	Node* f = l._first;
 	Node* next = f.next;
-	l.free_node(f);
+	linked_list_free_node(l, f);
 	l._first = next;
 	if (!next)
 	{
@@ -359,7 +359,7 @@ fn void linked_list_unlink_last(LinkedList* self) @inline @private
 	Node* l = self._last;
 	Node* prev = l.prev;
 	self._last = prev;
-	self.free_node(l);
+	linked_list_free_node(self, l);
 	if (!prev)
 	{
 		self._first = null;
@@ -394,12 +394,12 @@ fn void linked_list_unlink(LinkedList* self, Node* x) @private
 	{
 		next.prev = prev;
 	}
-	self.free_node(x);
+	linked_list_free_node(self, x);
 	self.size--;
 }
 
 
-macro bool LinkedList.eq(&self, other) @operator(==) @if(ELEMENT_IS_EQUATABLE)
+macro bool LinkedList.eq(&self, LinkedList other) @operator(==) @if(ELEMENT_IS_EQUATABLE)
 {
 	Node* node1 = self._first;
 	Node* node2 = other._first;
@@ -411,7 +411,6 @@ macro bool LinkedList.eq(&self, other) @operator(==) @if(ELEMENT_IS_EQUATABLE)
 		node1 = node1.next;
 		node2 = node2.next;
 	}
-	return true;
 }
 
 fn LinkedListArrayView LinkedList.array_view(&self)

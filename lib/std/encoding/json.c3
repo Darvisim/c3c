@@ -9,21 +9,26 @@ faultdef UNEXPECTED_CHARACTER, INVALID_ESCAPE_SEQUENCE, INVALID_NUMBER, MAX_DEPT
 
 int max_depth = 128;
 
-fn Object*? parse_string(Allocator allocator, String s)
+enum JsonFlavor
 {
-	return parse(allocator, (ByteReader){}.init(s));
+	JSON,
+	JSONC
+}
+fn Object*? parse(Allocator allocator, String s, JsonFlavor flavor = JSONC)
+{
+	return load(allocator, (ByteReader){}.init(s), flavor);
 }
 
-fn Object*? tparse_string(String s)
+fn Object*? tparse(String s, JsonFlavor flavor = JSONC)
 {
-	return parse(tmem, (ByteReader){}.init(s));
+	return load(tmem, (ByteReader){}.init(s), flavor);
 }
 
-fn Object*? parse(Allocator allocator, InStream s)
+fn Object*? load(Allocator allocator, InStream s, JsonFlavor flavor = JSONC)
 {
 	@stack_mem(512; Allocator smem)
 	{
-		JsonContext context = { .last_string = dstring::new_with_capacity(smem, 64), .stream = s, .allocator = allocator };
+		JsonContext context = { .last_string = dstring::new_with_capacity(smem, 64), .stream = s, .allocator = allocator, .flavor = flavor };
 		@pool()
 		{
 			return parse_any(&context)!;
@@ -31,9 +36,9 @@ fn Object*? parse(Allocator allocator, InStream s)
 	};
 }
 
-fn Object*? tparse(InStream s)
+fn Object*? temp_load(InStream s, JsonFlavor flavor = JSONC)
 {
-	return parse(tmem, s);
+	return load(tmem, s, flavor);
 }
 
 // -- Implementation follows --
@@ -57,21 +62,17 @@ enum JsonTokenType @local
 
 struct JsonContext @local
 {
-	int line;
 	InStream stream;
 	Allocator allocator;
 	JsonTokenType token;
 	DString last_string;
 	double last_number;
-	char current;
 	int depth;
-	bitstruct : char
-	{
-		bool skip_comments;
-		bool reached_end;
-		bool pushed_back;
-	}
-
+	int line;
+	char current;
+	bool reached_end;
+	bool pushed_back;
+	JsonFlavor flavor;
 }
 
 
@@ -86,8 +87,8 @@ fn Object*? parse_from_token(JsonContext* context, JsonTokenType token) @local
 		case RBRACE:
 		case RBRACKET:
 		case COLON: return UNEXPECTED_CHARACTER~;
-		case STRING: return object::new_string(context.last_string.str_view(), context.allocator);
-		case NUMBER: return object::new_float(context.last_number, context.allocator);
+		case STRING: return object::new_string(context.allocator, context.last_string.str_view());
+		case NUMBER: return object::new_float(context.allocator, context.last_number);
 		case TRUE: return object::new_bool(true);
 		case FALSE: return object::new_bool(false);
 		case NULL: return object::new_null();
@@ -124,10 +125,13 @@ fn JsonTokenType? lex_number(JsonContext *context, char c) @local
 		if (c == '.')
 		{
 			t.append(c);
+			bool has_digit_after_dot = false;
 			while (c = read_next(context)!, c.is_digit())
 			{
+				has_digit_after_dot = true;
 				t.append(c);
 			}
+			if (!has_digit_after_dot) return INVALID_NUMBER~;
 		}
 		if ((c | 32) == 'e')
 		{
@@ -165,9 +169,9 @@ fn Object*? parse_map(JsonContext* context) @local
 	@stack_mem(256; Allocator mem)
 	{
 		DString temp_key = dstring::new_with_capacity(mem, 32);
-		while (token != JsonTokenType.RBRACE)
+		while (token != RBRACE)
 		{
-			if (token != JsonTokenType.STRING) return UNEXPECTED_CHARACTER~;
+			if (token != STRING) return UNEXPECTED_CHARACTER~;
 			DString string = context.last_string;
 			// Copy the key to our temp holder, since our
 			// last_string may be used in parse_any
@@ -177,12 +181,13 @@ fn Object*? parse_map(JsonContext* context) @local
 			Object* element = parse_any(context)!;
 			map.set(temp_key.str_view(), element);
 			token = advance(context)!;
-			if (token == JsonTokenType.COMMA)
+			if (token == COMMA)
 			{
 				token = advance(context)!;
+				if (token == RBRACE && context.flavor == JSON) return UNEXPECTED_CHARACTER~;
 				continue;
 			}
-			if (token != JsonTokenType.RBRACE) return UNEXPECTED_CHARACTER~;
+			if (token != RBRACE) return UNEXPECTED_CHARACTER~;
 		}
 		return map;
 	};
@@ -195,17 +200,18 @@ fn Object*? parse_array(JsonContext* context) @local
 	defer context.depth--;
 	if (++context.depth >= max_depth) return json::MAX_DEPTH_REACHED~;
 	JsonTokenType token = advance(context)!;
-	while (token != JsonTokenType.RBRACKET)
+	while (token != RBRACKET)
 	{
 		Object* element = parse_from_token(context, token)!;
 		list.push(element);
 		token = advance(context)!;
-		if (token == JsonTokenType.COMMA)
+		if (token == COMMA)
 		{
 			token = advance(context)!;
+			if (token == RBRACKET && context.flavor == JSON) return UNEXPECTED_CHARACTER~;
 			continue;
 		}
-		if (token != JsonTokenType.RBRACKET) return UNEXPECTED_CHARACTER~;
+		if (token != RBRACKET) return UNEXPECTED_CHARACTER~;
 	}
 	return list;
 }
@@ -262,8 +268,20 @@ fn JsonTokenType? advance(JsonContext* context) @local
 			case '\v':
 				continue;
 			case '/':
-				if (!context.skip_comments) break WS;
+				if (context.flavor == JSON) break WS;
 				c = read_next(context)!;
+				if (c == '/')
+				{
+					while (try ch = read_next(context))
+					{
+						if (ch == '\n')
+						{
+							context.line++;
+							continue WS;
+						}
+					}
+					break WS;
+				}
 				if (c != '*')
 				{
 					pushback(context, c);
@@ -339,6 +357,18 @@ fn void? parse_expected(JsonContext* context, JsonTokenType token) @local
 	if (advance(context)! != token) return UNEXPECTED_CHARACTER~;
 }
 
+fn uint? parse_hex4(JsonContext* context) @local
+{
+	uint val;
+	for (int i = 0; i < 4; i++)
+	{
+		char c = read_next(context)!;
+		if (!c.is_xdigit()) return INVALID_ESCAPE_SEQUENCE~;
+		val = val << 4u + (c > '9' ? (c | 32u) - 'a' + 10u : c - '0');
+	}
+	return val;
+}
+
 fn JsonTokenType? lex_string(JsonContext* context)
 {
 	context.last_string.clear();
@@ -381,12 +411,19 @@ fn JsonTokenType? lex_string(JsonContext* context)
 			case 't':
 				c = '\t';
 			case 'u':
-				uint val;
-				for (int i = 0; i < 4; i++)
+				uint val = parse_hex4(context)!;
+				switch
 				{
-					c = read_next(context)!;
-					if (!c.is_xdigit()) return INVALID_ESCAPE_SEQUENCE~;
-					val = val << 4u + (c > '9' ? (c | 32u) - 'a' + 10u : c - '0');
+					case val >= 0xDC00 && val <= 0xDFFF:
+						// Lone surrogate
+						return INVALID_ESCAPE_SEQUENCE~;
+					case val >= 0xD800 && val <= 0xDBFF:
+						// High surrogate read, now look for low surrogate
+						if (read_next(context)! != '\\') return INVALID_ESCAPE_SEQUENCE~;
+						if (read_next(context)! != 'u') return INVALID_ESCAPE_SEQUENCE~;
+						uint low = parse_hex4(context)!;
+						if (low < 0xDC00 || low > 0xDFFF) return INVALID_ESCAPE_SEQUENCE~;
+						val = 0x10000u + (val - 0xD800u) << 10u + (low - 0xDC00u);
 				}
 				context.last_string.append_char32(val);
 				continue;

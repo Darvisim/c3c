@@ -6,8 +6,8 @@ import std::io;
 macro @timeit(#call)
 {
     long t = (long)libc::clock();
-    var $Type = $typeof(#call);
-    var $is_void = $Type.typeid == void.typeid;
+    var $Type = $Typeof(#call);
+    var $is_void = $Type::typeid == void::typeid;
 	$if $is_void:
         #call;
 	$else

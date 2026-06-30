@@ -9,7 +9,6 @@ static inline bool sema_resolve_ptr_type(SemaContext *context, TypeInfo *type_in
 static inline bool sema_resolve_array_type(SemaContext *context, TypeInfo *type, ResolveTypeKind resolve_kind);
 static inline bool sema_resolve_type(SemaContext *context, TypeInfo *type_info, ResolveTypeKind resolve_kind);
 static bool sema_resolve_type_identifier(SemaContext *context, TypeInfo *type_info, ResolveTypeKind resolve_type_kind);
-INLINE bool sema_resolve_vatype(SemaContext *context, TypeInfo *type_info);
 INLINE bool sema_resolve_typefrom(SemaContext *context, TypeInfo *type_info, ResolveTypeKind resolve_kind);
 INLINE bool sema_resolve_typeof(SemaContext *context, TypeInfo *type_info);
 static inline bool sema_check_ptr_type(SemaContext *context, TypeInfo *type_info, Type *inner);
@@ -293,6 +292,7 @@ static bool sema_resolve_type_identifier(SemaContext *context, TypeInfo *type_in
 		case DECL_CT_ASSERT:
 		case DECL_CT_ECHO:
 		case DECL_CT_EXEC:
+		case DECL_CT_EXPAND:
 		case DECL_CT_INCLUDE:
 		case DECL_DECLARRAY:
 		case DECL_GROUP:
@@ -307,7 +307,7 @@ static bool sema_resolve_type_identifier(SemaContext *context, TypeInfo *type_in
 
 
 
-// $typeof(...)
+// $Typeof(...)
 INLINE bool sema_resolve_typeof(SemaContext *context, TypeInfo *type_info)
 {
 	Expr *expr = type_info->unresolved_type_expr;
@@ -323,6 +323,12 @@ INLINE bool sema_resolve_typeof(SemaContext *context, TypeInfo *type_info)
 			RETURN_SEMA_ERROR(expr, "A builtin function has no defined type.");
 		case EXPR_TYPECALL:
 			RETURN_SEMA_ERROR(expr, "A type function has no defined type.");
+		case EXPR_ACCESS_RESOLVED:
+			if (expr->access_resolved_expr.ref->decl_kind == DECL_MACRO)
+			{
+				RETURN_SEMA_ERROR(expr, "A macro has no defined type.");
+			}
+			break;
 		case EXPR_IDENTIFIER:
 			if (expr->ident_expr->decl_kind == DECL_MACRO)
 			{
@@ -396,26 +402,13 @@ INLINE bool sema_resolve_typefrom(SemaContext *context, TypeInfo *type_info, Res
 			type_info->type = info->type;
 			return true;
 		case STORAGE_WILDCARD:
-			RETURN_SEMA_ERROR(expr, "$typefrom failed to resolve \"%.*s\" to a definite type.", (int)len, bytes);
+			RETURN_SEMA_ERROR(expr, "$Typefrom failed to resolve \"%.*s\" to a definite type.", (int)len, bytes);
 		case STORAGE_COMPILE_TIME:
-			RETURN_SEMA_ERROR(expr, "$typefrom does not support compile-time types.");
+			RETURN_SEMA_ERROR(expr, "$Typefrom does not support compile-time types.");
 	}
 	UNREACHABLE
 }
 
-// $vatype(...)
-INLINE bool sema_resolve_vatype(SemaContext *context, TypeInfo *type_info)
-{
-	if (!context->macro_has_vaargs)
-	{
-		RETURN_SEMA_ERROR(type_info, "'%s' can only be used inside of a macro with untyped vaargs.", token_type_to_string(TOKEN_CT_VATYPE));
-	}
-	ASSIGN_EXPR_OR_RET(Expr *arg_expr, sema_expr_analyse_ct_arg_index(context, type_info->unresolved_type_expr, NULL), false);
-	if (!sema_analyse_expr(context, arg_expr)) return false;
-	if (arg_expr->expr_kind != EXPR_TYPEINFO) RETURN_SEMA_ERROR(arg_expr, "The argument was not a type.");
-	type_info->type = arg_expr->type_expr->type;
-	return true;
-}
 
 bool sema_unresolved_type_is_generic(SemaContext *context, TypeInfo *type_info)
 {
@@ -429,7 +422,9 @@ bool sema_unresolved_type_is_generic(SemaContext *context, TypeInfo *type_info)
 	if (decl->decl_kind != DECL_TYPE_ALIAS) return false;
 	if (decl->resolve_status == RESOLVE_DONE) return false;
 	if (decl->type_alias_decl.is_func) return false;
-	type_info = decl->type_alias_decl.type_info;
+	Expr *expr = decl->type_alias_decl.type_expr;
+	if (expr->expr_kind != EXPR_TYPEINFO) return false;
+	type_info = expr->type_expr;
 	goto RETRY;
 }
 
@@ -477,6 +472,7 @@ static inline bool sema_check_ptr_type(SemaContext *context, TypeInfo *type_info
 	switch (type->type_kind)
 	{
 		case CT_TYPES:
+		case TYPE_UNTYPEDLIST:
 			if (type_is_infer_type(type))
 			{
 				RETURN_SEMA_ERROR(type_info, "A pointer to a type of inferred length is not supported.");
@@ -529,9 +525,6 @@ static inline bool sema_resolve_type(SemaContext *context, TypeInfo *type_info, 
 			UNREACHABLE
 		case TYPE_INFO_GENERIC:
 			if (!sema_resolve_generic_type(context, type_info)) return type_info_poison(type_info);
-			goto APPEND_QUALIFIERS;
-		case TYPE_INFO_VATYPE:
-			if (!sema_resolve_vatype(context, type_info)) return type_info_poison(type_info);
 			goto APPEND_QUALIFIERS;
 		case TYPE_INFO_CT_IDENTIFIER:
 		case TYPE_INFO_IDENTIFIER:
@@ -596,6 +589,12 @@ APPEND_QUALIFIERS:;
 			type = type_get_slice(type);
 			break;
 	}
+	if (type->type_kind == TYPE_UNTYPEDLIST && type_info->optional)
+	{
+		SEMA_ERROR(type_info, "%s cannot be used as an optional type, since it is compile-time only.", type_quoted_error_string(type));
+		return type_info_poison(type_info);
+	}
+
 	type_info->type = type_add_optional(type, type_info->optional || type_is_optional(type_info->type));
 	type_info->resolve_status = RESOLVE_DONE;
 	return true;
@@ -681,7 +680,7 @@ static uint32_t hash_function(Signature *sig)
 	return (uint32_t)((hash >> 16) ^ hash);
 }
 
-static inline Type *func_create_new_func_proto(Signature *sig, CallABI abi, uint32_t hash, FuncTypeEntry *entry)
+static inline Type *func_create_new_func_proto(Signature *sig, CallABI abi UNUSED, uint32_t hash, FuncTypeEntry *entry)
 {
 	unsigned param_count = vec_size(sig->params);
 	FunctionPrototype *proto = CALLOCS(FunctionPrototype);

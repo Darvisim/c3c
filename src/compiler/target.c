@@ -42,7 +42,8 @@ static const char *wasm_feature_name[] = {
 	[WASM_FEAT_MUTABLE_GLOBALS] = "mutable-globals",
 	[WASM_FEAT_NONTRAPPING_FPTORINT] = "nontrapping-fptoint",
 	[WASM_FEAT_REFERENCE_TYPES] = "reference-types",
-	[WASM_FEAT_SIGN_EXT] = "sign-ext"
+	[WASM_FEAT_SIGN_EXT] = "sign-ext",
+	[WASM_FEAT_ATOMICS] = "atomics"
 };
 
 static const char *arm_feature_name[] = {
@@ -180,6 +181,7 @@ static const char *x86_feature_name[] = {
 	[X86_FEAT_FSGSBASE] = "fsgsbase",
 	[X86_FEAT_FXSR] = "fxsr",
 	[X86_FEAT_INVPCID] = "invpcid",
+	[X86_FEAT_JMPABS] = "jmpabs",
 	[X86_FEAT_KL] = "kl",
 	[X86_FEAT_WIDEKL] = "widekl",
 	[X86_FEAT_LWP] = "lwp",
@@ -330,6 +332,7 @@ static bool os_target_use_thread_local(OsType os)
 		case OS_TYPE_OPENBSD:
 		case OS_TYPE_WIN32:
 		case OS_TYPE_WASI:
+		case OS_TYPE_EMSCRIPTEN:
 			return true;
 	}
 	UNREACHABLE
@@ -751,6 +754,7 @@ static void x86_features_add_feature(CpuFeatures *cpu_features, X86Feature featu
 		case X86_FEAT_FXSR:
 		case X86_FEAT_HRESET:
 		case X86_FEAT_INVPCID:
+		case X86_FEAT_JMPABS:
 		case X86_FEAT_LWP:
 		case X86_FEAT_LZCNT:
 		case X86_FEAT_MWAITX:
@@ -1176,6 +1180,8 @@ const char *arch_to_linker_arch(ArchType arch)
 			return "wasm64";
 		case ARCH_TYPE_XTENSA:
 			return "xtensa";
+		case ARCH_TYPE_AVR:
+			return "avr";
 	}
 	UNREACHABLE;
 }
@@ -1211,8 +1217,10 @@ static char *arch_to_target_triple(ArchOsTarget target, LinuxLibc linux_libc)
 		case LINUX_RISCV64: return linux_libc == LINUX_LIBC_MUSL ? "riscv64-unknown-linux-musl" : "riscv64-unknown-linux-gnu";
 		case ELF_RISCV64: return "riscv64-unknown-elf";
 		case ELF_XTENSA: return "xtensa-unknown-elf";
+		case ELF_AVR: return "avr-unknown-unknown";
 		case WASM32: return "wasm32-unknown-unknown";
 		case WASM64: return "wasm64-unknown-unknown";
+		case EMSCRIPTEN_WASM32: return "wasm32-unknown-emscripten";
 		case ARCH_OS_TARGET_DEFAULT: UNREACHABLE;
 	}
 	UNREACHABLE;
@@ -1463,6 +1471,8 @@ static unsigned arch_pointer_bit_width(OsType os, ArchType arch)
 		case ARCH_TYPE_WASM32:
 		case ARCH_TYPE_XTENSA:
 			return 32;
+		case ARCH_TYPE_AVR:
+			return 16;
 		case ARCH_TYPE_WASM64:
 		case ARCH_TYPE_AARCH64:
 		case ARCH_TYPE_AARCH64_BE:
@@ -1496,6 +1506,8 @@ static unsigned arch_int_register_bit_width(OsType os, ArchType arch)
 		case ARCH_TYPE_WASM32:
 		case ARCH_TYPE_XTENSA:
 			return 32;
+		case ARCH_TYPE_AVR:
+			return 16;
 		case ARCH_TYPE_WASM64:
 		case ARCH_TYPE_AARCH64:
 		case ARCH_TYPE_AARCH64_BE:
@@ -1591,6 +1603,7 @@ static ObjectFormatType object_format_from_os(OsType os, ArchType arch_type)
 		case OS_TYPE_WIN32:
 			return OBJ_FORMAT_COFF;
 		case OS_TYPE_WASI:
+		case OS_TYPE_EMSCRIPTEN:
 			return OBJ_FORMAT_WASM;
 	}
 	UNREACHABLE
@@ -1618,7 +1631,7 @@ static unsigned os_target_c_type_bits(OsType os, ArchType arch, CType type)
 		case OS_UNSUPPORTED:
 			UNREACHABLE
 		case OS_TYPE_UNKNOWN:
-			if (arch == ARCH_TYPE_MSP430)
+			if (arch == ARCH_TYPE_MSP430 || arch == ARCH_TYPE_AVR)
 			{
 				switch (type)
 				{
@@ -1643,6 +1656,7 @@ static unsigned os_target_c_type_bits(OsType os, ArchType arch, CType type)
 		case OS_TYPE_NETBSD:
 		case OS_TYPE_OPENBSD:
 		case OS_TYPE_WASI:
+		case OS_TYPE_EMSCRIPTEN:
 			// Use default
 			break;
 		case OS_TYPE_WIN32:
@@ -1694,6 +1708,7 @@ static AlignData os_target_alignment_of_int(OsType os, ArchType arch, uint32_t b
 		case ARCH_TYPE_PPC:
 		case ARCH_TYPE_PPC64LE:
 		case ARCH_TYPE_RISCV32:
+		case ARCH_TYPE_AVR:
 		case ARCH_TYPE_XTENSA:
 			return (AlignData) { MIN(64u, bits), MIN(64u, bits) };
 		case ARCH_TYPE_X86_64:
@@ -1736,6 +1751,7 @@ static unsigned arch_big_endian(ArchType arch)
 		case ARCH_TYPE_RISCV64:
 		case ARCH_TYPE_WASM32:
 		case ARCH_TYPE_WASM64:
+		case ARCH_TYPE_AVR:
 		case ARCH_TYPE_XTENSA:
 			return false;
 		case ARCH_TYPE_ARMB:
@@ -1775,6 +1791,7 @@ static AlignData os_target_alignment_of_float(OsType os, ArchType arch, uint32_t
 		case ARCH_TYPE_RISCV64:
 		case ARCH_TYPE_WASM32:
 		case ARCH_TYPE_WASM64:
+		case ARCH_TYPE_AVR:
 		case ARCH_TYPE_XTENSA:
 			return (AlignData) { bits , bits };
 		case ARCH_TYPE_ARM:
@@ -1820,6 +1837,8 @@ static RelocModel arch_os_reloc_default(ArchType arch, OsType os, EnvironmentTyp
 			case OS_TYPE_ANDROID:
 				return RELOC_BIG_PIC;
 			case OS_TYPE_WASI:
+			case OS_TYPE_EMSCRIPTEN:
+				// Same as System V i386?
 				return RELOC_NONE;
 			case OS_TYPE_FREEBSD:
 			case OS_TYPE_NETBSD:
@@ -1856,6 +1875,7 @@ static RelocModel arch_os_reloc_default(ArchType arch, OsType os, EnvironmentTyp
 			if (arch == ARCH_TYPE_X86) return RELOC_NONE;
 			return RELOC_BIG_PIC;
 		case OS_TYPE_WASI:
+		case OS_TYPE_EMSCRIPTEN:
 			return RELOC_NONE;
 		case OS_TYPE_LINUX:
 		case OS_TYPE_ANDROID:
@@ -1877,6 +1897,7 @@ static bool arch_os_pic_default_forced(ArchType arch, OsType os)
 		case OS_DARWIN_TYPES:
 			return arch == ARCH_TYPE_AARCH64 || arch == ARCH_TYPE_X86_64;
 		case OS_TYPE_WASI:
+		case OS_TYPE_EMSCRIPTEN:
 		case OS_TYPE_UNKNOWN:
 		case OS_TYPE_NONE:
 		case OS_TYPE_FREEBSD:
@@ -1935,6 +1956,9 @@ void *llvm_target_machine_create(void)
 		llvm_initialized = true;
 #ifdef XTENSA_ENABLE
 		INITIALIZE_TARGET(Xtensa);
+#endif
+#ifndef AVR_DISABLE
+		INITIALIZE_TARGET(AVR);
 #endif
 #ifndef ARM_DISABLE
 		INITIALIZE_TARGET(ARM);
@@ -2009,6 +2033,7 @@ static void target_setup_wasm_abi(BuildTarget *target)
 	cpu_features_add_feature_single(&features, WASM_FEAT_NONTRAPPING_FPTORINT);
 	cpu_features_add_feature_single(&features, WASM_FEAT_REFERENCE_TYPES);
 	cpu_features_add_feature_single(&features, WASM_FEAT_SIGN_EXT);
+	if (compiler.platform.os == OS_TYPE_EMSCRIPTEN) cpu_features_add_feature_single(&features, WASM_FEAT_ATOMICS);
 	update_cpu_features(target->cpu_flags, &features, wasm_feature_name, WASM_FEATURE_LAST);
 	cpu_features_set_to_features(features, cpu_feature_zero, NULL, wasm_feature_name, WASM_FEATURE_LAST);
 }
@@ -2130,7 +2155,7 @@ static void update_cpu_features(const char *features, CpuFeatures *cpu_features,
 		}
 		next.ptr++;
 		next.len--;
-		for (int i = 0; i < feature_count; i++)
+		for (int i = 0; i <= feature_count; i++)
 		{
 			const char *feat = feature_names[i];
 			size_t feat_len = strlen(feat);
@@ -2279,6 +2304,10 @@ void target_setup(BuildTarget *build_target)
 			break;
 		case ARCH_TYPE_XTENSA:
 			compiler.platform.abi = ABI_XTENSA;
+			break;
+		case ARCH_TYPE_AVR:
+			compiler.platform.abi = ABI_AVR;
+			compiler.platform.tls_supported = false;
 			break;
 		case ARCH_TYPE_WASM32:
 		case ARCH_TYPE_WASM64:

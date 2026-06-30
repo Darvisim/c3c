@@ -72,6 +72,7 @@ static void usage(bool full)
 	print_cmd("vendor-fetch <library> ...", "Fetches one or more libraries from the vendor collection.");
 	print_cmd("project <subcommand> ...", "Manipulate or view project files.");
 	print_cmd("fetch-sdk <windows|macos|android> ...", "Fetches the SDK required for cross-compiling.");
+	print_cmd("docgen [<path1> <path2> ...]", "Generate documentation for the project, or specific files and directories.");
 	PRINTF("");
 	full ? PRINTF("Options:") : PRINTF("Common options:");
 	print_opt("-h -hh --help", "Print the help, -h for the normal options, -hh for the full help.");
@@ -115,7 +116,8 @@ static void usage(bool full)
 		print_opt("--output-dir <dir>", "Override general output directory.");
 		print_opt("--build-dir <dir>", "Override build output directory.");
 		print_opt("--obj-out <dir>", "Override object file output directory.");
-		print_opt("--script-dir <dir>", "Override the base directory for $exec.");
+		print_opt("--script-dir <dir>", "Override the base directory where scripts are searched.");
+		print_opt("--exec-dir <dir>", "Override the base directory for $exec and exec.");
 		print_opt("--llvm-out <dir>", "Override llvm output directory for '--emit-llvm'.");
 		print_opt("--asm-out <dir> ", "Override asm output directory for '--emit-asm'.");
 		print_opt("--header-output <dir>", "Override header file output directory when building libraries.");
@@ -183,7 +185,7 @@ static void usage(bool full)
 		print_opt("--benchfn <name>", "Override the benchmark runner function name.");
 		PRINTF("");
 		print_opt("--reloc=<option>", "Relocation model: none, pic, PIC, pie, PIE.");
-		print_opt("--cpu-flags <string>", "Add/remove cpu flags fromt the default, e.g. '+a,-b'.");
+		print_opt("--cpu-flags <string>", "Add/remove cpu flags from the default, e.g. '+a,-b'.");
 		print_opt("--x86cpu=<option>", "Set general level of x64 cpu: baseline, ssse3, sse4, avx1, avx2-v1, avx2-v2 (Skylake/Zen1+), avx512 (Icelake/Zen4+), native.");
 		print_opt("--x86vec=<option>", "Set max type of vector use: none, mmx, sse, avx, avx512, default.");
 		print_opt("--riscv-abi=<option>", "Set type of RISC-V ABI: int-only, float, double.");
@@ -220,6 +222,7 @@ static void usage(bool full)
 		print_opt("--wincrt=<option>", "Windows CRT linking: none, static-debug, static, dynamic-debug (default if debug info enabled), dynamic (default).");
 		print_opt("--windef <file>", "Use Windows 'def' file for function exports instead of 'dllexport'.");
 		print_opt("--win-vs-dirs <dir>;<dir>", "Override Windows VS detection.");
+		print_opt("--win-subsystem=<subsystem>", "Windows subsystem: console (default), windows (default if @winmain present), native, posix, boot, efi-app, efi-boot, efi-rom or efi-runtime.");
 		PRINTF("");
 		print_opt("--macos-sdk <dir>", "Set the directory for the MacOS SDK for cross compilation.");
 		print_opt("--macos-min-version <ver>", "Set the minimum MacOS version to compile for.");
@@ -231,6 +234,8 @@ static void usage(bool full)
 		PRINTF("");
 		print_opt("--android-ndk <dir>", "Set the NDK directory location.");
 		print_opt("--android-api <ver>", "Set Android API version.");
+		PRINTF("");
+		print_opt("--bsd-sysroot <dir>", "Set the BSD sysroot directory.");
 		PRINTF("");
 		print_opt("--sanitize=<option>", "Enable sanitizer: address, memory, thread.");
 	}
@@ -307,6 +312,22 @@ static void fetch_sdk_usage_dispatch(const char *target)
 	{
 		fetch_sdk_usage();
 	}
+}
+
+static void docgen_usage()
+{
+	PRINTF("Usage: %s docgen [<options>] [<path1> <path2> ...]", args[0]);
+	PRINTF("");
+	PRINTF("Generates documentation for the current project, or specific files and directories.");
+	PRINTF("");
+	PRINTF("Options:");
+	print_opt("--json", "Output JSON to stdout.");
+	print_opt("--append", "Append to existing 'docs.html'.");
+	print_opt("--target <target>", "Generate documentation for a specific target.");
+	print_opt("--emit-stdlib=<yes|no>", "Document the standard library. (default: yes)");
+	PRINTF("");
+	PRINTF("Other normal build options apply.");
+	PRINTF("");
 }
 
 static void project_usage()
@@ -519,6 +540,7 @@ static void parse_command(BuildOptions *options)
 	{
 		options->command = COMMAND_BENCHMARK;
 		options->benchmarking = true;
+		parse_optional_target(options);
 		return;
 	}
 	if (arg_match("test"))
@@ -691,6 +713,11 @@ static void parse_command(BuildOptions *options)
 		}
 		return;
 	}
+	if (arg_match("docgen"))
+	{
+		options->command = COMMAND_DOCGEN;
+		return;
+	}
 	FAIL_WITH_ERR("Cannot process the unknown command \"%s\".", current_arg);
 }
 
@@ -708,14 +735,14 @@ static void print_version(void)
 	PRINTF("Git Hash:                  %s", GIT_HASH);
 
 #if LLVM_AVAILABLE && TB_AVAILABLE
-    PRINTF("Backends:                  LLVM; TB");
+	PRINTF("Backends:                  LLVM; TB");
 #elif LLVM_AVAILABLE
-    PRINTF("Backends:                  LLVM");
+	PRINTF("Backends:                  LLVM");
 #elif TB_AVAILABLE
-    PRINTF("Backends:                  TB");
+	PRINTF("Backends:                  TB");
 #else
 
-    PRINTF("No backends available");
+	PRINTF("No backends available");
 #endif
 
 #if LLVM_AVAILABLE
@@ -735,11 +762,21 @@ static void parse_option(BuildOptions *options)
 		case 'h':
 			if (match_shortopt("hh"))
 			{
+				if (options->command == COMMAND_DOCGEN)
+				{
+					docgen_usage();
+					exit_compiler(COMPILER_SUCCESS_EXIT);
+				}
 				usage(true);
 				exit_compiler(COMPILER_SUCCESS_EXIT);
 			}
 			if (match_shortopt("h"))
 			{
+				if (options->command == COMMAND_DOCGEN)
+				{
+					docgen_usage();
+					exit_compiler(COMPILER_SUCCESS_EXIT);
+				}
 				usage(false);
 				exit_compiler(COMPILER_SUCCESS_EXIT);
 			}
@@ -1068,6 +1105,16 @@ static void parse_option(BuildOptions *options)
 			if (match_longopt("quiet"))
 			{
 				options->verbosity_level = -1;
+				return;
+			}
+			if (match_longopt("json"))
+			{
+				options->docgen_json_out = true;
+				return;
+			}
+			if (match_longopt("append"))
+			{
+				options->docgen_append = true;
 				return;
 			}
 			if (match_longopt("version"))
@@ -1496,6 +1543,11 @@ static void parse_option(BuildOptions *options)
 				options->win.vs_dirs = next_arg();
 				return;
 			}
+			if ((argopt = match_argopt("win-subsystem")))
+			{
+				options->win.subsystem = parse_opt_select(WinSubsystem, argopt, win_subsystem);
+				return;
+			}
 			if ((argopt = match_argopt("sanitize")))
 			{
 				options->sanitize_mode = parse_opt_select(SanitizeMode, argopt, sanitize_modes);
@@ -1535,6 +1587,12 @@ static void parse_option(BuildOptions *options)
 			{
 				if (at_end() || next_is_opt()) error_exit("error: --script-dir needs a directory.");
 				options->script_dir = next_arg();
+								return;
+			}
+			if (match_longopt("exec-dir"))
+			{
+				if (at_end() || next_is_opt()) error_exit("error: --exec-dir needs a directory.");
+				options->exec_dir = next_arg();
 				return;
 			}
 			if (match_longopt("llvm-out"))
@@ -1658,6 +1716,12 @@ static void parse_option(BuildOptions *options)
 				options->android.api_version = atoi(next_arg());
 				return;
 			}
+			if (match_longopt("bsd-sysroot"))
+			{
+				if (at_end() || next_is_opt()) error_exit("error: --bsd-sysroot needs a directory.");
+				options->bsd_sysroot = unchecked_dir(options, next_arg());
+				return;
+			}
 			if (match_longopt("benchmarking"))
 			{
 				options->benchmarking = true;
@@ -1675,6 +1739,11 @@ static void parse_option(BuildOptions *options)
 			}
 			if (match_longopt("help"))
 			{
+				if (options->command == COMMAND_DOCGEN)
+				{
+					docgen_usage();
+					exit_compiler(COMPILER_SUCCESS_EXIT);
+				}
 				usage(true);
 				exit_compiler(COMPILER_SUCCESS_EXIT);
 			}
@@ -1722,6 +1791,7 @@ BuildOptions parse_arguments(int argc, const char *argv[])
 		.riscv_abi = RISCV_ABI_DEFAULT,
 		.memory_environment = MEMORY_ENV_NOT_SET,
 		.win.crt_linking = WIN_CRT_DEFAULT,
+		.win.subsystem = WIN_SUBSYSTEM_DEFAULT,
 		.emit_stdlib = EMIT_STDLIB_NOT_SET,
 		.link_libc = LINK_LIBC_NOT_SET,
 		.custom_libc = CUSTOM_LIBC_NOT_SET,
@@ -1741,6 +1811,7 @@ BuildOptions parse_arguments(int argc, const char *argv[])
 		.files = NULL,
 		.build_dir = NULL,
 		.output_dir = NULL,
+		.exec_dir = NULL,
 		.script_dir = NULL,
 	};
 	for (int i = DIAG_NONE; i < DIAG_WARNING_TYPE; i++)
@@ -1789,6 +1860,7 @@ BuildOptions parse_arguments(int argc, const char *argv[])
 	}
 	switch (build_options.command)
 	{
+		case COMMAND_DOCGEN:
 		case COMMAND_BUILD:
 		case COMMAND_RUN:
 		case COMMAND_CLEAN_RUN:
@@ -2031,6 +2103,7 @@ const char *arch_os_target[ARCH_OS_TARGET_LAST + 1] = {
 		[ELF_X86] = "elf-x86",
 		[ELF_X64] = "elf-x64",
 		[ELF_XTENSA] = "elf-xtensa",
+		[ELF_AVR] = "elf-avr",
 		[FREEBSD_X86] = "freebsd-x86",
 		[FREEBSD_X64] = "freebsd-x64",
 		[IOS_AARCH64] = "ios-aarch64",
@@ -2050,6 +2123,7 @@ const char *arch_os_target[ARCH_OS_TARGET_LAST + 1] = {
 		[OPENBSD_X64] = "openbsd-x64",
 		[WASM32] = "wasm32",
 		[WASM64] = "wasm64",
+		[EMSCRIPTEN_WASM32] = "emscripten",
 		[WINDOWS_AARCH64] = "windows-aarch64",
 		[WINDOWS_X64] = "windows-x64",
 };

@@ -50,9 +50,35 @@ static const char *ld_target(ArchType arch_type)
 	UNREACHABLE
 }
 
+static const char *win_subsystem_name(WinSubsystem subsystem)
+{
+	switch (subsystem)
+	{
+		case WIN_SUBSYSTEM_WINDOWS:
+			return "WINDOWS";
+		case WIN_SUBSYSTEM_NATIVE:
+			return "NATIVE";
+		case WIN_SUBSYSTEM_POSIX:
+			return "POSIX";
+		case WIN_SUBSYSTEM_BOOT_APPLICATION:
+			return "BOOT_APPLICATION";
+		case WIN_SUBSYSTEM_EFI_APPLICATION:
+			return "EFI_APPLICATION";
+		case WIN_SUBSYSTEM_EFI_BOOT_SERVICE_DRIVER:
+			return "EFI_BOOT_SERVICE_DRIVER";
+		case WIN_SUBSYSTEM_EFI_ROM:
+			return "EFI_ROM";
+		case WIN_SUBSYSTEM_EFI_RUNTIME_DRIVER:
+			return "EFI_RUNTIME_DRIVER";
+		case WIN_SUBSYSTEM_CONSOLE:
+		default:
+			return "CONSOLE";
+	}
+}
+
 static void linker_setup_windows(const char ***args_ref, Linker linker_type, const char *output_file)
 {
-	add_plain_arg(compiler.build.win.use_win_subsystem ? "/SUBSYSTEM:WINDOWS" : "/SUBSYSTEM:CONSOLE");
+	add_concat_arg("/SUBSYSTEM:", win_subsystem_name(compiler.build.win.subsystem));
 	if (link_libc()) linking_add_link(&compiler.linking, "dbghelp");
 	if (linker_type == LINKER_CC) return;
 	//add_arg("/MACHINE:X64");
@@ -311,9 +337,25 @@ static void linker_setup_macos(const char ***args_ref, Linker linker_type)
 
 static const char *find_bsd_crt(void)
 {
+	if (compiler.build.bsd_sysroot)
+	{
+		const char *sysroot_usr_lib = file_append_path(compiler.build.bsd_sysroot, "usr/lib");
+		if (file_exists(file_append_path(sysroot_usr_lib, "crt1.o")) || file_exists(file_append_path(sysroot_usr_lib, "crt0.o")))
+		{
+			return sysroot_usr_lib;
+		}
+		if (file_exists(file_append_path(compiler.build.bsd_sysroot, "crt1.o")) || file_exists(file_append_path(compiler.build.bsd_sysroot, "crt0.o")))
+		{
+			return compiler.build.bsd_sysroot;
+		}
+		return NULL;
+	}
 	if (file_exists("/usr/lib/crt1.o") || file_exists("/usr/lib/crt0.o"))
 	{
-		return "/usr/lib/";
+		if (file_exists("/usr/lib/crtbegin.o") || file_exists("/usr/lib/crtend.o"))
+		{
+			return "/usr/lib/";
+		}
 	}
 	return NULL;
 }
@@ -586,11 +628,12 @@ static void linker_setup_linux(const char ***args_ref, Linker linker_type, bool 
 	}
 	add_plain_arg("--eh-frame-hdr");
 	if (!link_libc()) return;
-	const char *crt_begin_dir = find_linux_crt_begin();
+	bool is_musl = compiler.build.linuxpaths.libc == LINUX_LIBC_MUSL;
+	const char *crt_begin_dir = is_musl ? NULL : find_linux_crt_begin();
 	const char *crt_dir = find_linux_crt();
 
 	if (is_exe && strip_unused()) add_plain_arg("--gc-sections");
-	if (!crt_begin_dir || !crt_dir)
+	if (!crt_dir || (!is_musl && !crt_begin_dir))
 	{
 		error_exit("Failed to find the C runtime at link time.");
 	}
@@ -607,19 +650,19 @@ static void linker_setup_linux(const char ***args_ref, Linker linker_type, bool 
 	{
 		add_concat_file_arg(crt_dir, "crti.o");
 		if (!is_dylib) add_concat_file_arg(crt_dir, "Scrt1.o");
-		add_concat_file_arg(crt_begin_dir, "crtbeginS.o");
-		add_concat_file_arg(crt_begin_dir, "crtendS.o");
+		if (!is_musl) add_concat_file_arg(crt_begin_dir, "crtbeginS.o");
+		if (!is_musl) add_concat_file_arg(crt_begin_dir, "crtendS.o");
 	}
 	else
 	{
 		add_concat_file_arg(crt_dir, "crti.o");
 		if (!is_dylib) add_concat_file_arg(crt_dir, "crt1.o");
-		add_concat_file_arg(crt_begin_dir, "crtbegin.o");
-		add_concat_file_arg(crt_begin_dir, "crtend.o");
+		if (!is_musl) add_concat_file_arg(crt_begin_dir, "crtbegin.o");
+		if (!is_musl) add_concat_file_arg(crt_begin_dir, "crtend.o");
 	}
 	add_concat_file_arg(crt_dir, "crtn.o");
 	add_concat_quote_arg("-L", crt_dir);
-	add_concat_quote_arg("-L", crt_begin_dir);
+	if (!is_musl) add_concat_quote_arg("-L", crt_begin_dir);
 
 	if (compiler.platform.arch == ARCH_TYPE_RISCV64 || compiler.platform.arch == ARCH_TYPE_RISCV32)
 	{
@@ -637,8 +680,11 @@ static void linker_setup_linux(const char ***args_ref, Linker linker_type, bool 
 
 	if (compiler.linking.link_math) linking_add_link(&compiler.linking, "m");
 	linking_add_link(&compiler.linking, "pthread");
-	linking_add_link(&compiler.linking, "gcc");
-	linking_add_link(&compiler.linking, "gcc_s");
+	if (!is_musl)
+	{
+		linking_add_link(&compiler.linking, "gcc");
+		linking_add_link(&compiler.linking, "gcc_s");
+	}
 	linking_add_link(&compiler.linking, "c");
 	add_plain_arg("-L/usr/lib/");
 	add_plain_arg("-L/lib/");
@@ -665,7 +711,7 @@ static void linker_setup_android(const char ***args_ref, Linker linker_type, boo
 	if (is_no_pie(compiler.platform.reloc_model)) add_plain_arg("-no-pie");
 	if (is_pie(compiler.platform.reloc_model)) add_plain_arg("-pie");
 	add_plain_arg("-dynamic-linker"); add_plain_arg("/system/bin/linker64");
-	
+
 	if (linker_type == LINKER_CC) add_plain_arg("-nostartfiles");
 
 	scratch_buffer_clear();
@@ -736,11 +782,25 @@ static void linker_setup_bsd(const char ***args_ref, Linker linker_type, bool is
 		if (compiler.build.debug_info == DEBUG_INFO_FULL) add_plain_arg("-rdynamic");
 		return;
 	}
+	if (compiler.build.bsd_sysroot)
+	{
+		add_plain_arg(str_printf("--sysroot=%s", compiler.build.bsd_sysroot));
+	}
 	if (is_no_pie(compiler.platform.reloc_model)) add_plain_arg("-no-pie");
 	add_plain_arg("--eh-frame-hdr");
 	if (!link_libc()) return;
 	const char *crt_dir = find_bsd_crt();
-	if (!crt_dir) error_exit("Failed to find the C runtime at link time.");
+	if (!crt_dir)
+	{
+		if (!compiler.build.bsd_sysroot)
+		{
+			error_exit("Cross-compiling to a BSD target requires a BSD sysroot. Please specify it using --bsd-sysroot.");
+		}
+		else
+		{
+			error_exit("Failed to find BSD C runtime at link time in the specified --bsd-sysroot: %s", compiler.build.bsd_sysroot);
+		}
+	}
 	if (strip_unused() && compiler.build.type == TARGET_TYPE_EXECUTABLE) add_plain_arg("--gc-sections");
 	bool is_openbsd = compiler.platform.os == OS_TYPE_OPENBSD;
 	bool is_netbsd = compiler.platform.os == OS_TYPE_NETBSD;
@@ -770,7 +830,14 @@ static void linker_setup_bsd(const char ***args_ref, Linker linker_type, bool is
 		if (!is_openbsd) add_concat_file_arg(crt_dir, "crtn.o");
 	}
 	add_concat_quote_arg("-L", crt_dir);
-	add_plain_arg("-L/usr/lib/");
+	if (compiler.build.bsd_sysroot)
+	{
+		add_concat_quote_arg("-L", file_append_path(compiler.build.bsd_sysroot, "usr/lib"));
+	}
+	else
+	{
+		add_plain_arg("-L/usr/lib/");
+	}
 	switch (compiler.platform.os)
 	{
 		case OS_TYPE_NETBSD:
@@ -840,6 +907,35 @@ static void add_linked_libs(const char ***args_ref, const char **libs, bool is_w
 	}
 }
 
+static void linker_setup_emscripten(const char ***args_ref, Linker linker_type, 
+                                    const char **files_to_link, unsigned file_count)
+{
+	if (linker_type == LINKER_CC)
+	{
+		if (compiler.build.testing)
+		{
+			// minimal 3 linker flags to make the unit test pass
+			// `c3c compile-test -O1 --target emscripten -o test.js test/unit/ && node test.js`
+			add_plain_arg("-pthread");
+			add_plain_arg("-sSTACK_SIZE=128kb");
+			add_plain_arg("-sALLOW_MEMORY_GROWTH");
+		}
+
+		if (compiler.build.benchmarking)
+		{
+			add_plain_arg("-sALLOW_MEMORY_GROWTH");
+		}
+
+		// // In non-optimized builds, we may want to enable some debugging flags for Emscripten
+		// if (compiler.build.optlevel == OPTIMIZATION_NONE)
+		// {
+		// 	add_plain_arg("-sASSERTIONS=1");
+		// 	add_plain_arg("-sSTACK_OVERFLOW_CHECK=1");
+		// }
+
+	}
+}
+
 static bool linker_setup(const char ***args_ref, const char **files_to_link, unsigned file_count,
                          const char *output_file, Linker linker_type, Linking *linking)
 {
@@ -870,10 +966,6 @@ static bool linker_setup(const char ***args_ref, const char **files_to_link, uns
 				add_plain_arg("/DLL");
 				add_concat_quote_arg("/IMPLIB:", static_lib_name());
 			}
-			else
-			{
-				if (compiler.build.no_entry) add_plain_arg("/NOENTRY");
-			}
 		case LINKER_CC:
 			break;
 		default:
@@ -895,6 +987,8 @@ static bool linker_setup(const char ***args_ref, const char **files_to_link, uns
 		case OS_TYPE_IOS:
 		case OS_TYPE_TVOS:
 		case OS_TYPE_WASI:
+		case OS_TYPE_EMSCRIPTEN:
+			linker_setup_emscripten(args_ref, linker_type, files_to_link, file_count);
 			break;
 		case OS_TYPE_FREEBSD:
 		case OS_TYPE_OPENBSD:
@@ -1014,6 +1108,7 @@ Linker linker_find_linker_type(void)
 		case OS_TYPE_WIN32:
 			return LINKER_LINK_EXE;
 		case OS_TYPE_WASI:
+		case OS_TYPE_EMSCRIPTEN:
 			return LINKER_WASM;
 	}
 	UNREACHABLE

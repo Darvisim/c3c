@@ -444,10 +444,9 @@ RETRY:;
 			type = type->canonical;
 			goto RETRY;
 		case TYPE_POISONED:
-		case TYPE_UNTYPED_LIST:
+		case TYPE_UNTYPEDLIST:
+		case SPECIAL_TYPES:
 		case TYPE_WILDCARD:
-		case TYPE_TYPEINFO:
-		case TYPE_MEMBER:
 			UNREACHABLE
 		case TYPE_VOID:
 			return 1;
@@ -1068,10 +1067,9 @@ RETRY:
 		case TYPE_UNION:
 		case TYPE_BITSTRUCT:
 		case TYPE_TYPEDEF:
-		case TYPE_UNTYPED_LIST:
+		case TYPE_UNTYPEDLIST:
+		case SPECIAL_TYPES:
 		case TYPE_WILDCARD:
-		case TYPE_TYPEINFO:
-		case TYPE_MEMBER:
 			return true;
 		case TYPE_ALIAS:
 			type = type->canonical;
@@ -1517,7 +1515,7 @@ static inline bool sema_analyse_fntype(SemaContext *context, Decl *decl, bool *e
 	Signature *sig = &decl->fntype_decl.signature;
 	if (!sema_analyse_function_signature(context, decl, NULL, sig->abi, sig)) return decl_poison(decl);
 	bool pure = false;
-	if (!sema_analyse_doc_header(context, decl->fntype_decl.docs, sig->params, NULL, &pure, sig->variadic == VARIADIC_RAW)) return decl_poison(decl);
+	if (!sema_analyse_doc_header(context, decl->docs, sig->params, NULL, &pure, sig->variadic == VARIADIC_RAW)) return decl_poison(decl);
 	sig->attrs.is_pure = pure;
 	return true;
 }
@@ -1539,14 +1537,27 @@ static inline bool sema_analyse_type_alias(SemaContext *context, Decl *decl, boo
 		decl->type->canonical = type_get_func_ptr(fn_decl->type);
 		return true;
 	}
-	TypeInfo *info = decl->type_alias_decl.type_info;
-	info->in_def = true;
-	if (!sema_resolve_type_info(context, info, RESOLVE_TYPE_DEFAULT)) return false;
-	if (type_is_optional(info->type))
+	Expr *info = decl->type_alias_decl.type_expr;
+	if (!sema_analyse_expr(context, info)) return false;
+	Type *type = NULL;
+	if (info->expr_kind == EXPR_TYPEINFO)
 	{
-		RETURN_SEMA_ERROR(info, "You cannot create an alias for an optional type like %s.", type_quoted_error_string(info->type));
+		type = info->type_expr->type;
 	}
-	switch (sema_resolve_storage_type(context, info->type))
+	else
+	{
+		if (info->type->canonical != type_typeid) RETURN_SEMA_ERROR(decl, "An upper-case alias must always alias a type.");
+		if (!sema_cast_const(info) || !expr_is_const_typeid(info))
+		{
+			RETURN_SEMA_ERROR(info, "A type alias requires a type or a constant typeid. This is a runtime value.");
+		}
+		type = info->const_expr.typeid;
+	}
+	if (type_is_optional(type))
+	{
+		RETURN_SEMA_ERROR(info, "You cannot create an alias for an optional type like %s.", type_quoted_error_string(type));
+	}
+	switch (sema_resolve_storage_type(context, type))
 	{
 		case STORAGE_ERROR:
 			return false;
@@ -1558,9 +1569,9 @@ static inline bool sema_analyse_type_alias(SemaContext *context, Decl *decl, boo
 			RETURN_SEMA_ERROR(info, "You cannot create an alias for the wildcard type.");
 		case STORAGE_COMPILE_TIME:
 			RETURN_SEMA_ERROR(info, "You cannot create an alias for %s as it is a compile time type.",
-							  type_invalid_storage_type_name(info->type));
+							  type_invalid_storage_type_name(type));
 	}
-	decl->type->canonical = info->type->canonical;
+	decl->type->canonical = type->canonical;
 	// Do we need anything else?
 	return true;
 }
@@ -1582,7 +1593,6 @@ static inline bool sema_analyse_typedef(SemaContext *context, Decl *decl, bool *
 
 	// Infer the underlying type normally.
 	TypeInfo *info = decl->distinct;
-	info->in_def = true;
 	if (!sema_resolve_type_info(context, info, RESOLVE_TYPE_DEFAULT)) return false;
 	if (!sema_resolve_type_decl(context, info->type)) return false;
 	Type *inner_type = info->type;
@@ -1626,12 +1636,18 @@ static inline bool sema_analyse_enum_param(SemaContext *context, Decl *param)
 	{
 		RETURN_SEMA_ERROR(param->attributes[0], "There are no valid attributes for associated values.");
 	}
-	TypeInfo *type_info = type_infoptrzero(param->var.type_info);
+	param->resolved_attributes = true;
+	param->attrs_resolved = NULL;
+	TypeInfo *type_info = type_infoptr(param->var.type_info);
 	if (!sema_resolve_type_info(context, type_info, RESOLVE_TYPE_DEFAULT)) return false;
+	if (sema_resolve_storage_type(context, type_info->type) != STORAGE_NORMAL)
+	{
+		RETURN_SEMA_ERROR(type_info, "An associated value must be a runtime type, not %s.", type_invalid_storage_type_name(type_info->type));
+	}
 	ASSERT(!param->var.vararg);
 	param->type = type_info->type;
 	ASSERT(param->name);
-	if (param->name == kw_nameof || param->name == kw_ordinal)
+	if (param->name == kw_description || param->name == kw_ordinal)
 	{
 		RETURN_SEMA_ERROR(param, "'%s' is not a valid parameter name for enums.", param->name);
 	}
@@ -1811,7 +1827,7 @@ ERR:
 	return false;
 }
 
-static bool sema_analyse_const_enum_constant_val(SemaContext *context, Decl *decl, Type *underlying_type)
+static bool sema_analyse_const_enum_constant_val(SemaContext *context, Decl *decl)
 {
 	Expr *value = decl->enum_constant.value;
 	if (!sema_analyse_expr_rhs(context, decl->type, value, false, NULL, true)) return decl_poison(decl);
@@ -1916,7 +1932,7 @@ static inline bool sema_analyse_constdef(SemaContext *context, Decl *decl, bool 
 	{
 		Decl *enum_value = enum_values[i];
 		enum_value->resolve_status = RESOLVE_RUNNING;
-		if (!sema_analyse_const_enum_constant_val(context, enum_value, type)) return decl_poison(decl);
+		if (!sema_analyse_const_enum_constant_val(context, enum_value)) return decl_poison(decl);
 		enum_value->resolve_status = RESOLVE_DONE;
 	}
 	return success;
@@ -2917,7 +2933,7 @@ static inline bool sema_analyse_method(SemaContext *context, Decl *decl)
 	switch (par_type->canonical->type_kind)
 	{
 		case TYPE_ENUM:
-			if (kw == kw_ordinal || kw == kw_nameof)
+			if (kw == kw_ordinal || kw == kw_description)
 			{
 				errname = "an enum";
 				goto NOT_VALID_NAME;
@@ -2933,7 +2949,7 @@ static inline bool sema_analyse_method(SemaContext *context, Decl *decl)
 			break;
 		}
 		case TYPE_ANYFAULT:
-			if (kw == kw_type || kw == kw_nameof)
+			if (kw == kw_type || kw == kw_description)
 			{
 				errname = "'fault'";
 				goto NOT_VALID_NAME;
@@ -2977,7 +2993,6 @@ static inline bool sema_analyse_method(SemaContext *context, Decl *decl)
 		case TYPE_FUNC_PTR:
 		case TYPE_POINTER:
 		case TYPE_FUNC_RAW:
-		case TYPE_UNTYPED_LIST:
 		case TYPE_BITSTRUCT:
 		case TYPE_TYPEDEF:
 			break;
@@ -2989,9 +3004,9 @@ static inline bool sema_analyse_method(SemaContext *context, Decl *decl)
 			break;
 		case TYPE_ALIAS:
 		case TYPE_OPTIONAL:
+		case TYPE_UNTYPEDLIST:
+		case SPECIAL_TYPES:
 		case TYPE_WILDCARD:
-		case TYPE_TYPEINFO:
-		case TYPE_MEMBER:
 			UNREACHABLE
 	}
 	Decl **params = decl->func_decl.signature.params;
@@ -3214,7 +3229,7 @@ static bool sema_analyse_attribute(SemaContext *context, ResolvedAttrData *attr_
 			[ATTRIBUTE_IF] = (AttributeDomain)~(ATTR_CALL | ATTR_PARAM),
 			[ATTRIBUTE_INIT] = ATTR_FUNC,
 			[ATTRIBUTE_INLINE] = ATTR_FUNC | ATTR_CALL,
-			[ATTRIBUTE_JUMP] = 0, // Special, used for switch only
+			[ATTRIBUTE_JUMP] = (AttributeDomain)0, // Special, used for switch only
 			[ATTRIBUTE_LINK] = ATTR_FUNC | ATTR_MACRO | ATTR_CONST | ATTR_GLOBAL,
 			[ATTRIBUTE_LITTLEENDIAN] = ATTR_BITSTRUCT,
 			[ATTRIBUTE_LOCAL] = ATTR_FUNC | ATTR_MACRO | ATTR_GLOBAL | ATTR_CONST | USER_DEFINED_TYPES | ATTR_ALIAS | ATTR_INTERFACE,
@@ -3243,13 +3258,13 @@ static bool sema_analyse_attribute(SemaContext *context, ResolvedAttrData *attr_
 			[ATTRIBUTE_SAFEMACRO] = ATTR_MACRO,
 			[ATTRIBUTE_SAFEINFER] = ATTR_GLOBAL | ATTR_LOCAL,
 			[ATTRIBUTE_SECTION] = ATTR_FUNC | ATTR_CONST | ATTR_GLOBAL,
-			[ATTRIBUTE_SIMD] = 0,
-			[ATTRIBUTE_TAG] = ATTR_BITSTRUCT_MEMBER | ATTR_MEMBER | USER_DEFINED_TYPES | CALLABLE_TYPE,
+			[ATTRIBUTE_SIMD] = (AttributeDomain)0,
+			[ATTRIBUTE_TAG] = ATTR_BITSTRUCT_MEMBER | ATTR_MEMBER | USER_DEFINED_TYPES | CALLABLE_TYPE | ATTR_LOCAL | ATTR_GLOBAL,
 			[ATTRIBUTE_TEST] = ATTR_FUNC,
 			[ATTRIBUTE_UNUSED] = (AttributeDomain)~(ATTR_CALL),
 			[ATTRIBUTE_USED] = (AttributeDomain)~(ATTR_CALL),
 			[ATTRIBUTE_WASM] = ATTR_FUNC,
-			[ATTRIBUTE_WEAK] = ATTR_FUNC | ATTR_CONST | ATTR_GLOBAL | ATTR_ALIAS,
+			[ATTRIBUTE_WEAK] = ATTR_FUNC | ATTR_CONST | ATTR_GLOBAL | ATTR_ALIAS | ATTR_TYPEDEF | ATTR_ENUM,
 			[ATTRIBUTE_WEAKLINK] = ATTR_FUNC | ATTR_CONST | ATTR_GLOBAL,
 			[ATTRIBUTE_WINMAIN] = ATTR_FUNC,
 	};
@@ -3830,26 +3845,36 @@ bool sema_analyse_attributes(SemaContext *context, Decl *decl, Attr **attrs, Att
 	return true;
 }
 
+// Analyse @return? sections
 bool sema_analyse_optional_returns(SemaContext *context, Decl *contracts)
 {
+	// Avoid recursion.
 	if (contracts->resolve_status != RESOLVE_NOT_DONE) return true;
+
+	// Manually set it to running.
 	contracts->resolve_status = RESOLVE_RUNNING;
 
 	Decl **result = NULL;
 	FOREACH(Expr *, expr, contracts->contracts_decl.opt_returns)
 	{
+		// Case 1 "io::read!"
 		if (expr->expr_kind == EXPR_RETHROW)
 		{
 			Expr *inner = expr->rethrow_expr.inner;
+			// Not an rvalue, so just analyse it.
 			if (!sema_analyse_expr(context, inner)) goto FAIL;
 			Decl *decl;
+			// Should be a function or a function typoe
 			switch (inner->expr_kind)
 			{
 				case EXPR_IDENTIFIER:
+					// This should be a macro or a function
 					decl = inner->ident_expr;
 					break;
 				case EXPR_TYPEINFO:
 				{
+					// If it's a type, then it should be something like
+					// alias Foo = fn void?() which can have contracts.
 					Type *type = inner->type_expr->type;
 					if (type->type_kind != TYPE_ALIAS) goto IS_FAULT;
 					decl = type->decl;
@@ -3862,12 +3887,15 @@ bool sema_analyse_optional_returns(SemaContext *context, Decl *contracts)
 					goto IS_FAULT;;
 			}
 			decl = decl_flatten(decl);
-			if (decl->decl_kind != DECL_FNTYPE && decl->decl_kind != DECL_FUNC) goto IS_FAULT;
+			if (decl->decl_kind != DECL_FNTYPE && decl->decl_kind != DECL_FUNC && decl->decl_kind != DECL_MACRO) goto IS_FAULT;
+			// Analyse it and get its contracts
 			if (!sema_analyse_decl(context, decl)) goto FAIL;
-			DeclId contract_id = decl->decl_kind == DECL_FNTYPE ? decl->fntype_decl.docs : decl->func_decl.docs;
+			DeclId contract_id = decl->docs;
 			if (!contract_id) continue;
 			Decl *sub_contracts = declptr(contract_id);
+			// No contracts -> continue
 			if (!sub_contracts->contracts_decl.opt_returns) continue;
+			// Resolve as needed, then add sub contracts.
 			switch (sub_contracts->resolve_status)
 			{
 				case RESOLVE_DONE:
@@ -3880,29 +3908,35 @@ bool sema_analyse_optional_returns(SemaContext *context, Decl *contracts)
 			continue;
 		}
 IS_FAULT:;
+		// Here we expect a fault, like `io::EOF`
 		if (!sema_analyse_expr_rvalue(context, expr)) goto FAIL;
+		// Typedef isn't ok, alias is ok.
 		if (expr->type->canonical != type_fault)
 		{
 			SEMA_ERROR(expr, "Expected a fault here.");
 			goto FAIL;
 		}
+		// Could be something that didn't return a constant fault.
 		if (!expr_is_const_fault(expr))
 		{
 			SEMA_ERROR(expr, "A constant fault is required.");
 			goto FAIL;
 		}
+		// A fault could be null, exclude that
 		Decl *decl = expr->const_expr.fault;
 		if (!decl)
 		{
 			SEMA_ERROR(expr, "A non-null fault is required.");
 			goto FAIL;
 		}
+		// Otherwise add
 		vec_add(result, decl);
 	}
 	contracts->resolve_status = RESOLVE_DONE;
 	contracts->contracts_decl.opt_returns_resolved = result;
 	return true;
 FAIL:
+	// If we fail, clear out the returns.
 	contracts->resolve_status = RESOLVE_DONE;
 	contracts->contracts_decl.opt_returns_resolved = NULL;
 	return false;
@@ -4207,7 +4241,14 @@ static inline Decl *sema_create_synthetic_main(SemaContext *context, Decl *decl,
 	Decl *d = sema_find_symbol(context, kw_main_invoker);
 	if (!d)
 	{
-		SEMA_ERROR(decl, "Missing main forwarding function '%s'.", kw_main_invoker);
+		if (compiler.build.use_stdlib == USE_STDLIB_OFF)
+		{
+			SEMA_ERROR(decl, "With the standard library disabled and the forwarding macro '%s' not implemented, you may need to use a main function type that doesn't require "
+	"forwarding, such as 'fn int main()'.", kw_main_invoker);
+			return poisoned_decl;
+		}
+		SEMA_ERROR(decl, "The stdlib seems to be missing the forwarding main macro '%s'; either provide an implementation or "
+				   "use a simpler main function type that doesn't require forwarding, such as 'fn int main()'.", kw_main_invoker);
 		return poisoned_decl;
 	}
 	Expr *invoker = expr_new(EXPR_IDENTIFIER, decl->loc);
@@ -4270,14 +4311,34 @@ static inline bool sema_analyse_main_function(SemaContext *context, Decl *decl)
 	if ((type == MAIN_TYPE_RAW || (type == MAIN_TYPE_NO_ARGS && !is_win32)) && is_int_return)
 	{
 		// Int return is pass-through at the moment.
-		decl->is_export = true;
+		// For Emscripten: LLVM's Emscripten ABI renames `main` to `__original_main`
+		// and generates its own `main` wrapper for argc/argv. If we also set is_export,
+		// both get exported as "main" causing a duplicate export error.
+		// So for Emscripten we set extname but skip is_export.
+		bool is_emscripten = compiler.platform.os == OS_TYPE_EMSCRIPTEN;
+		if (!is_emscripten) decl->is_export = true;
+
 		decl->has_extname = true;
 		decl->extname = kw_main;
 		function = decl;
 		goto REGISTER_MAIN;
 	}
-	if (is_win32 && sub_type != MAIN_SUBTYPE_WINMAIN) sub_type = MAIN_SUBTYPE_WMAIN;
-	compiler.build.win.use_win_subsystem = sub_type == MAIN_SUBTYPE_WINMAIN;
+	if (is_win32)
+	{
+		if (sub_type != MAIN_SUBTYPE_WINMAIN) sub_type = MAIN_SUBTYPE_WMAIN;
+		switch (compiler.build.win.subsystem)
+		{
+			case WIN_SUBSYSTEM_DEFAULT:
+				compiler.build.win.subsystem = (sub_type == MAIN_SUBTYPE_WINMAIN) ? WIN_SUBSYSTEM_WINDOWS : WIN_SUBSYSTEM_CONSOLE;
+				break;
+			case WIN_SUBSYSTEM_WINDOWS:
+				if (sub_type != MAIN_SUBTYPE_WINMAIN) RETURN_SEMA_ERROR(decl, "The 'windows' subsystem requires a WinMain-style function.");
+				break;
+			default:
+				if (sub_type == MAIN_SUBTYPE_WINMAIN) RETURN_SEMA_ERROR(decl, "A WinMain-style function expected subsystem to be 'windows'.");
+				break;
+		}
+	}
 	function = sema_create_synthetic_main(context, decl, type, sub_type);
 	if (!decl_ok(function)) return false;
 REGISTER_MAIN:
@@ -4377,7 +4438,7 @@ CHECK_DONE:
 	}
 	bool pure = false;
 
-	if (!sema_analyse_doc_header(context, decl->func_decl.docs, decl->func_decl.signature.params, NULL,
+	if (!sema_analyse_doc_header(context, decl->docs, decl->func_decl.signature.params, NULL,
 	                             &pure, sig->variadic == VARIADIC_RAW)) return false;
 	decl->func_decl.signature.attrs.is_pure = pure;
 	if (!sema_set_alloca_alignment(context, decl->type, &decl->alignment)) return false;
@@ -4505,6 +4566,7 @@ static inline bool sema_check_body_const(SemaContext *context, Ast *body)
 		{
 			case AST_CT_ASSERT:
 			case AST_CT_ECHO_STMT:
+			case AST_CT_EXPAND_STMT:
 			case AST_CT_FOREACH_STMT:
 			case AST_CT_FOR_STMT:
 			case AST_CT_IF_STMT:
@@ -4583,7 +4645,7 @@ static inline bool sema_analyse_macro(SemaContext *context, Decl *decl, bool *er
 	Decl **body_parameters = body_param ? declptr(body_param)->body_params : NULL;
 	if (!sema_analyse_macro_body(context, body_parameters)) return false;
 	bool pure = false;
-	if (!sema_analyse_doc_header(context, decl->func_decl.docs, sig->params, body_parameters,
+	if (!sema_analyse_doc_header(context, decl->docs, sig->params, body_parameters,
 	                             &pure, sig->variadic == VARIADIC_RAW)) return false;
 	if (decl->func_decl.type_parent)
 	{
@@ -4652,6 +4714,7 @@ RETRY:
 		case CT_TYPES:
 		case TYPE_FUNC_RAW:
 		case TYPE_FLEXIBLE_ARRAY:
+		case TYPE_UNTYPEDLIST:
 			return true;
 		case TYPE_OPTIONAL:
 			type = type->optional;
@@ -4759,7 +4822,7 @@ bool sema_analyse_var_decl_ct(SemaContext *context, Decl *decl, bool *check_defi
 					expr_rewrite_const_typeid(init, type);
 				}
 				// If this isn't a type, it's an error.
-				if (!expr_is_const_typeid(init))
+				if (!sema_cast_const(init) || !expr_is_const_typeid(init))
 				{
 					if (check_defined) goto FAIL_CHECK;
 					SEMA_ERROR(decl->var.init_expr, "Expected a type assigned to %s.", decl->name);
@@ -5223,10 +5286,9 @@ RETRY:
 		case ALL_FLOATS:
 		case TYPE_ANYFAULT:
 		case TYPE_TYPEID:
-		case TYPE_UNTYPED_LIST:
+		case TYPE_UNTYPEDLIST:
 		case TYPE_WILDCARD:
-		case TYPE_TYPEINFO:
-		case TYPE_MEMBER:
+		case SPECIAL_TYPES:
 			return true;
 		case TYPE_FUNC_RAW:
 		case TYPE_ENUM:
@@ -5310,7 +5372,7 @@ bool sema_compare_weak_decl(SemaContext *context, Decl *replaced, Decl *replacem
 			if (replaced_type != replacement_type) goto TYPE_MISMATCH;
 			break;
 		default:
-			UNREACHABLE_VOID
+			break;
 	}
 	return true;
 VAR_MISMATCH:
@@ -5417,6 +5479,7 @@ bool sema_analyse_decl(SemaContext *context, Decl *decl)
 		case DECL_CT_ASSERT:
 		case DECL_CT_ECHO:
 		case DECL_CT_EXEC:
+		case DECL_CT_EXPAND:
 		case DECL_CT_INCLUDE:
 		case DECL_DECLARRAY:
 		case DECL_ENUM_CONSTANT:

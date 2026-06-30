@@ -15,7 +15,7 @@ const DEFAULT_ITERATIONS = 700_000;
 
 Lcg64Random rand;
 
-HashMap { int, int } modifying_numbers_random;
+HashMap { uint, uint } modifying_numbers_random;
 
 fn void bench_setup() @init
 {
@@ -23,12 +23,12 @@ fn void bench_setup() @init
 	set_benchmark_max_iterations(DEFAULT_ITERATIONS);
 
 	// TODO: Cannot take the address of a @benchmark function. If we could, we could pass &insert_erase as a fn ptr and use the $qnameof CT eval internally.
-	set_benchmark_func_iterations($qnameof(insert_erase), 2);
-	set_benchmark_func_iterations($qnameof(random_access), 44);
-	set_benchmark_func_iterations($qnameof(random_access_erase), 1032);
-	set_benchmark_func_iterations($qnameof(random_access_string_keys), 2488);
-	set_benchmark_func_iterations($qnameof(hash_speeds_of_many_random_values), 5824);
-	set_benchmark_func_iterations($qnameof(modifying_numbers_init_from_map), 24183);
+	set_benchmark_func_iterations($reflect(insert_erase).qname, 2);
+	set_benchmark_func_iterations($reflect(random_access).qname, 44);
+	set_benchmark_func_iterations($reflect(random_access_erase).qname, 1032);
+	set_benchmark_func_iterations($reflect(random_access_string_keys).qname, 2488);
+	set_benchmark_func_iterations($reflect(hash_speeds_of_many_random_values).qname, 5824);
+	set_benchmark_func_iterations($reflect(modifying_numbers_init_from_map).qname, 24183);
 
     random::seed(&rand, 0x4528_21e6_38d0_1377);
 
@@ -86,36 +86,36 @@ fn void generic_hash_speeds()
 	String z1 = "This is a much longer string than the above value because longer values lead to longer hashing times.";
 	char[] z2 = "This is a much longer string than the above value because longer values lead to longer hashing times.";
 	assert(z1.hash() == z2.hash());
-	assert(int.typeid.hash());
+	assert(int::typeid.hash());
 }
 
 
 fn void hash_speeds_of_many_random_values() => @pool()
 {
 	var $arrsz = 10_000;
-	int fake_checksum;
+	uint fake_checksum;
 
 	char[] chars = alloc::new_array(tmem, char, $arrsz)[:$arrsz];
-	foreach (&v : chars) *v = (char)random::next(&rand, int.max);
+	foreach (&v : chars) *v = (char)random::next(&rand, int::max);
 
 	ushort[] shorts = alloc::new_array(tmem, ushort, $arrsz)[:$arrsz];
-	foreach (&v : shorts) *v = (ushort)random::next(&rand, int.max);
+	foreach (&v : shorts) *v = (ushort)random::next(&rand, int::max);
 
 	uint[] ints = alloc::new_array(tmem, uint, $arrsz)[:$arrsz];
-	foreach (&v : ints) *v = random::next(&rand, int.max);
+	foreach (&v : ints) *v = (uint)random::next(&rand, int::max);
 
 	ulong[] longs = alloc::new_array(tmem, ulong, $arrsz)[:$arrsz];
-	foreach (&v : longs) *v = (ulong)random::next(&rand, int.max);
+	foreach (&v : longs) *v = (ulong)random::next(&rand, int::max);
 
 	uint128[] vwideints = alloc::new_array(tmem, uint128, $arrsz)[:$arrsz];
-	foreach (&v : vwideints) *v = (uint128)random::next(&rand, int.max);
+	foreach (&v : vwideints) *v = (uint128)random::next(&rand, int::max);
 
 	char[48][] zstrs = alloc::new_array(tmem, char[48], $arrsz)[:$arrsz];
 
 	String[] strs = mem::temp_array(String, $arrsz);
 	foreach (x, &v : zstrs)
 	{
-		foreach (&c : (*v)[:random::next(&rand, 48)]) *c = (char)random::next(&rand, char.max);
+		foreach (&c : (*v)[:random::next(&rand, 48)]) *c = (char)random::next(&rand, char::max);
 		strs[x] = ((ZString)&v[0]).str_view();
 	}
 
@@ -132,7 +132,7 @@ fn void hash_speeds_of_many_random_values() => @pool()
 
 fn void modifying_numbers_init_from_map() => @pool()
 {
-	HashMap { int, int } v;
+	HashMap { uint, uint } v;
 	v.tinit_from_map(&modifying_numbers_random);
 	v.free();
 }
@@ -140,7 +140,7 @@ fn void modifying_numbers_init_from_map() => @pool()
 
 fn void insert_erase() => @pool()
 {
-	uint iters = 1_000_000;
+	int iters = 1_000_000;
 	HashMap { int, int } v;
 	v.tinit();
 
@@ -156,13 +156,13 @@ fn void insert_erase() => @pool()
 
 fn void random_access() => @pool()
 {
-	HashMap { int, int } v;
+	HashMap { uint, uint } v;
 	v.tinit();
 
-	int bound = 10_000;
-	sz pseudo_checksum = 0;
+	uint bound = 10_000;
+	long pseudo_checksum = 0;
 
-	for (int i = 0; i < bound; ++i) v[i] = i;
+	for (uint i = 0; i < bound; i++) v[i] = i;
 
 	@start_benchmark();
 	for (int i = 0; i < 1_000_000; ++i) pseudo_checksum += (v[i.hash() % (uint)bound] ?? 0);
@@ -174,19 +174,19 @@ fn void random_access() => @pool()
 
 fn void random_access_erase() => @pool()
 {
-	HashMap { int, int } v;
+	HashMap { uint, uint } v;
 	v.tinit();
 
 	uint bound = 10_000;
 
-	for (uint i = 0; i < bound; ++i) v[i] = i;
+	for (uint i = 0; i < bound; i++) v[i] = i;
 
 	@start_benchmark();
-	for (uint i = 0; i < bound; ++i)
+	for (uint i = 0; i < bound; i++)
 	{
 		v[i.hash() % bound] = i;   // supplant an entry
 
-		v.remove(random::next(&rand, bound));   // remove a random entry
+		v.remove((uint)random::next(&rand, (int)bound));   // remove a random entry
 	}
 	@end_benchmark();
 
@@ -199,10 +199,10 @@ fn void random_access_string_keys() => @pool()
 	HashMap { String, ulong } v;
 	v.tinit();
 
-	usz pseudo_checksum = 0;
+	sz pseudo_checksum = 0;
 	String[] saved = mem::temp_array(String, 5_000);
 
-	for (usz i = 0; i < saved.len; ++i)
+	for (sz i = 0; i < saved.len; ++i)
 	{
 		ulong hash = i.hash();
 		String b64key = base64::tencode(@as_char_view(hash));
@@ -215,7 +215,7 @@ fn void random_access_string_keys() => @pool()
 	@start_benchmark();
 	for (usz i = 0; i < saved.len; ++i)
 	{
-		pseudo_checksum += v[ saved[random::next(&rand, saved.len)] ]!! % 512;
+		pseudo_checksum += (sz)v[ saved[random::next(&rand, saved.len)] ]!! % 512;
 	}
 	@end_benchmark();
 

@@ -176,8 +176,8 @@ void llvm_emit_constructors_and_destructors(GenContext *c)
 	{
 
 		LLVMValueRef c3_dynamic = LLVMGetNamedGlobal(c->module, "$c3_dynamic");
-		LLVMValueRef dtor_global = llvm_emit_macho_xtor(c, c->constructors, "c3ctor", ".c3_ctor_retain");
-		LLVMValueRef ctor_global = llvm_emit_macho_xtor(c, c->destructors, "c3dtor", ".c3_dtor_retain");
+		LLVMValueRef ctor_global = llvm_emit_macho_xtor(c, c->constructors, "c3ctor", ".c3_ctor_retain");
+		LLVMValueRef dtor_global = llvm_emit_macho_xtor(c, c->destructors, "c3dtor", ".c3_dtor_retain");
 
 		LLVMValueRef runtime_start = LLVMGetNamedFunction(c->module, "__c3_runtime_startup");
 		int len = 0;
@@ -274,7 +274,7 @@ LLVMValueRef llvm_emit_const_initializer(GenContext *c, ConstInitializer *const_
 			AlignSize expected_align = llvm_abi_alignment(c, element_type_llvm);
 			ConstInitializer **elements = const_init->init_array.elements;
 			ASSERT(vec_size(elements) > 0 && "Array should always have gotten at least one element.");
-			if (elements > 0 && type->type_kind == TYPE_FLEXIBLE_ARRAY) was_modified = true;
+			if (vec_size(elements) > 0 && type->type_kind == TYPE_FLEXIBLE_ARRAY) was_modified = true;
 			ArrayIndex current_index = 0;
 			unsigned alignment = 0;
 			LLVMValueRef *parts = NULL;
@@ -284,7 +284,7 @@ LLVMValueRef llvm_emit_const_initializer(GenContext *c, ConstInitializer *const_
 			{
 				ASSERT(element->kind == CONST_INIT_ARRAY_VALUE);
 				ArrayIndex element_index = element->init_array_value.index;
-				IndexDiff diff = element_index - current_index;
+				IndexDiff diff = (IndexDiff)(element_index - current_index);
 				if (alignment && expected_align != alignment)
 				{
 					pack = true;
@@ -311,7 +311,7 @@ LLVMValueRef llvm_emit_const_initializer(GenContext *c, ConstInitializer *const_
 				current_index = element_index + 1;
 			}
 
-			IndexDiff end_diff = (ArrayIndex)type->array.len - current_index;
+			IndexDiff end_diff = (IndexDiff)((ArrayIndex)type->array.len - current_index);
 			if (end_diff > 0)
 			{
 				vec_add(parts, llvm_emit_const_array_padding(element_type_llvm, end_diff, &was_modified));
@@ -939,6 +939,8 @@ static void llvm_codegen_setup()
 	attribute_id.nounwind = lookup_attribute("nounwind");
 	attribute_id.nsz = lookup_attribute("nsz");
 	attribute_id.optnone = lookup_attribute("optnone");
+	attribute_id.optsize = lookup_attribute("optsize");
+	attribute_id.minsize = lookup_attribute("minsize");
 	attribute_id.readonly = lookup_attribute("readonly");
 	attribute_id.reassoc = lookup_attribute("reassoc");
 	attribute_id.sanitize_address = lookup_attribute("sanitize_address");
@@ -1305,6 +1307,15 @@ void llvm_append_function_attributes(GenContext *c, Decl *decl)
 	{
 		llvm_attribute_add(c, function, attribute_id.sanitize_thread, -1);
 	}
+	if (compiler.build.optsize == SIZE_OPTIMIZATION_SMALL)
+	{
+		llvm_attribute_add(c, function, attribute_id.optsize, -1);
+	}
+	else if (compiler.build.optsize == SIZE_OPTIMIZATION_TINY)
+	{
+		llvm_attribute_add(c, function, attribute_id.minsize, -1);
+		llvm_attribute_add(c, function, attribute_id.optsize, -1);
+	}
 
 	LLVMSetFunctionCallConv(function, llvm_call_convention_from_call(prototype->call_abi));
 }
@@ -1406,6 +1417,7 @@ LLVMValueRef llvm_get_ref(GenContext *c, Decl *decl)
 		case DECL_BODYPARAM:
 		case DECL_CT_ECHO:
 		case DECL_CT_EXEC:
+		case DECL_CT_EXPAND:
 		case DECL_CT_INCLUDE:
 		case DECL_GROUP:
 		case DECL_INTERFACE:
@@ -1622,15 +1634,7 @@ LLVMMetadataRef llvm_get_debug_file(GenContext *c, FileId file_id)
 	return file;
 }
 
-static bool module_is_stdlib(Module *module)
-{
-	if (module->name->len < 3) return false;
-	if (module->name->len == 3 && strcmp(module->name->module, "std") == 0) return true;
-	if (module->name->len > 5 && memcmp(module->name->module, "std::", 5) == 0) return true;
-	if (module->name->len == 4 && strcmp(module->name->module, "libc") == 0) return true;
-	if (module->name->len > 6 && memcmp(module->name->module, "libc::", 6) == 0) return true;
-	return false;
-}
+
 
 static GenContext *llvm_gen_module(Module *module, LLVMContextRef shared_context)
 {

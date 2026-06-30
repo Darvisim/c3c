@@ -7,6 +7,7 @@
 #include "../utils/json.h"
 #include <compiler_tests/benchmark.h>
 #include "../utils/whereami.h"
+
 #if LLVM_AVAILABLE
 #include "c3_llvm.h"
 #endif
@@ -51,7 +52,9 @@ void compiler_init(BuildOptions *build_options)
 	{
 		error_exit("Failed to change path to '%s'.", build_options->path);
 	}
-
+	char buffer[1024];
+	const char *project_path = getcwd(buffer, 1024);
+	compiler.base_dir = project_path ? str_dup(project_path) : ".";
 	if (!build_options->is_project)
 	{
 		FOREACH(const char *, dir, build_options->unchecked_directories)
@@ -214,8 +217,14 @@ static const char *exe_name(void)
 		case WINDOWS_X64:
 		case MINGW_X64:
 			return str_cat(name, ".exe");
+		case EMSCRIPTEN_WASM32:
+			if (str_has_suffix(name, ".js") || str_has_suffix(name, ".html") || str_has_suffix(name, ".wasm")) return name;
+			return str_cat(name, ".js"); // .js produces JS glue + .wasm bundle (matches emcc default)
+		case WASM32:
+		case WASM64:
+			if (str_has_suffix(name, ".wasm")) return name;
+			return str_cat(name, ".wasm");
 		default:
-			if (arch_is_wasm(compiler.platform.arch)) return str_cat(name, ".wasm");
 			return name;
 	}
 }
@@ -467,6 +476,11 @@ void compiler_compile(void)
 		eprintf("> BEGINLSP\n");
 	}
 	sema_analysis_run();
+	if (compiler.build.docgen)
+	{
+		compiler_docgen(&compiler.build);
+		exit_compiler(COMPILER_SUCCESS_EXIT);
+	}
 	if (compiler.build.lsp_output)
 	{
 		eprintf("> ENDLSP-OK\n");
@@ -589,10 +603,13 @@ void compiler_compile(void)
 			case TARGET_TYPE_OBJECT_FILES:
 				if (compiler.obj_output)
 				{
-					OUTF("Object file %s created.\n", compiler.obj_output);
+					OUTF("Object file '%s' created.\n", compiler.obj_output);
 					break;
 				}
-				OUTF("Object files written to %s.\n", compiler.build.object_file_dir);
+				if (compiler.build.emit_object_files)
+				{
+					OUTF("Object files written to '%s'.\n", compiler.build.object_file_dir);
+				}
 				break;
 			case TARGET_TYPE_PREPARE:
 				break;
@@ -602,11 +619,11 @@ void compiler_compile(void)
 	}
 	if (compiler.build.emit_llvm)
 	{
-		OUTF("LLVM files written to %s.\n", compiler.build.ir_file_dir);
+		OUTF("LLVM files written to '%s'.\n", compiler.build.ir_file_dir);
 	}
 	if (compiler.build.emit_asm)
 	{
-		OUTF("Asm files written to %s.\n", compiler.build.asm_file_dir);
+		OUTF("Asm files written to '%s'.\n", compiler.build.asm_file_dir);
 	}
 	free_arenas();
 
@@ -730,8 +747,9 @@ void compiler_compile(void)
 		{
 			const char *cc = compiler.build.cc ? compiler.build.cc : default_c_compiler();
 			if (!file_executable_in_path(cc)) system_linker_available = false;
+			if (compiler.platform.os == OS_TYPE_EMSCRIPTEN && !strstr(cc, "emcc")) system_linker_available = false;
 		}
-		bool use_system_linker = system_linker_available && compiler.build.arch_os_target == default_target;
+		bool use_system_linker = system_linker_available && (compiler.build.arch_os_target == default_target || compiler.platform.os == OS_TYPE_EMSCRIPTEN);
 		switch (compiler.build.linker_type)
 		{
 			case LINKER_TYPE_CC:
@@ -811,6 +829,27 @@ void compiler_compile(void)
 			if (!full_path)
 			{
 				error_exit("The binary '%s' was unexpectedly not found.", scratch_buffer_to_string());
+			}
+			if (compiler.platform.os == OS_TYPE_EMSCRIPTEN)
+			{
+				if (str_has_suffix(name, ".js"))
+				{
+					OUTF("Emscripten target detected. To run, use 'node %s'.\n", name);
+				}
+				else if (str_has_suffix(name, ".html"))
+				{
+					OUTF("Emscripten target detected. To run, use 'emrun %s'.\n", name);
+				}
+				else
+				{
+					OUTF("Emscripten target detected. Not auto-running.\n");
+				}
+				return;
+			}
+			if (arch_is_wasm(compiler.platform.arch))
+			{
+				OUTF("WASM target detected. Not auto-running (use wasmtime, wasmer, or similar).\n");
+				return;
 			}
 			OUTF("Launching %s", name);
 			FOREACH(const char *, arg, compiler.build.args)
@@ -1192,17 +1231,17 @@ void print_syntax(BuildOptions *options)
 	{
 		puts("precedence     | operators");
 		puts("---------------+----------");
-		puts(" 1. Macro      | @        ");
-		puts(" 2. Call       | . () [] !! postfix ++/-- postfix !");
-		puts(" 3. Unary      | ! - + ~ * & prefix ++/-- (cast)");
-		puts(" 4. Mult       | * / %");
-		puts(" 5. Shift      | << >>");
-		puts(" 6. Bitwise    | ^ | &");
+		puts(" 1. Call       | . () [] postfix ++/-- postfix ! !! ~");
+		puts(" 2. Unary      | ! - + ~ * & prefix !! ++/-- (cast)");
+		puts(" 3. Mult       | * / %");
+		puts(" 4. Shift      | << >>");
+		puts(" 5. Bitwise    | ^ | &");
+		puts(" 6. Or-else    | ?: ??");
 		puts(" 7. Additive   | + - +++");
 		puts(" 8. Relational | < > <= >= == !=");
 		puts(" 9. And        | && &&&");
 		puts("10. Or         | || |||");
-		puts("11. Ternary    | ?: ?? ???");
+		puts("11. Ternary    | ? ???");
 		puts("12. Assign     | = *= /= %= -= += |= &= ^= <<= >>= +++=");
 	}
 
@@ -1221,6 +1260,9 @@ static int jump_buffer_size()
 		case ELF_XTENSA:
 			// Godbolt 68 => 17 with 32 bit pointers
 			return 17;
+		case ELF_AVR:
+			// Extracted from avr-libc
+			return 12;
 		case ELF_RISCV64:
 		case LINUX_RISCV64:
 			// Godbolt test
@@ -1262,11 +1304,40 @@ static int jump_buffer_size()
 			// Early GCC
 			return 39;
 		case WASM32:
+		case EMSCRIPTEN_WASM32:
+			REMINDER("WASM setjmp size depends on the linked libc. Padded to 156+ bytes to safely cover Emscripten and WASI.");
+			// 39 * 4 bytes = 156 bytes
+			return 39;
 		case WASM64:
-			REMINDER("WASM setjmp size is unknown");
-			return 512;
+			REMINDER("WASM setjmp size depends on the linked libc. Padded to 156+ bytes to safely cover Emscripten and WASI.");
+			// 20 * 8 bytes = 160 bytes
+			return 20;
 	}
 	UNREACHABLE
+}
+
+char old_path[PATH_MAX + 1];
+char script_path[PATH_MAX + 1];
+char exec_path[PATH_MAX + 1];
+
+void setup_exec_paths(const char **old_dir_ref, const char **script_dir_ref, const char **exec_dir_ref)
+{
+	getcwd(old_path, PATH_MAX);
+	*old_dir_ref = old_path;
+	*exec_dir_ref = *script_dir_ref = old_path;
+	if (compiler.build.script_dir)
+	{
+		if (!dir_change(compiler.build.script_dir)) error_exit("Failed to open script dir '%s'", compiler.build.script_dir);
+		getcwd(script_path, PATH_MAX);
+		*exec_dir_ref = *script_dir_ref = script_path;
+		dir_change(old_path);
+	}
+	if (compiler.build.exec_dir)
+	{
+		if (!dir_change(compiler.build.exec_dir)) error_exit("Failed to open exec dir '%s'", compiler.build.exec_dir);
+		getcwd(exec_path, PATH_MAX);
+		*exec_dir_ref = exec_path;
+	}
 }
 
 void execute_scripts(void)
@@ -1276,14 +1347,11 @@ void execute_scripts(void)
 	{
 		error_exit("This target has 'exec' directives, to run it trust level must be set to '--trust=full'.");
 	}
-	char old_path[PATH_MAX + 1];
-	if (compiler.build.script_dir)
-	{
-		if (getcwd(old_path, PATH_MAX) && !dir_change(compiler.build.script_dir))
-		{
-			error_exit("Failed to open script dir '%s'", compiler.build.script_dir);
-		}
-	}
+	const char *script_dir;
+	const char *exec_dir;
+	const char *old_dir;
+	setup_exec_paths(&old_dir, &script_dir, &exec_dir);
+	bool same_exec_as_script = str_eq(exec_dir, script_dir);
 	double start = bench_mark();
 	FOREACH(const char *, exec, compiler.build.exec)
 	{
@@ -1293,13 +1361,20 @@ void execute_scripts(void)
 		if (call.len < 3 || call.ptr[call.len - 3] != '.' || call.ptr[call.len - 2] != 'c' ||
 			call.ptr[call.len - 1] != '3')
 		{
+			dir_change(exec_dir);
 			char *res = execute_cmd(exec, false, NULL, 0);
 			if (compiler.build.silent) continue;
 			script = source_file_text_load(exec, res);
 			goto PRINT_SCRIPT;
 		}
 		scratch_buffer_clear();
+		if (!same_exec_as_script)
+		{
+			scratch_buffer_append(script_dir);
+			scratch_buffer_append("/");
+		}
 		scratch_buffer_append_len(call.ptr, call.len);
+		dir_change(exec_dir);
 		script = compile_and_invoke(scratch_buffer_copy(), execs.len ? execs.ptr : "", NULL, 2048);
 PRINT_SCRIPT:;
 		size_t out_len = script->content_len;
@@ -1564,6 +1639,7 @@ void compile()
 	setup_bool_define("THREAD_SANITIZER", compiler.build.feature.sanitize_thread);
 	setup_string_define("BUILD_HASH", GIT_HASH);
 	setup_string_define("BUILD_DATE", compiler_date_to_iso());
+	setup_string_define("PROJECT_PATH", compiler.build.project_dir ? compiler.build.project_dir : compiler.base_dir);
 	Expr *expr_names = expr_new(EXPR_CONST, 0);
 	Expr *expr_emails = expr_new(EXPR_CONST, 0);
 	expr_names->const_expr.const_kind = CONST_UNTYPED_LIST;
@@ -1812,6 +1888,7 @@ const char *default_c_compiler(void)
 	}
 	return cc = "cl.exe";
 #else
+	if (compiler.platform.os == OS_TYPE_EMSCRIPTEN) return cc = "emcc";
 	return cc = "cc";
 #endif
 }
@@ -1857,4 +1934,14 @@ void print_build_env(void)
 	printf("env::POSIX        : %s\n", link_libc() && is_posix(compiler.platform.os) ? "true" : "false");
 	printf("env::WIN32        : %s\n", compiler.platform.os == OS_TYPE_WIN32 ? "true" : "false");
 	printf("env::LIBC         : %s\n", link_libc() ? "true" : "false");
+}
+
+bool module_is_stdlib(Module *module)
+{
+	if (module->name->len < 3) return false;
+	if (module->name->len == 3 && strcmp(module->name->module, "std") == 0) return true;
+	if (module->name->len > 5 && memcmp(module->name->module, "std::", 5) == 0) return true;
+	if (module->name->len == 4 && strcmp(module->name->module, "libc") == 0) return true;
+	if (module->name->len > 6 && memcmp(module->name->module, "libc::", 6) == 0) return true;
+	return false;
 }

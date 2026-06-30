@@ -1,4 +1,4 @@
-module std::io::file @if(env::LIBC &&& env::POSIX);
+module std::io::file @if(env::LIBC &&& (env::POSIX || env::WIN32));
 import std::math, libc, std::io::path;
 
 tlocal char[1024] buf;
@@ -6,8 +6,7 @@ tlocal char[1024] buf;
 fn String random_name()
 {
 	String filename = string::tformat("c3_test_file_%x", rand(0xFFFFFFF));
-	Path temp_dir = path::temp_directory(tmem).tappend(filename)!!;
-	return temp_dir.str_view();
+	return path::temp_directory(tmem).tappend(filename)!!;
 }
 
 fn void map_read_only() @test
@@ -114,3 +113,19 @@ fn void map_from_filename() @test
 	}
 }
 
+fn void test_vm_mmap_invalid_args() @test
+{
+	String fname = random_name();
+	char[] msg = "Hello, world";
+	file::save(fname, msg)!!;
+
+	File f = file::open(fname, "r")!!;
+	defer f.close()!!;
+
+	// Unaligned offset should fail (on POSIX, offset must be page aligned; on Win32, must be allocation granularity aligned)
+	// We pass 1 (unaligned) which should fail on both platforms.
+	if (catch err = vm::mmap_file(f.fd(), 5, 1, vm::VirtualMemoryAccess.READ))
+	{
+		assert(err == vm::INVALID_ARGS);
+	}
+}

@@ -1,7 +1,7 @@
 fn int main()
 {
-	var $foo = main.typeid;
-	$typefrom($foo) a;
+	var $foo = $reflect(main).type;
+	$Typefrom($foo) a;
 	a = &main;
 	return 0;
 }

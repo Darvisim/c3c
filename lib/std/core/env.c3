@@ -118,8 +118,8 @@ enum ArchType
 
 const String COMPILER_BUILD_HASH = $$BUILD_HASH;
 const String COMPILER_BUILD_DATE = $$BUILD_DATE;
-const OsType OS_TYPE = OsType.from_ordinal($$OS_TYPE);
-const ArchType ARCH_TYPE = ArchType.from_ordinal($$ARCH_TYPE);
+const OsType OS_TYPE = OsType::from_ordinal($$OS_TYPE);
+const ArchType ARCH_TYPE = ArchType::from_ordinal($$ARCH_TYPE);
 const sz MAX_VECTOR_SIZE = $$MAX_VECTOR_SIZE;
 const bool ARCH_32_BIT = $$REGISTER_SIZE == 32;
 const bool ARCH_64_BIT = $$REGISTER_SIZE == 64;
@@ -127,7 +127,7 @@ const bool LIBC = $$COMPILER_LIBC_AVAILABLE;
 const bool NO_LIBC = !LIBC && !CUSTOM_LIBC;
 const bool CUSTOM_LIBC = $$CUSTOM_LIBC;
 const bool OLD_IO = $feature(OLD_IO);
-const CompilerOptLevel COMPILER_OPT_LEVEL = CompilerOptLevel.from_ordinal($$COMPILER_OPT_LEVEL);
+const CompilerOptLevel COMPILER_OPT_LEVEL = CompilerOptLevel::from_ordinal($$COMPILER_OPT_LEVEL);
 const bool BIG_ENDIAN = $$PLATFORM_BIG_ENDIAN;
 const bool I128_NATIVE_SUPPORT = $$PLATFORM_I128_SUPPORTED;
 const bool F16_SUPPORT = $$PLATFORM_F16_SUPPORTED;
@@ -140,7 +140,7 @@ const int LLVM_VERSION = $$LLVM_VERSION;
 const bool BENCHMARKING = $$BENCHMARKING;
 const bool TESTING = $$TESTING;
 const bool PANIC_MSG = $$PANIC_MSG;
-const MemoryEnvironment MEMORY_ENV = MemoryEnvironment.from_ordinal($$MEMORY_ENVIRONMENT);
+const MemoryEnvironment MEMORY_ENV = MemoryEnvironment::from_ordinal($$MEMORY_ENVIRONMENT);
 const bool TRACK_MEMORY = DEBUG_SYMBOLS && (COMPILER_SAFE_MODE || TESTING);
 const bool X86_64 = ARCH_TYPE == X86_64;
 const bool X86 = ARCH_TYPE == X86;
@@ -156,6 +156,7 @@ const bool NETBSD = LIBC && OS_TYPE == NETBSD;
 const bool BSD_FAMILY = env::FREEBSD || env::OPENBSD || env::NETBSD;
 const bool WASI = LIBC && OS_TYPE == WASI;
 const bool WASM = ARCH_TYPE == ArchType.WASM32 || ARCH_TYPE == ArchType.WASM64;
+const bool EMSCRIPTEN = LIBC && OS_TYPE == EMSCRIPTEN;
 const bool ANDROID = LIBC && OS_TYPE == ANDROID;
 const bool FREESTANDING_PE32 = NO_LIBC && OS_TYPE == WIN32;
 const bool FREESTANDING_MACHO = NO_LIBC && OS_TYPE == MACOS;
@@ -168,7 +169,7 @@ const bool MEMORY_SANITIZER = $$MEMORY_SANITIZER;
 const bool THREAD_SANITIZER = $$THREAD_SANITIZER;
 const bool ANY_SANITIZER = ADDRESS_SANITIZER || MEMORY_SANITIZER || THREAD_SANITIZER;
 const int LANGUAGE_DEV_VERSION = $$LANGUAGE_DEV_VERSION;
-const bool HAS_NATIVE_ERRNO = env::LINUX || env::ANDROID || env::OPENBSD || env::DARWIN || env::WIN32 || env::NETBSD;
+const bool HAS_NATIVE_ERRNO = LINUX || ANDROID || BSD_FAMILY || DARWIN || WIN32 || EMSCRIPTEN;
 
 macro bool os_is_darwin() @const
 {
@@ -196,11 +197,11 @@ macro bool os_is_posix() @const
 	$case SOLARIS:
 	$case TVOS:
 	$case WATCHOS:
+	$case EMSCRIPTEN:
 	$case ANDROID:
 		return true;
 	$case WIN32:
 	$case WASI:
-	$case EMSCRIPTEN:
 		return false;
 	$default:
 		$echo("Assuming non-Posix environment");
@@ -210,5 +211,6 @@ macro bool os_is_posix() @const
 const String[] AUTHORS = $$AUTHORS;
 const String[] AUTHOR_EMAILS = $$AUTHOR_EMAILS;
 const String PROJECT_VERSION = $$PROJECT_VERSION;
+const String PROJECT_PATH = $$PROJECT_PATH;
 const BUILTIN_EXPECT_IS_DISABLED = $feature(DISABLE_BUILTIN_EXPECT);
 const BUILTIN_PREFETCH_IS_DISABLED = $feature(DISABLE_BUILTIN_PREFETCH);

@@ -20,8 +20,8 @@ macro bool ObjcClass.equals(ObjcClass a, ObjcClass b) => a == b;
 fn ObjcId alloc(ObjcClass cls) => objc::msg_send(cls, SendVoid, "alloc");
 fn void release(ObjcId id) => objc::msg_send(id, SendVoid, "release");
 
-alias NSUInteger = $typefrom(env::ARCH_64_BIT ??? ulong : uint);
-alias NSInteger = $typefrom(env::ARCH_64_BIT ??? long : int);
+alias NSUInteger = env::ARCH_64_BIT ??? ulong : uint;
+alias NSInteger = env::ARCH_64_BIT ??? long : int;
 
 macro ObjcClass? class_by_name(ZString c)
 {
@@ -43,7 +43,7 @@ extern fn ObjcSelector sel_getUid(ZString);
 
 macro msg_send(id, $FunctionType, ZString $selector, ...)
 {
-	return (($FunctionType)&msgSend)((ObjcId)id, sel_getUid($selector), $vasplat);
+	return (($FunctionType)&msgSend)((ObjcId)id, sel_getUid($selector), ...$vaarg);
 }
 
 macro void @autoreleasepool(;@body())
@@ -166,7 +166,7 @@ constdef NSEventMask : inline ulong
 	PRESSURE            = 1ul << NSEventType.PRESSURE,
 	DIRECT_TOUCH        = 1ul << NSEventType.DIRECT_TOUCH,
 	CHANGE_MODE         = 1ul << NSEventType.CHANGE_MODE,
-	ANY                 = ulong.max,
+	ANY                 = ulong::max,
 }
 
 fn NSEventMask event_mask_from_type(NSEventType type) => (NSEventMask)1ul << type;

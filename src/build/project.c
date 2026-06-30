@@ -55,7 +55,8 @@ const char *project_default_keys[][2] = {
 		{"run-dir", "Override run directory for 'run'."},
 		{"safe", "Set safety (contracts, runtime bounds checking, null pointer checks etc) on or off."},
 		{"sanitize", "Enable sanitizer: none, address, memory, thread."},
-		{"script-dir", "The directory where 'exec' is run."},
+		{"script-dir", "The directory where 'exec' scripts are found."},
+		{"exec-dir", "The directory where 'exec' is run."},
 		{"show-backtrace", "Print backtrace on signals."},
 		{"single-module", "Compile all modules together, enables more inlining."},
 		{"slp-vectorize", "Force enable/disable SLP auto-vectorization."},
@@ -76,9 +77,11 @@ const char *project_default_keys[][2] = {
 		{"wincrt", "Windows CRT linking: none, static-debug, static, dynamic-debug (default if debug info enabled), dynamic (default)."},
 		{"windef", "Windows def file, used as an alternative to dllexport when exporting a DLL."},
 		{"win-sdk", "Set the path to Windows system library files for cross compilation."},
+		{"win-subsystem", "Windows subsystem: CONSOLE (default), WINDOWS (default if @winmain present), NATIVE, POSIX, BOOT_APPLICATION, EFI_APPLICATION, EFI_BOOT_SERVICE_DRIVER, EFI_ROM or EFI_RUNTIME_DRIVER."},
 		{"x86-stack-struct-return", "Return structs on the stack for x86."},
 		{"x86cpu", "Set general level of x64 cpu: baseline, ssse3, sse4, avx1, avx2-v1, avx2-v2 (Skylake/Zen1+), avx512 (Icelake/Zen4+), native."},
 		{"x86vec", "Set max type of vector use: none, mmx, sse, avx, avx512, native."},
+		{"bsd-sysroot", "Set the BSD sysroot directory."},
 
 };
 
@@ -143,7 +146,8 @@ const char* project_target_keys[][2] = {
 		{"run-dir", "Override run directory for 'run'."},
 		{"safe", "Set safety (contracts, runtime bounds checking, null pointer checks etc) on or off."},
 		{"sanitize", "Enable sanitizer: none, address, memory, thread."},
-		{"script-dir", "The directory where 'exec' is run."},
+		{"script-dir", "The directory where scripts are found."},
+		{"exec-dir", "The directory where 'exec' is run."},
 		{"show-backtrace", "Print backtrace on signals."},
 		{"single-module", "Compile all modules together, enables more inlining."},
 		{"slp-vectorize", "Force enable/disable SLP auto-vectorization."},
@@ -166,9 +170,11 @@ const char* project_target_keys[][2] = {
 		{"wincrt", "Windows CRT linking: none, static-debug, static, dynamic-debug (default if debug info enabled), dynamic (default)."},
 		{"windef", "Windows def file, used as an alternative to dllexport when exporting a DLL."},
 		{"win-sdk", "Set the path to Windows system library files for cross compilation."},
+		{"win-subsystem", "Windows subsystem: CONSOLE (default), WINDOWS (default if @winmain present), NATIVE, POSIX, BOOT_APPLICATION, EFI_APPLICATION, EFI_BOOT_SERVICE_DRIVER, EFI_ROM or EFI_RUNTIME_DRIVER."},
 		{"x86-stack-struct-return", "Return structs on the stack for x86."},
 		{"x86cpu", "Set general level of x64 cpu: baseline, ssse3, sse4, avx1, avx2-v1, avx2-v2 (Skylake/Zen1+), avx512 (Icelake/Zen4+), native."},
 		{"x86vec", "Set max type of vector use: none, mmx, sse, avx, avx512, native."},
+		{"bsd-sysroot", "Set the BSD sysroot directory."},
 
 };
 
@@ -187,13 +193,14 @@ static void load_into_build_target(BuildParseContext context, JSONObject *json, 
 	}
 	else
 	{
-		check_json_keys(project_default_keys, project_default_keys_count, NULL, 0, json, "default target", "--list-project-properties");
+		check_json_keys(project_default_keys, project_default_keys_count, project_deprecated_target_keys, project_deprecated_target_keys_count, json, "default target", "--list-project-properties");
 	}
 
 	// The default c compiler name
 	target->cc = get_string(context, json, "cc", target->cc);
 
 	// Where to find and execute the scripts
+	target->exec_dir = get_string(context, json, "exec-dir", target->exec_dir);
 	target->script_dir = get_string(context, json, "script-dir", target->script_dir);
 
 	// Where to `run` from
@@ -477,6 +484,11 @@ static void load_into_build_target(BuildParseContext context, JSONObject *json, 
 	// windef
 	target->win.def = get_string(context, json, "windef", target->win.def);
 
+	// win-subsystem
+	WinSubsystem win_subsystem_val = GET_SETTING(WinSubsystem, "win-subsystem", win_subsystem, "`console`, `windows`, `native`, `posix`, `boot`, "
+			"`efi-app`, `efi-boot`, `efi-rom`, or `efi-runtime`");
+	if (win_subsystem_val != WIN_SUBSYSTEM_DEFAULT) target->win.subsystem = win_subsystem_val;
+
 	// macossdk
 	target->macos.sysroot = get_string(context, json, "macos-sdk", target->macos.sysroot);
 	if (!target->macos.sysroot) target->macos.sysroot = get_string(context, json, "macossdk", NULL);
@@ -498,6 +510,9 @@ static void load_into_build_target(BuildParseContext context, JSONObject *json, 
 
 	// android-api
 	target->android.api_version = (int)get_valid_integer(context, json, "android-api", false);
+
+	// bsd-sysroot
+	target->bsd_sysroot = get_string(context, json, "bsd-sysroot", target->bsd_sysroot);
 
 	// linux-libc
 	LinuxLibc linux_libc = GET_SETTING(LinuxLibc, "linux-libc", linuxlibc, "`gnu`, `musl` or `host`.");

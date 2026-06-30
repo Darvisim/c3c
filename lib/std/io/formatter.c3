@@ -21,7 +21,7 @@ alias FloatType = double;
 
 macro bool is_struct_with_default_print($Type)
 {
-	return ($Type.kindof == STRUCT ||| $Type.kindof == BITSTRUCT)
+	return ($Type::kind == STRUCT ||| $Type::kind == BITSTRUCT)
 		&&& !$defined($Type.to_format)
 		&&& !$defined($Type.to_constant_string);
 }
@@ -29,24 +29,24 @@ macro bool is_struct_with_default_print($Type)
 <*
  Introspect a struct and print it to a formatter
 
- @require $kindof(value) == STRUCT || $kindof(value) == BITSTRUCT : `This macro is only valid on macros`
+ @require @kindof(value) == STRUCT || @kindof(value) == BITSTRUCT : `This macro is only valid on macros`
 *>
 macro sz? struct_to_format(value, Formatter* f, bool $force_dump)
 {
-	var $Type = $typeof(value);
+	var $Type = $Typeof(value);
 	sz total = f.print("{ ")!;
-	$foreach $i, $member : $Type.membersof:
+	$foreach $i, $member : $Type::members:
 		$if $i > 0:
 			total += f.print(", ")!;
 		$endif
-		$if $member.nameof != "":
-			total += f.printf("%s: ", $member.nameof)!;
+		$if $member.name != "":
+			total += f.printf("%s: ", $member.name)!;
 		$endif
-		$if ($force_dump &&& ($member.typeid.kindof == STRUCT || $member.typeid.kindof == BITSTRUCT)) |||
-			is_struct_with_default_print($member.typeid):
-			total += struct_to_format($member.get(value), f, $force_dump)!;
+		$if ($force_dump &&& ($member.kind == STRUCT || $member.kind == BITSTRUCT)) |||
+			is_struct_with_default_print($member.type):
+			total += struct_to_format(value.$member, f, $force_dump)!;
 		$else
-			total += f.printf("%s", $member.get(value))!;
+			total += f.printf("%s", value.$member)!;
 		$endif
 	$endforeach
 	return total + f.print(" }");

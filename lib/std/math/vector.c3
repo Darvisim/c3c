@@ -7,12 +7,12 @@ alias Vec3 @weak = float[<3>];
 alias Vec4 @weak = float[<4>];
 
 <*
- @require $Type.kindof == VECTOR &&& $kindof(($Type){}[0]) == BOOL : "Expected a bool vector"
- @require $kindof(mask).is_int() : "Expected an integer mask"
+ @require $Type::kind == VECTOR &&& @kindof(($Type){}[0]) == BOOL : "Expected a bool vector"
+ @require @kindof(mask).is_int() : "Expected an integer mask"
 *>
 macro bool[<*>] mask_from_int($Type, mask)
 {
-	return $$int_to_mask(mask, $Type.len);
+	return $$int_to_mask(mask, $Type::len);
 }
 
 macro bool[<*>].mask_to_int(self)
@@ -83,8 +83,8 @@ macro float float[<*>].distance_sq(self, float[<*>] v2) => (self - v2).length_sq
 macro float[<*>] float[<*>].normalize(float[<*>] x) => normalize(x);
 macro float[<*>] float[<*>].lerp(float[<*>] x, float[<*>] y, float amount) => math::lerp(x, y, amount);
 macro float[<*>] float[<*>].reflect(float[<*>] x, float[<*>] y) => reflect(x, y);
-macro float[<*>] float[<*>].clamp_length(self, float min, float max)  => clamp_length{$typeof(self)}(self, min, max);
-macro float[<*>] float[<*>].move_towards(self, float[<*>] target, float max_distance) => towards{$typeof(self)}(self, target, max_distance);
+macro float[<*>] float[<*>].clamp_length(self, float min, float max)  => clamp_length{$Typeof(self)}(self, min, max);
+macro float[<*>] float[<*>].move_towards(self, float[<*>] target, float max_distance) => towards{$Typeof(self)}(self, target, max_distance);
 macro bool float[<*>].equals(float[<*>] x, float[<*>] y) => equals(x, y);
 macro bool float[<*>].not_equals(float[<*>] x, float[<*>] y) => not_equals(x, y);
 macro bool float[<*>].is_normalized(float[<*>] x) => math::is_approx(x.length_sq(), 1.0, math::FLOAT_VECTOR_EPSILON);
@@ -115,8 +115,8 @@ macro double double[<*>].length(double[<*>] x) => $$sqrt(x.dot(x));
 macro double double[<*>].length_sq(double[<*>] x) => x.dot(x);
 macro double double[<*>].distance(double[<*>] x, double[<*>] y) => (x - y).length();
 macro double double[<*>].distance_sq(self, double[<*>] v2) => (self - v2).length_sq();
-macro double[<*>] double[<*>].clamp_length(self, double min, double max) => clamp_length{$typeof(self)}(self, min, max);
-macro double[<*>] double[<*>].move_towards(self, double[<*>] target, double max_distance) => towards{$typeof(self)}(self, target, max_distance);
+macro double[<*>] double[<*>].clamp_length(self, double min, double max) => clamp_length{$Typeof(self)}(self, min, max);
+macro double[<*>] double[<*>].move_towards(self, double[<*>] target, double max_distance) => towards{$Typeof(self)}(self, target, max_distance);
 macro double[<*>] double[<*>].normalize(double[<*>] x) => normalize(x);
 macro double[<*>] double[<*>].reflect(double[<*>] x, double[<*>] y) => reflect(x, y);
 macro double[<*>] double[<*>].lerp(double[<*>] x, double[<*>] y, double amount) => math::lerp(x, y, amount);

@@ -98,7 +98,7 @@ fn InetAddress? ipv6_from_str(String s)
 			// Check that this is the first ::
 			if (found_zero) return INVALID_IP_STRING~;
 			// Also check that the zeroed section is at least 2
-			if (zero_segment_len < 2) return INVALID_IP_STRING~;
+			if (zero_segment_len < 1) return INVALID_IP_STRING~;
 			// Skip (will be zero by default
 			index += zero_segment_len;
 			found_zero = true;
@@ -176,7 +176,7 @@ fn bool InetAddress.is_link_local(InetAddress* addr)
 {
 	if (addr.is_ipv6)
 	{
-		return addr.ipv6.a == 0xfa && (addr.ipv6.b & 0xc0) == 0x80;
+		return addr.ipv6.a & 0xffc0 == 0xfe80;
 	}
 	return addr.ipv4.a == 169 && addr.ipv4.b == 254;
 }
@@ -185,7 +185,7 @@ fn bool InetAddress.is_site_local(InetAddress* addr)
 {
 	if (addr.is_ipv6)
 	{
-		return addr.ipv6.a == 0xfe && (addr.ipv6.b & 0xc0) == 0xc0;
+		return addr.ipv6.a & 0xffc0 == 0xfec0;
 	}
 	// 10/8 172.16/12 192.168/16
 	switch
@@ -203,7 +203,7 @@ fn bool InetAddress.is_multicast(InetAddress* addr)
 {
 	if (addr.is_ipv6)
 	{
-		return addr.ipv6.a == 0xff;
+		return addr.ipv6.a & 0xff00 == 0xff00;
 	}
 	return addr.ip4.val & 0xf0000000 == 0xe0000000;
 }
@@ -212,7 +212,7 @@ fn bool InetAddress.is_multicast_global(InetAddress* addr)
 {
 	if (addr.is_ipv6)
 	{
-		return addr.ipv6.a == 0xff && (addr.ipv6.b & 0x0f) == 0x0e;
+		return addr.ipv6.a & 0xff00 == 0xff00 && addr.ipv6.a & 0x0f == 0x0e;
 	}
 	return addr.ipv4.a >= 224 && addr.ipv4.a <= 238
 		&& !(addr.ipv4.a == 224 && addr.ipv4.b == 0 && addr.ipv4.c == 0);
@@ -221,14 +221,14 @@ fn bool InetAddress.is_multicast_global(InetAddress* addr)
 fn bool InetAddress.is_multicast_node_local(InetAddress* addr)
 {
 	if (!addr.is_ipv6) return false;
-	return addr.ipv6.a == 0xff && addr.ipv6.b & 0x0f == 0x01;
+	return addr.ipv6.a & 0xff00 == 0xff00 && addr.ipv6.a & 0x0f == 0x01;
 }
 
 fn bool InetAddress.is_multicast_site_local(InetAddress* addr)
 {
 	if (addr.is_ipv6)
 	{
-		return addr.ipv6.a == 0xff && addr.ipv6.b & 0x0f == 0x05;
+		return addr.ipv6.a & 0xff00 == 0xff00 && addr.ipv6.a & 0x0f == 0x05;
 	}
 	return addr.ipv4.a == 239 && addr.ipv4.b == 255;
 }
@@ -237,7 +237,7 @@ fn bool InetAddress.is_multicast_org_local(InetAddress* addr)
 {
 	if (addr.is_ipv6)
 	{
-		return addr.ipv6.a == 0xff && addr.ipv6.b & 0x0f == 0x08;
+		return addr.ipv6.a & 0xff00 == 0xff00 && addr.ipv6.a & 0x0f == 0x08;
 	}
 	return addr.ipv4.a == 239 && addr.ipv4.b >= 192 && addr.ipv4.b <= 195;
 }
@@ -246,7 +246,7 @@ fn bool InetAddress.is_multicast_link_local(InetAddress* addr)
 {
 	if (addr.is_ipv6)
 	{
-		return addr.ipv6.a == 0xff && (addr.ipv6.b & 0x0f) == 0x02;
+		return addr.ipv6.a & 0xff00 == 0xff00 && addr.ipv6.a & 0x0f == 0x02;
 	}
 	return addr.ipv4.a == 224 && addr.ipv4.b == 0 && addr.ipv4.c == 0;
 }
@@ -256,6 +256,10 @@ fn bool InetAddress.is_multicast_link_local(InetAddress* addr)
 *>
 fn AddrInfo*? addrinfo(String host, int port, AIFamily ai_family, AISockType ai_socktype) @if(os::SUPPORTS_INET) => @pool()
 {
+	$if env::WIN32: //fn TcpServerSocket? listen() calls addrinfo() before setting os::start_wsa so we need this here
+		os::start_wsa()!;
+	$endif
+
 	ZString zhost = host.zstr_tcopy();
 	DString str = dstring::temp_with_capacity(32);
 	str.appendf("%d", port);

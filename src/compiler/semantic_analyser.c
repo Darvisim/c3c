@@ -196,18 +196,6 @@ void sema_analyze_stage(Module *module, AnalysisStage stage)
 			case ANALYSIS_METHODS_REGISTER_GENERIC:
 				sema_analysis_pass_process_methods(module, true);
 				break;
-			case ANALYSIS_METHODS_INCLUDES:
-				sema_analysis_pass_process_methods(module, false);
-				break;
-			case ANALYSIS_METHODS_INCLUDES_GENERIC:
-				sema_analysis_pass_process_methods(module, true);
-				break;
-			case ANALYSIS_METHODS_CONDITIONAL:
-				sema_analysis_pass_process_methods(module, false);
-				break;
-			case ANALYSIS_METHODS_CONDITIONAL_GENERIC:
-				sema_analysis_pass_process_methods(module, true);
-				break;
 			case ANALYSIS_POST_REGISTER:
 				break;
 			case ANALYSIS_DECLS:
@@ -244,6 +232,7 @@ static void register_generic_decls(CompilationUnit *unit, Decl **decls)
 			case DECL_CT_ASSERT:
 			case DECL_CT_ECHO:
 			case DECL_CT_EXEC:
+			case DECL_CT_EXPAND:
 			case DECL_CT_INCLUDE:
 			case DECL_FNTYPE:
 			case DECL_IMPORT:
@@ -337,7 +326,7 @@ static bool setup_main_runner(Decl *run_function)
 	Decl *main = sema_create_runner_main(&context, run_function);
 	if (!decl_ok(main)) return false;
 	if (!sema_analyse_decl(&context, main)) return false;
-	if (!sema_analyse_function_body(&context, main)) return false;
+	if (!sema_analyse_function_body(&context, main, 0)) return false;
 	sema_context_destroy(&context);
 	compiler.context.main = main;
 	main->unit->main_function = main;

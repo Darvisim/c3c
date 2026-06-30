@@ -131,7 +131,13 @@ INLINE void llvm_emit_volatile_store(GenContext *c, BEValue *result_value, Expr 
 	llvm_value_deref(c, &value);
 	BEValue store_value = *result_value;
 	LLVMValueRef store = llvm_store(c, &value, &store_value);
-	if (store) LLVMSetVolatile(store, true);
+	if (!store) return;
+	if (LLVMIsAMemCpyInst(store))
+	{
+		LLVMMemCpySetVolatile(store, LLVMConstAllOnes(c->bool_type));
+		return;
+	}
+	LLVMSetVolatile(store, true);
 }
 
 INLINE void llvm_emit_volatile_load(GenContext *c, BEValue *result_value, Expr *expr)
@@ -149,6 +155,9 @@ INLINE void llvm_emit_atomic_store(GenContext *c, BEValue *result_value, Expr *e
 	llvm_emit_expr(c, result_value, expr->call_expr.arguments[1]);
 	llvm_value_deref(c, &value);
 	BEValue store_value = *result_value;
+	Expr *alignment = expr->call_expr.arguments[4];
+	int64_t align = alignment->const_expr.ixx.i.low;
+	if (align != 0) value.alignment = align;
 	LLVMValueRef store = llvm_store(c, &value, &store_value);
 	if (store)
 	{
@@ -253,7 +262,10 @@ INLINE void llvm_emit_atomic_load(GenContext *c, BEValue *result_value, Expr *ex
 	llvm_emit_expr(c, result_value, expr->call_expr.arguments[0]);
 	llvm_value_rvalue(c, result_value);
 	Type *type = result_value->type->pointer;
-	LLVMValueRef val = llvm_load(c, llvm_get_type(c, type), result_value->value, type_abi_alignment(type), "");
+	Expr *alignment = expr->call_expr.arguments[3];
+	int64_t align = alignment->const_expr.ixx.i.low;
+	if (align == 0) align = type_abi_alignment(type);
+	LLVMValueRef val = llvm_load(c, llvm_get_type(c, type), result_value->value, align, "");
 	if (expr->call_expr.arguments[1]->const_expr.b) LLVMSetVolatile(val, true);
 	LLVMSetOrdering(val,  llvm_atomic_ordering(expr->call_expr.arguments[2]->const_expr.ixx.i.low));
 	llvm_value_set(result_value, val, type);
@@ -407,7 +419,7 @@ INLINE void llvm_emit_intrinsic_args(GenContext *c, Expr **args, LLVMValueRef *s
 INLINE void llvm_emit_memcpy_builtin(GenContext *c, unsigned intrinsic, BEValue *be_value, Expr *expr)
 {
 	Expr **args = expr->call_expr.arguments;
-	LLVMValueRef arg_slots[4];
+	LLVMValueRef arg_slots[4] = {0};
 	llvm_emit_intrinsic_args(c, args, arg_slots, 4);
 	LLVMTypeRef call_type[3];
 	call_type[0] = call_type[1] = c->ptr_type;
@@ -425,7 +437,7 @@ INLINE void llvm_emit_memcpy_builtin(GenContext *c, unsigned intrinsic, BEValue 
 INLINE void llvm_emit_memmove_builtin(GenContext *c, BEValue *be_value, Expr *expr)
 {
 	Expr **args = expr->call_expr.arguments;
-	LLVMValueRef arg_slots[4];
+	LLVMValueRef arg_slots[4] = {0};
 	llvm_emit_intrinsic_args(c, args, arg_slots, 4);
 	LLVMTypeRef call_type[3];
 	call_type[0] = call_type[1] = c->ptr_type;
@@ -443,7 +455,7 @@ INLINE void llvm_emit_memmove_builtin(GenContext *c, BEValue *be_value, Expr *ex
 INLINE void llvm_emit_memset_builtin(GenContext *c, unsigned intrinsic, BEValue *be_value, Expr *expr)
 {
 	Expr **args = expr->call_expr.arguments;
-	LLVMValueRef arg_slots[4];
+	LLVMValueRef arg_slots[4] = {0};
 	llvm_emit_intrinsic_args(c, args, arg_slots, 4);
 	LLVMTypeRef call_type[2] = { c->ptr_type, c->size_type };
 	LLVMValueRef result = llvm_emit_call_intrinsic(c, intrinsic, call_type, 2, arg_slots, 4);
@@ -456,7 +468,7 @@ INLINE void llvm_emit_memset_builtin(GenContext *c, unsigned intrinsic, BEValue 
 INLINE void llvm_emit_prefetch(GenContext *c, BEValue *be_value, Expr *expr)
 {
 	Expr **args = expr->call_expr.arguments;
-	LLVMValueRef arg_slots[4];
+	LLVMValueRef arg_slots[4] = {0};
 	llvm_emit_intrinsic_args(c, args, arg_slots, 3);
 	arg_slots[3] = llvm_const_int(c, type_int, 1);
 	LLVMTypeRef call_type[1] = { c->ptr_type };
@@ -510,7 +522,7 @@ void llvm_emit_3_variant_builtin(GenContext *c, BEValue *be_value, Expr *expr, u
 	Expr **args = expr->call_expr.arguments;
 	unsigned count = vec_size(args);
 	ASSERT(count <= 3);
-	LLVMValueRef arg_slots[3];
+	LLVMValueRef arg_slots[3] = {0};
 	unsigned intrinsic = llvm_intrinsic_by_type(args[0]->type, sid, uid, fid);
 	llvm_emit_intrinsic_args(c, args, arg_slots, count);
 	if (count == 2 && (intrinsic == intrinsic_id.smul_fixed_sat || intrinsic == intrinsic_id.umul_fixed_sat))
@@ -549,7 +561,7 @@ void llvm_emit_simple_builtin(GenContext *c, BEValue *be_value, Expr *expr, unsi
 	unsigned count = vec_size(args);
 	ASSERT(count <= 4);
 	ASSERT(count > 0);
-	LLVMValueRef arg_slots[4];
+	LLVMValueRef arg_slots[4] = {0};
 	llvm_emit_intrinsic_args(c, args, arg_slots, count);
 	LLVMTypeRef call_type = LLVMTypeOf(arg_slots[0]);
 	LLVMValueRef result = llvm_emit_call_intrinsic(c, intrinsic, &call_type, 1, arg_slots, count);
@@ -561,7 +573,7 @@ void llvm_emit_matrix_multiply(GenContext *c, BEValue *be_value, Expr *expr)
 	Expr **args = expr->call_expr.arguments;
 	unsigned count = vec_size(args);
 	ASSERT(count == 5);
-	LLVMValueRef arg_slots[5];
+	LLVMValueRef arg_slots[5] = {0};
 	llvm_emit_intrinsic_args(c, args, arg_slots, count);
 	LLVMTypeRef type = LLVMTypeOf(arg_slots[0]);
 	LLVMTypeRef result_type = llvm_get_type(c, expr->type);
@@ -575,7 +587,7 @@ void llvm_emit_matrix_transpose(GenContext *c, BEValue *be_value, Expr *expr)
 	Expr **args = expr->call_expr.arguments;
 	unsigned count = vec_size(args);
 	ASSERT(count == 3);
-	LLVMValueRef arg_slots[3];
+	LLVMValueRef arg_slots[3] = {0};
 	llvm_emit_intrinsic_args(c, args, arg_slots, count);
 	LLVMTypeRef type = LLVMTypeOf(arg_slots[0]);
 	LLVMTypeRef result_type = llvm_get_type(c, expr->type);
@@ -588,7 +600,7 @@ static void llvm_emit_masked_load(GenContext *c, BEValue *be_value, Expr *expr)
 {
 	Expr **args = expr->call_expr.arguments;
 	ASSERT(vec_size(args) == 4);
-	LLVMValueRef arg_slots[4];
+	LLVMValueRef arg_slots[4] = {0};
 	llvm_emit_intrinsic_args(c, args, arg_slots, 3);
 	LLVMValueRef passthru = arg_slots[2];
 	LLVMValueRef mask = arg_slots[1];
@@ -616,7 +628,7 @@ static void llvm_emit_gather(GenContext *c, BEValue *be_value, Expr *expr)
 {
 	Expr **args = expr->call_expr.arguments;
 	ASSERT(vec_size(args) == 4);
-	LLVMValueRef arg_slots[4];
+	LLVMValueRef arg_slots[4] = {0};
 	llvm_emit_intrinsic_args(c, args, arg_slots, 3);
 	LLVMValueRef passthru = arg_slots[2];
 	LLVMValueRef mask = arg_slots[1];
@@ -686,7 +698,7 @@ static void llvm_emit_masked_store(GenContext *c, BEValue *be_value, Expr *expr)
 {
 	Expr **args = expr->call_expr.arguments;
 	ASSERT(vec_size(args) == 4);
-	LLVMValueRef arg_slots[4];
+	LLVMValueRef arg_slots[4] = {0};
 	llvm_emit_intrinsic_args(c, args, arg_slots, 3);
 	LLVMValueRef ptr = arg_slots[0];
 	LLVMValueRef value = arg_slots[1];
@@ -714,7 +726,7 @@ static void llvm_emit_scatter(GenContext *c, BEValue *be_value, Expr *expr)
 {
 	Expr **args = expr->call_expr.arguments;
 	ASSERT(vec_size(args) == 4);
-	LLVMValueRef arg_slots[4];
+	LLVMValueRef arg_slots[4] = {0};
 	llvm_emit_intrinsic_args(c, args, arg_slots, 3);
 	LLVMValueRef ptr = arg_slots[0];
 	LLVMValueRef value = arg_slots[1];
@@ -745,7 +757,7 @@ void llvm_emit_builtin_args_types3(GenContext *c, BEValue *be_value, Expr *expr,
 	unsigned count = vec_size(args);
 	ASSERT(count <= 3);
 	ASSERT(count > 0);
-	LLVMValueRef arg_slots[3];
+	LLVMValueRef arg_slots[3] = {0};
 	llvm_emit_intrinsic_args(c, args, arg_slots, count);
 	LLVMTypeRef call_type[3];
 	unsigned type_slots = 0;
@@ -759,7 +771,7 @@ void llvm_emit_builtin_args_types3(GenContext *c, BEValue *be_value, Expr *expr,
 static void llvm_emit_overflow_builtin(GenContext *c, BEValue *be_value, Expr *expr, unsigned intrinsic_signed, unsigned intrinsic_unsigned)
 {
 	Expr **args = expr->call_expr.arguments;
-	LLVMValueRef arg_slots[2];
+	LLVMValueRef arg_slots[2] = {0};
 	llvm_emit_intrinsic_args(c, args, arg_slots, 2);
 	BEValue ref;
 	Expr *ret_addr = args[2];
@@ -779,7 +791,7 @@ static void llvm_emit_overflow_builtin(GenContext *c, BEValue *be_value, Expr *e
 static void llvm_emit_wrap_builtin(GenContext *c, BEValue *result_value, Expr *expr, BuiltinFunction func)
 {
 	Expr **args = expr->call_expr.arguments;
-	LLVMValueRef arg_slots[2];
+	LLVMValueRef arg_slots[2] = {0};
 	llvm_emit_intrinsic_args(c, args, arg_slots, func == BUILTIN_EXACT_NEG ? 1 : 2);
 	Type *base_type = type_lowering(args[0]->type);
 	if (type_kind_is_real_vector(base_type->type_kind)) base_type = base_type->array.base;
@@ -858,7 +870,11 @@ void llvm_emit_builtin_call(GenContext *c, BEValue *result_value, Expr *expr)
 		{
 			llvm_emit_expr(c, result_value, expr->call_expr.arguments[0]);
 			llvm_value_rvalue(c, result_value);
+			#if LLVM_VERSION_MAJOR >= 23
+			LLVMValueRef res = llvm_emit_call_intrinsic(c, intrinsic_id.returnaddress, &c->ptr_type, 1, &result_value->value, 1);
+			#else
 			LLVMValueRef res = llvm_emit_call_intrinsic(c, intrinsic_id.returnaddress, NULL, 0, &result_value->value, 1);
+			#endif
 			llvm_value_set(result_value, res, expr->type);
 			return;
 		}

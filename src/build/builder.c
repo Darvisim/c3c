@@ -109,6 +109,7 @@ bool command_accepts_files(CompilerCommand command)
 {
 	switch (command)
 	{
+		case COMMAND_DOCGEN:
 		case COMMAND_COMPILE:
 		case COMMAND_COMPILE_ONLY:
 		case COMMAND_COMPILE_RUN:
@@ -148,6 +149,7 @@ bool command_passes_args(CompilerCommand command)
 		case COMMAND_BENCHMARK:
 		case COMMAND_TEST:
 			return true;
+		case COMMAND_DOCGEN:
 		case COMMAND_COMPILE:
 		case COMMAND_COMPILE_ONLY:
 		case COMMAND_DYNAMIC_LIB:
@@ -309,6 +311,7 @@ static LinkLibc libc_from_arch_os(ArchOsTarget target)
 		case OPENBSD_X64:
 		case WINDOWS_AARCH64:
 		case WINDOWS_X64:
+		case EMSCRIPTEN_WASM32:
 		case ARCH_OS_TARGET_DEFAULT:
 			return LINK_LIBC_ON;
 		case WASM32:
@@ -320,6 +323,8 @@ static LinkLibc libc_from_arch_os(ArchOsTarget target)
 		case ELF_X86:
 		case ELF_X64:
 		case ELF_XTENSA:
+			return LINK_LIBC_OFF;
+		case ELF_AVR:
 			return LINK_LIBC_OFF;
 	}
 	UNREACHABLE
@@ -493,6 +498,7 @@ static void update_build_target_from_options(BuildTarget *target, BuildOptions *
 	set_if_updated(target->custom_libc, options->custom_libc);
 	set_if_updated(target->emit_stdlib, options->emit_stdlib);
 	set_if_updated(target->win.crt_linking, options->win.crt_linking);
+	set_if_updated(target->win.subsystem, options->win.subsystem);
 	set_if_updated(target->feature.fp_math, options->fp_math);
 	set_if_updated(target->feature.x86_vector_capability, options->x86_vector_capability);
 	set_if_updated(target->feature.x86_cpu_set, options->x86_cpu_set);
@@ -523,6 +529,7 @@ static void update_build_target_from_options(BuildTarget *target, BuildOptions *
 	OVERRIDE_IF_SET(linuxpaths.crtbegin);
 	OVERRIDE_IF_SET(android.ndk_path);
 	OVERRIDE_IF_SET(android.api_version);
+	OVERRIDE_IF_SET(bsd_sysroot);
 
 	if (options->cpu_flags)
 	{
@@ -624,8 +631,42 @@ static void update_build_target_from_options(BuildTarget *target, BuildOptions *
 	}
 #endif
 	if (target->linuxpaths.libc == LINUX_LIBC_NOT_SET) target->linuxpaths.libc = default_libc;
+
+	bool is_static = false;
+	for (size_t i = 0; i < options->linker_arg_count; i++)
+	{
+		const char *arg = options->linker_args[i];
+		if (strcmp(arg, "-static") == 0 || strcmp(arg, "--static") == 0 || strcmp(arg, "static") == 0)
+		{
+			is_static = true;
+			break;
+		}
+	}
+
+	if (target->linuxpaths.libc == LINUX_LIBC_MUSL && default_libc == LINUX_LIBC_GNU)
+	{
+		if (is_static)
+		{
+			if (target->linker_type != LINKER_TYPE_BUILTIN)
+			{
+				WARNING("Static linking against musl on a glibc system should use the built-in linker to avoid linking host libraries. Consider adding `--linker=builtin`.");
+			}
+		}
+		else
+		{
+			WARNING("Dynamically linking against musl on a glibc system produces non-portable binaries. Consider using `-z -static --linker=builtin`.");
+		}
+	}
+	else if (target->linuxpaths.libc == LINUX_LIBC_GNU && is_static)
+	{
+		WARNING("Statically linking against glibc produces binaries that still require glibc shared libraries at runtime for NSS/dns lookups. Consider targeting musl instead using `-linux-libc=musl --linker=builtin`.");
+	}
+
 	target->benchmarking = options->benchmarking;
 	target->testing = options->testing;
+	target->docgen = options->command == COMMAND_DOCGEN;
+	target->docgen_json_out = options->docgen_json_out;
+	target->docgen_append = options->docgen_append;
 	target->silent = options->verbosity_level < 0;
 	switch (options->sanitize_mode)
 	{
@@ -668,12 +709,14 @@ static void update_build_target_from_options(BuildTarget *target, BuildOptions *
 			target->build_dir = options->build_dir;
 		}
 		set_dir_with_default(&target->script_dir, options->script_dir, ".");
+		set_dir_with_default(&target->exec_dir, options->exec_dir, ".");
 	}
 	else
 	{
 		set_dir_with_default(&target->output_dir, options->output_dir, "out");
 		set_dir_with_default(&target->build_dir, options->build_dir, "build");
 		set_dir_with_default(&target->script_dir, options->script_dir, "scripts");
+		set_dir_with_default(&target->exec_dir, options->exec_dir, target->script_dir);
 	}
 
 	set_output_dir_from_options(&target->ir_file_dir, options->llvm_out, "llvm", target_name, target->output_dir);
@@ -765,7 +808,6 @@ static void update_build_target_from_options(BuildTarget *target, BuildOptions *
 
 void init_default_build_target(BuildTarget *target, BuildOptions *options)
 {
-
 	*target = default_build_target;
 	target->source_dirs = NULL;
 	target->name = options->output_name;
@@ -780,17 +822,21 @@ void init_build_target(BuildTarget *target, BuildOptions *options)
 	// Parse it
 	const char *filename;
 	Project *project = project_load(&filename);
-	
+	char buffer[1024];
+	const char *project_path = NULL;
 	if (options->is_project)
 	{
+		project_path = getcwd(buffer, 1024);
 		FOREACH(const char *, dir, options->unchecked_directories)
 		{
 			(void)check_dir(dir);
 		}
 	}
 
+
 	*target = *project_select_target(filename, project, options->target_select);
 
+	if (project_path) target->project_dir = str_dup(project_path);
 	update_build_target_from_options(target, options);
 	if (target->build_dir && !file_exists(target->build_dir))
 	{

@@ -267,6 +267,7 @@ RETRY:
 		case EXPR_MEMBER_GET:
 		case EXPR_MEMBER_SET:
 		case EXPR_NAMED_ARGUMENT:
+		case EXPR_NAMED_EVAL_ARGUMENT:
 		case UNRESOLVED_EXPRS:
 		case EXPR_LAMBDA:
 			assert_print_line(expr->loc);
@@ -373,6 +374,7 @@ RETRY:
 				case CONST_POINTER:
 				case CONST_UNTYPED_LIST:
 				case CONST_MEMBER:
+				case CONST_REFLECTION:
 					return;
 				case CONST_FAULT:
 					sema_trace_decl_liveness(expr->const_expr.fault);
@@ -632,6 +634,7 @@ RETRY:
 		case DECL_CT_ASSERT:
 		case DECL_CT_ECHO:
 		case DECL_CT_EXEC:
+		case DECL_CT_EXPAND:
 		case DECL_CT_INCLUDE:
 		case DECL_GROUP:
 		case DECL_IMPORT:
@@ -639,10 +642,17 @@ RETRY:
 		case DECL_MACRO:
 		case DECL_GENERIC:
 		case DECL_GENERIC_INSTANCE:
-		case DECL_DECLARRAY:
 		case DECL_CONTRACT:
 			assert_print_line(decl->loc);
 			error_exit("Unexpected liveness checking of expr decl %d.", decl->decl_kind);
+		case DECL_DECLARRAY:
+		{
+			FOREACH(Decl *, d, decl->decls)
+			{
+				sema_trace_decl_liveness(d);
+			}
+			return;
+		}
 		case DECL_FNTYPE:
 			sema_trace_func_liveness(&decl->fntype_decl.signature);
 			return;

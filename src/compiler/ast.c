@@ -122,12 +122,13 @@ const char *decl_to_a_name(Decl *decl)
 		case DECL_CT_ASSERT: return "a compile time assert";
 		case DECL_CT_ECHO: return "a compile time echo";
 		case DECL_CT_EXEC: return "compile time exec include";
+		case DECL_CT_EXPAND: return "compile time expand";
 		case DECL_CT_INCLUDE: return "an include";
 		case DECL_DECLARRAY: return "a declarray";
 		case DECL_ALIAS: case DECL_ALIAS_PATH: case DECL_TYPE_ALIAS: return "an alias";
 		case DECL_TYPEDEF: return "a distinct type";
 		case DECL_ENUM: return "an enum";
-		case DECL_CONSTDEF: return "a set of constants";
+		case DECL_CONSTDEF: return "a constdef";
 		case DECL_ENUM_CONSTANT: return "an enum value";
 		case DECL_ERASED: return "an erased declaration";
 		case DECL_FAULT: return "a fault";
@@ -336,7 +337,7 @@ bool decl_is_defaulted_var(Decl *decl)
 	return decl->decl_kind == DECL_VAR && decl->var.no_init && decl->var.defaulted;
 }
 
-bool decl_may_be_generic(Decl *decl)
+bool decl_inherits_module_generic(Decl *decl)
 {
 	switch (decl->decl_kind)
 	{
@@ -357,6 +358,7 @@ bool decl_may_be_generic(Decl *decl)
 		case DECL_LABEL:
 		case DECL_CONSTDEF:
 		case DECL_CONTRACT:
+		case DECL_CT_EXPAND:
 			return false;
 		case DECL_ATTRIBUTE:
 		case DECL_BITSTRUCT:
@@ -365,14 +367,16 @@ bool decl_may_be_generic(Decl *decl)
 		case DECL_TYPEDEF:
 		case DECL_ENUM:
 		case DECL_FNTYPE:
-		case DECL_FUNC:
-		case DECL_MACRO:
 		case DECL_INTERFACE:
 		case DECL_STRUCT:
 		case DECL_TYPE_ALIAS:
 		case DECL_UNION:
 		case DECL_VAR:
 			return true;
+		case DECL_FUNC:
+		case DECL_MACRO:
+			// Only if it isn't a method
+			return decl->func_decl.type_parent == 0;
 	}
 	UNREACHABLE
 }
@@ -447,7 +451,7 @@ bool decl_is_externally_visible(Decl *decl)
 
 
 /*
- * Is this declartion a global of some sort?
+ * Is this declaration a global of some sort?
  * In other words a static, thread local, global constant or a global
  */
 bool decl_is_global(Decl *ident)

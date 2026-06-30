@@ -27,17 +27,117 @@ fn void test_general()
 fn void test_to_format_int()
 {
 	{
-		Object* int_object = object::new_int(16, mem);
+		Object* int_object = object::new_int(mem, 16);
 		defer int_object.free();
 		String s = string::format(mem, "%s", int_object);
 		defer free(s);
 		assert(s == "16");
 	}
 	{
-		Object* int_object = object::new_int(-16, mem);
+		Object* int_object = object::new_int(mem, -16);
 		defer int_object.free();
 		String s = string::format(mem, "%s", int_object);
 		defer free(s);
 		assert(s == "-16");
 	}
+}
+
+fn void test_to_value()
+{
+	{
+		Object* int_obj = object::new_int(tmem, 99);
+		defer int_obj.free();
+
+		char c = int_obj.to_value(char)!!;
+		assert(c == 99);
+	}
+	{
+		Object* float_obj = object::new_float(tmem, 99.17);
+		defer float_obj.free();
+
+		float f = float_obj.to_value(float)!!;
+		assert(f == 99.17f);
+	}
+	{
+		Object* str_obj = object::new_string(tmem, "222");
+		defer str_obj.free();
+
+		int i = str_obj.to_value(int, strict: false)!!;
+		assert(i == 222);
+
+		if (catch e = str_obj.to_value(int)) 
+		{
+			assert(e == TYPE_MISMATCH);
+		} 
+		else 
+		{
+			assert(false, "Should be an error when strict is true.");
+		}
+	}
+	{
+		Object* enum_obj = object::new_enum(tmem, MyEnum.THIRD);
+		defer enum_obj.free();
+		assert(enum_obj.is_enum());
+
+		MyEnum o = enum_obj.to_value(MyEnum)!!;
+		assert(o == THIRD);
+	}
+}
+
+enum MyEnum : (String value)
+{
+	FIRST {"first"},
+	SECOND {"second"},
+	THIRD {"third"}
+}
+import std::io;
+
+fn void test_enum()
+{
+	{
+		Object* enum_obj = object::new_enum(tmem, MyEnum.FIRST);
+		defer enum_obj.free();
+
+		assert(enum_obj.to_value(MyEnum)!! == MyEnum.FIRST);
+	}
+	{
+		Object* obj = object::new_obj(tmem);
+		defer obj.free();
+
+		obj.set("Hello", MyEnum.THIRD);
+
+		MyEnum o = obj.get_enum(MyEnum, "Hello")!!;
+
+		assert(o == THIRD);
+	}
+}
+fn void test_to_value_string_non_strict()
+{
+	Object* int_obj = object::new_int(tmem, 42);
+	test::eq(int_obj.to_value(String, strict: false)!!, "42");
+
+	int_obj = object::new_int(tmem, -7);
+	test::eq(int_obj.to_value(String, strict: false)!!, "-7");
+
+	Object* float_obj = object::new_float(tmem, 3.14);
+	test::eq(float_obj.to_value(String, strict: false)!!, "3.14");
+
+	Object* bool_obj = object::new_bool(true);
+	test::eq(bool_obj.to_value(String, strict: false)!!, "true");
+
+	bool_obj = object::new_bool(false);
+	test::eq(bool_obj.to_value(String, strict: false)!!, "false");
+
+	Object* str_obj = object::new_string(tmem, "hello");
+	test::eq(str_obj.to_value(String, strict: false)!!, "hello");
+
+	test::eq(str_obj.to_value(String, strict: true)!!, "hello");
+
+}
+
+fn void test_to_value_string_strict_mismatch()
+{
+	Object* int_obj = object::new_int(tmem, 42);
+	fault res = @catch(int_obj.to_value(String, strict: true));
+	assert(res);
 }

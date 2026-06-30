@@ -641,6 +641,8 @@ static inline int64_t scan_hex_literal(Lexer *lexer, int positions)
 	return hex;
 }
 
+// Scan utf8 sequence
+
 static inline int64_t scan_utf8(Lexer *lexer, unsigned char c)
 {
 	int utf8_bytes;
@@ -1131,10 +1133,6 @@ static inline bool scan_base64(Lexer *lexer)
 				break;
 			default:
 				UNREACHABLE
-		}
-		if (len % 4 == 3)
-		{
-			end_len = 1;
 		}
 	}
 	if ((len + end_len) % 4 != 0)

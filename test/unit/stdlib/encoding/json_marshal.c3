@@ -19,11 +19,11 @@ enum Priority
 }
 
 // Enum with associated value
-enum State : int (String description)
+enum State : int
 {
-    WAITING { "waiting" },
-    RUNNING  { "running" },
-    TERMINATED { "ended" }
+    WAITING,
+    RUNNING,
+    TERMINATED
 }
 
 // Basic structures
@@ -153,12 +153,12 @@ fn void test_comprehensive_marshaling() @test
     defer free(json);
 
     // Parse the marshaled JSON back to verify it's valid and correct
-    Object* parsed = json::tparse_string(json)!!;
+    Object* parsed = json::tparse(json)!!;
 
     // Verify primitive types
     assert(parsed.get_string("text")!! == "Hello \"World\"");
     assert(parsed.get_int("integer")!! == 42);
-    assert(parsed.get_float("single_precision")!! == 3.14f);
+    assert((float)parsed.get_float("single_precision")!! == 3.14f);
     assert(parsed.get_bool("flag")!! == true);
 
     // Verify enums (marshaled as strings)
@@ -171,7 +171,7 @@ fn void test_comprehensive_marshaling() @test
     assert(owner.get_string("name")!! == "John Doe");
     assert(owner.get_int("age")!! == 30);
     assert(owner.get_bool("is_active")!! == true);
-    assert(owner.get_float("height")!! == 5.9f);
+    assert((float)owner.get_float("height")!! == 5.9f);
     assert(owner.get_string("status")!! == "ACTIVE");
 
     Object* location = parsed.get("location")!!;
@@ -193,8 +193,8 @@ fn void test_comprehensive_marshaling() @test
 
     Object* ratings = parsed.get("ratings")!!;
     assert(ratings.get_len() == 3);
-    assert(ratings.get_float_at(0)!! == 4.5f);
-    assert(ratings.get_float_at(2)!! == 4.9f);
+    assert((float)ratings.get_float_at(0)!! == 4.5f);
+    assert((float)ratings.get_float_at(2)!! == 4.9f);
 
     Object* flags = parsed.get("flags")!!;
     assert(flags.get_len() == 3);
@@ -252,4 +252,150 @@ fn void test_comprehensive_marshaling() @test
     // Verify JSON format
     assert(json.starts_with("{"));
     assert(json.ends_with("}"));
+}
+
+struct User
+{
+	String username;
+	int created_at;
+}
+
+struct UserStats
+{
+	User user;
+	int[] stars;
+}
+
+fn void compact_indent_output() @test
+{
+	User user = { .username = "admin", .created_at = 611667900 };
+	String default_json = json::marshal(tmem, user);
+	assert(default_json == `{"username":"admin","created_at":611667900}`);
+	String explicit_json = json::marshal(tmem, user, NONE);
+	assert(explicit_json == `{"username":"admin","created_at":611667900}`);
+}
+
+fn void space_1_indent_output() @test
+{
+	User user = { .username = "admin", .created_at = 611667900 };
+	String json = json::marshal(tmem, user, SPACE_1);
+	assert(json == "{\n \"username\": \"admin\",\n \"created_at\": 611667900\n}");
+}
+
+fn void space_2_indent_output() @test
+{
+	User user = { .username = "admin", .created_at = 611667900 };
+	String json = json::marshal(tmem, user, SPACE_2);
+	assert(json == "{\n  \"username\": \"admin\",\n  \"created_at\": 611667900\n}");
+}
+
+fn void space_3_indent_output() @test
+{
+	User user = { .username = "admin", .created_at = 611667900 };
+	String json = json::marshal(tmem, user, SPACE_3);
+	assert(json == "{\n   \"username\": \"admin\",\n   \"created_at\": 611667900\n}");
+}
+
+fn void space_4_indent_output() @test
+{
+	User user = { .username = "admin", .created_at = 611667900 };
+	String json = json::marshal(tmem, user, SPACE_4);
+	assert(json == "{\n    \"username\": \"admin\",\n    \"created_at\": 611667900\n}");
+}
+
+fn void space_5_indent_output() @test
+{
+	User user = { .username = "admin", .created_at = 611667900 };
+	String json = json::marshal(tmem, user, SPACE_5);
+	assert(json == "{\n     \"username\": \"admin\",\n     \"created_at\": 611667900\n}");
+}
+
+fn void tab_indent_output() @test
+{
+	User user = { .username = "admin", .created_at = 611667900 };
+	String json = json::marshal(tmem, user, TAB);
+	assert(json == "{\n\t\"username\": \"admin\",\n\t\"created_at\": 611667900\n}");
+}
+
+fn void compact_nested_indent_output() @test
+{
+	User user = { .username = "admin", .created_at = 611667900 };
+	UserStats nested = {
+		.user = user,
+		.stars = { 1, 2 }
+	};
+	String json = json::marshal(tmem, nested, NONE);
+	assert(json == `{"user":{"username":"admin","created_at":611667900},"stars":[1,2]}`);
+}
+
+fn void nested_space_indent_output() @test
+{
+	User user = { .username = "admin", .created_at = 611667900 };
+	UserStats nested = {
+		.user = user,
+		.stars = { 1, 2 }
+	};
+	String json = json::marshal(tmem, nested, SPACE_2);
+	assert(json == "{\n  \"user\": {\n    \"username\": \"admin\",\n    \"created_at\": 611667900\n  },\n  \"stars\": [\n    1,\n    2\n  ]\n}");
+}
+
+fn void nested_tab_indent_output() @test
+{
+	User user = { .username = "admin", .created_at = 611667900 };
+	UserStats nested = {
+		.user = user,
+		.stars = { 1, 2 }
+	};
+	String json = json::marshal(tmem, nested, TAB);
+	assert(json == "{\n\t\"user\": {\n\t\t\"username\": \"admin\",\n\t\t\"created_at\": 611667900\n\t},\n\t\"stars\": [\n\t\t1,\n\t\t2\n\t]\n}");
+}
+
+struct DoublePrecision
+{
+	double x;
+}
+
+struct FloatPrecision
+{
+	float x;
+}
+
+fn void double_roundtrip_pi() @test
+{
+	DoublePrecision v = { .x = 3.141592653589793 };
+	String json = json::marshal(tmem, v);
+	Object* parsed = json::tparse(json)!!;
+	assert(parsed.get_float("x")!! == 3.141592653589793);
+}
+
+fn void double_roundtrip_max_significant() @test
+{
+	DoublePrecision v = { .x = 1.2345678901234567 };
+	String json = json::marshal(tmem, v);
+	Object* parsed = json::tparse(json)!!;
+	assert(parsed.get_float("x")!! == 1.2345678901234567);
+}
+
+fn void double_roundtrip_small() @test
+{
+	DoublePrecision v = { .x = 1.7976931348623157e-300 };
+	String json = json::marshal(tmem, v);
+	Object* parsed = json::tparse(json)!!;
+	assert(parsed.get_float("x")!! == 1.7976931348623157e-300);
+}
+
+fn void double_roundtrip_negative() @test
+{
+	DoublePrecision v = { .x = -2.2250738585072014e-308 };
+	String json = json::marshal(tmem, v);
+	Object* parsed = json::tparse(json)!!;
+	assert(parsed.get_float("x")!! == -2.2250738585072014e-308);
+}
+
+fn void float_roundtrip_precise() @test
+{
+	FloatPrecision v = { .x = 1.23456789f };
+	String json = json::marshal(tmem, v);
+	Object* parsed = json::tparse(json)!!;
+	assert((float)parsed.get_float("x")!! == 1.23456789f);
 }

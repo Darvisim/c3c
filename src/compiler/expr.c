@@ -33,8 +33,9 @@ const char *expr_kind_to_string(ExprKind kind)
 		case EXPR_COND: return "cond";
 		case EXPR_CONST: return "const";
 		case EXPR_TYPECALL: return "typecall";
-		case EXPR_CT_ARG: return "ct_arg";
-		case EXPR_CT_CALL: return "ct_call";
+		case EXPR_VAARG: return "vaarg";
+		case EXPR_VACOUNT: return "vacount";
+		case EXPR_CT_FEATURE: return "ct_feature";
 		case EXPR_CT_DEFINED: return "ct_defined";
 		case EXPR_CT_EVAL: return "ct_eval";
 		case EXPR_CT_IDENT: return "ct_ident";
@@ -68,6 +69,7 @@ const char *expr_kind_to_string(ExprKind kind)
 		case EXPR_MEMBER_GET: return "member_get";
 		case EXPR_MEMBER_SET: return "member_set";
 		case EXPR_NAMED_ARGUMENT: return "named_argument";
+		case EXPR_NAMED_EVAL_ARGUMENT: return "named_eval_argument";
 		case EXPR_NOP: return "nop";
 		case EXPR_OPERATOR_CHARS: return "operator_chars";
 		case EXPR_OPTIONAL: return "optional";
@@ -172,6 +174,7 @@ bool expr_is_zero(Expr *expr)
 		case CONST_REF:
 			return !expr->const_expr.global_ref;
 		case CONST_MEMBER:
+		case CONST_REFLECTION:
 			return false;
 	}
 	UNREACHABLE
@@ -183,116 +186,6 @@ bool expr_is_unwrapped_ident(Expr *expr)
 	if (decl->decl_kind != DECL_VAR) return false;
 	return decl->var.kind == VARDECL_UNWRAPPED && IS_OPTIONAL(decl->var.alias);
 }
-
-bool expr_may_addr(Expr *expr)
-{
-	if (IS_OPTIONAL(expr)) return false;
-	switch (expr->expr_kind)
-	{
-		case UNRESOLVED_EXPRS:
-			UNREACHABLE
-		case EXPR_IDENTIFIER:
-		{
-			Decl *decl = expr->ident_expr;
-			if (decl->decl_kind != DECL_VAR) return false;
-			decl = decl_raw(decl);
-			switch (decl->var.kind)
-			{
-				case VARDECL_LOCAL:
-				case VARDECL_GLOBAL:
-				case VARDECL_PARAM:
-				case VARDECL_CONST:
-					return true;
-				case VARDECL_MEMBER:
-				case VARDECL_BITMEMBER:
-				case VARDECL_PARAM_CT:
-				case VARDECL_PARAM_CT_TYPE:
-				case VARDECL_LOCAL_CT:
-				case VARDECL_LOCAL_CT_TYPE:
-				case VARDECL_PARAM_EXPR:
-					return false;
-				case VARDECL_UNWRAPPED:
-				case VARDECL_ERASE:
-				case VARDECL_REWRAPPED:
-					UNREACHABLE
-			}
-		}
-		case EXPR_UNARY:
-			return expr->unary_expr.operator == UNARYOP_DEREF;
-		case EXPR_BITACCESS:
-		case EXPR_ACCESS_RESOLVED:
-			return expr_may_addr(expr->access_resolved_expr.parent);
-		case EXPR_SUBSCRIPT:
-		case EXPR_MEMBER_GET:
-			return true;
-		case EXPR_ADDR_CONVERSION:
-		case EXPR_BENCHMARK_HOOK:
-		case EXPR_DISCARD:
-		case EXPR_ENUM_FROM_ORD:
-		case EXPR_FLOAT_TO_INT:
-		case EXPR_INT_TO_FLOAT:
-		case EXPR_INT_TO_PTR:
-		case EXPR_MEMBER_SET:
-		case EXPR_PTR_ACCESS:
-		case EXPR_PTR_TO_INT:
-		case EXPR_RECAST:
-		case EXPR_RVALUE:
-		case EXPR_SCALAR_TO_VECTOR:
-		case EXPR_SLICE:
-		case EXPR_SLICE_LEN:
-		case EXPR_SLICE_TO_VEC_ARRAY:
-		case EXPR_TEST_HOOK:
-		case EXPR_TWO:
-		case EXPR_VECTOR_FROM_ARRAY:
-		case EXPR_VECTOR_TO_ARRAY:
-			return false;
-		case NON_RUNTIME_EXPR:
-		case EXPR_ASM:
-		case EXPR_BINARY:
-		case EXPR_BITASSIGN:
-		case EXPR_BUILTIN:
-		case EXPR_BUILTIN_ACCESS:
-		case EXPR_CALL:
-		case EXPR_MAKE_ANY:
-		case EXPR_CATCH:
-		case EXPR_COND:
-		case EXPR_CONST:
-		case EXPR_DECL:
-		case EXPR_DEFAULT_ARG:
-		case EXPR_DESIGNATED_INITIALIZER_LIST:
-		case EXPR_DESIGNATOR:
-		case EXPR_EXPRESSION_LIST:
-		case EXPR_FORCE_UNWRAP:
-		case EXPR_INITIALIZER_LIST:
-		case EXPR_LAMBDA:
-		case EXPR_LAST_FAULT:
-		case EXPR_MACRO_BLOCK:
-		case EXPR_MACRO_BODY_EXPANSION:
-		case EXPR_NAMED_ARGUMENT:
-		case EXPR_NOP:
-		case EXPR_OPERATOR_CHARS:
-		case EXPR_OPTIONAL:
-		case EXPR_POINTER_OFFSET:
-		case EXPR_POST_UNARY:
-		case EXPR_RETHROW:
-		case EXPR_RETVAL:
-		case EXPR_SLICE_ASSIGN:
-		case EXPR_SLICE_COPY:
-		case EXPR_SUBSCRIPT_ADDR:
-		case EXPR_SUBSCRIPT_ASSIGN:
-		case EXPR_SWIZZLE:
-		case EXPR_TERNARY:
-		case EXPR_TRY:
-		case EXPR_TRY_UNWRAP_CHAIN:
-		case EXPR_TYPEID_INFO:
-		case EXPR_EXT_TRUNC:
-		case EXPR_INT_TO_BOOL:
-		case EXPR_MAKE_SLICE:
-			return false;
-	}
-	UNREACHABLE
-}
-
 
 bool expr_is_runtime_const(Expr *expr)
 {
@@ -315,6 +208,7 @@ RETRY:
 		case EXPR_OPERATOR_CHARS:
 		case EXPR_STRINGIFY:
 		case EXPR_CT_DEFINED:
+		case EXPR_CT_REFLECT:
 		case EXPR_LAMBDA:
 		case EXPR_DECL:
 		case EXPR_CALL:
@@ -480,14 +374,14 @@ RETRY:
 		case EXPR_COMPILER_CONST:
 			// Not foldable
 			return false;
-		case EXPR_CT_CALL:
+		case EXPR_CT_FEATURE:
 		case EXPR_TYPEINFO:
 		case EXPR_HASH_IDENT:
 		case EXPR_POISONED:
-		case EXPR_CT_ARG:
 		case EXPR_ASM:
 		case EXPR_SUBSCRIPT_ASSIGN:
 		case EXPR_NAMED_ARGUMENT:
+		case EXPR_NAMED_EVAL_ARGUMENT:
 		case EXPR_CONTRACT:
 			UNREACHABLE
 	}
@@ -692,10 +586,11 @@ void expr_rewrite_to_const_zero(Expr *expr, Type *type)
 		case TYPE_OPTIONAL:
 		case TYPE_TYPEINFO:
 		case TYPE_MEMBER:
+		case TYPE_REFLECTION:
 		case TYPE_INFERRED_ARRAY:
 		case TYPE_FLEXIBLE_ARRAY:
 			UNREACHABLE_VOID
-		case TYPE_UNTYPED_LIST:
+		case TYPE_UNTYPEDLIST:
 			expr->const_expr.const_kind = CONST_UNTYPED_LIST;
 			expr->const_expr.untyped_list = NULL;
 			expr->resolve_status = RESOLVE_DONE;
@@ -731,6 +626,7 @@ Expr *expr_from_const_expr_at_index(Expr *expr, ArrayIndex index)
 		case CONST_TYPEID:
 		case CONST_REF:
 		case CONST_MEMBER:
+		case CONST_REFLECTION:
 			UNREACHABLE
 		case CONST_BYTES:
 		case CONST_STRING:
@@ -831,10 +727,10 @@ bool expr_is_pure(Expr *expr)
 		case EXPR_COMPILER_CONST:
 		case EXPR_CONST:
 		case EXPR_TYPECALL:
-		case EXPR_CT_ARG:
-		case EXPR_CT_CALL:
+		case EXPR_CT_FEATURE:
 		case EXPR_CT_DEFINED:
 		case EXPR_CT_EVAL:
+		case EXPR_CT_REFLECT:
 		case EXPR_IDENTIFIER:
 		case EXPR_LAMBDA:
 		case EXPR_NOP:
@@ -889,6 +785,7 @@ bool expr_is_pure(Expr *expr)
 		case EXPR_HASH_IDENT:
 		case EXPR_MACRO_BLOCK:
 		case EXPR_NAMED_ARGUMENT:
+		case EXPR_NAMED_EVAL_ARGUMENT:
 		case EXPR_INITIALIZER_LIST:
 		case EXPR_DESIGNATED_INITIALIZER_LIST:
 		case EXPR_POST_UNARY:
@@ -963,6 +860,9 @@ bool expr_is_simple(Expr *expr, bool to_float)
 					FALLTHROUGH;
 				case BINARYOP_MOD:
 				case BINARYOP_ELSE:
+				case BINARYOP_BIT_AND:
+				case BINARYOP_BIT_OR:
+				case BINARYOP_BIT_XOR:
 					return exprid_is_simple(expr->binary_expr.left, to_float) && exprid_is_simple(expr->binary_expr.right, to_float);
 				case BINARYOP_AND:
 				case BINARYOP_OR:
@@ -1061,6 +961,20 @@ Expr *expr_new_const_int(SourceLocId loc, Type *type, uint64_t v)
 	expr->const_expr.ixx.type = kind;
 	expr->const_expr.is_character = false;
 	expr->const_expr.const_kind = CONST_INTEGER;
+	expr->resolve_status = RESOLVE_DONE;
+	return expr;
+}
+
+Expr *expr_new_const_float(SourceLocId loc, Type *type, Real v)
+{
+	Expr *expr = expr_calloc();
+	expr->expr_kind = EXPR_CONST;
+	expr->loc = loc;
+	expr->type = type;
+	TypeKind kind = type_flatten(type)->type_kind;
+	expr->const_expr.fxx.f = v;
+	expr->const_expr.fxx.type = kind;
+	expr->const_expr.const_kind = CONST_FLOAT;
 	expr->resolve_status = RESOLVE_DONE;
 	return expr;
 }
@@ -1171,15 +1085,19 @@ void expr_rewrite_const_ref(Expr *expr_to_rewrite, Decl *decl)
 	expr_to_rewrite->expr_kind = EXPR_CONST;
 }
 
-void expr_rewrite_const_string(Expr *expr_to_rewrite, const char *string)
+void expr_rewrite_const_string(Expr *expr_to_rewrite, const char *string, ArrayIndex len)
 {
 	expr_to_rewrite->expr_kind = EXPR_CONST;
 	expr_to_rewrite->const_expr.const_kind = CONST_STRING;
 	expr_to_rewrite->const_expr.bytes.ptr = (char *)string;
-	ArraySize len = (ArraySize)strlen(string);
 	expr_to_rewrite->const_expr.bytes.len = len;
 	expr_to_rewrite->resolve_status = RESOLVE_DONE;
 	expr_to_rewrite->type = type_string;
+}
+
+void expr_rewrite_const_string_from_raw(Expr *expr_to_rewrite, const char *string)
+{
+	expr_rewrite_const_string(expr_to_rewrite, string, (ArrayIndex)strlen(string));
 }
 
 void expr_rewrite_to_binary(Expr *expr_to_rewrite, Expr *left, Expr *right, BinaryOp op)

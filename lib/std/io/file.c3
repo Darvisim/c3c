@@ -16,7 +16,7 @@ fn File? open(String filename, String mode)
 
 fn File? open_path(Path path, String mode)
 {
-	return from_handle(os::native_fopen(path.str_view(), mode));
+	return from_handle(os::native_fopen((String)path, mode));
 }
 
 fn bool exists(String file) => @pool()
@@ -55,7 +55,7 @@ fn Time? last_modified(String filename)
 	return (Time)(seconds * (Time_t)time::SEC);
 }
 
-fn void? delete(String filename)
+fn void? delete(String filename) @maydiscard
 {
 	return os::native_remove(filename) @inline;
 }
@@ -72,16 +72,7 @@ fn void? File.reopen(&self, String filename, String mode)
 <*
  @require self.file != null
 *>
-fn long? File.seek(&self, long offset, Seek seek_mode = Seek.SET) @dynamic
-{
-	os::native_fseek(self.file, offset, (SeekOrigin)seek_mode.ordinal)!;
-	return os::native_ftell(self.file);
-}
-
-<*
- @require self.file != null
-*>
-fn void? File.set_cursor(&self, long offset, SeekOrigin whence = FROM_START) @dynamic
+fn void? File.seek(&self, long offset, SeekOrigin whence = FROM_START) @dynamic
 {
 	return os::native_fseek(self.file, offset, whence);
 }
@@ -121,8 +112,9 @@ fn void? File.write_byte(&self, char c) @dynamic
 <*
  @param [&inout] self
 *>
-fn void? File.close(&self) @inline @dynamic
+fn void? File.close(&self) @inline @dynamic @maydiscard
 {
+	defer self.file = null;
 	if (self.file && libc::fclose(self.file))
 	{
 		switch (libc::errno())
@@ -141,14 +133,13 @@ fn void? File.close(&self) @inline @dynamic
 			default: return io::UNKNOWN_ERROR~;
 		}
 	}
-	self.file = null;
 }
 
 fn long? File.size(&self) @dynamic
 {
 	long curr = self.cursor()!;
-	defer (void)self.set_cursor(curr);
-	self.set_cursor(0, FROM_END)!;
+	defer (void)self.seek(curr);
+	self.seek(0, FROM_END)!;
 	return self.cursor()!;
 }
 
@@ -200,6 +191,7 @@ fn char? File.read_byte(&self) @dynamic
 
  @param filename : "The path to the file to read"
  @param [in] buffer : "The buffer to read to"
+ @return? io::OVERFLOW, io::read_buffer_to_end!
 *>
 fn char[]? load_buffer(String filename, char[] buffer)
 {
@@ -207,46 +199,40 @@ fn char[]? load_buffer(String filename, char[] buffer)
 	defer (void)file.close();
 	long len = file.size()!;
 	if (len > buffer.len) return io::OVERFLOW~;
-	sz read = 0;
-	while (read < len)
-	{
-		read += file.read(buffer[read:len - read])!;
-	}
-	return buffer[:len];
-
+	return io::read_buffer_to_end(file, buffer[:len]);
 }
 
+<*
+ Loads a file into memory
+ @return? io::OUT_OF_SPACE, io::read_buffer_to_end!
+*>
 fn char[]? load(Allocator allocator, String filename)
 {
 	File file = open(filename, "rb")!;
 	defer (void)file.close();
 	long len = file.size()!;
-	if (len > sz.max) return io::OUT_OF_SPACE~;
+	if (len > sz::max) return io::OUT_OF_SPACE~;
 	char* data = alloc::malloc_try(allocator, (sz)len)!;
 	defer catch alloc::free(allocator, data);
-	sz read = 0;
-	while (read < (sz)len)
-	{
-		read += file.read(data[read:(sz)len - read])!;
-	}
-	return data[:(sz)len];
+	return io::read_buffer_to_end(file, data[:len]);
 }
 
-fn char[]? load_path(Allocator allocator, Path path) => load(allocator, path.str_view());
+fn char[]? load_path(Allocator allocator, Path path) => load(allocator, (String)path);
 
 fn char[]? load_temp(String filename) => load(tmem, filename);
 
-fn char[]? load_path_temp(Path path) => load_temp(path.str_view());
+fn char[]? load_path_temp(Path path) => load_temp((String)path);
 
+<*
+ Save the data to a file. Not atomic.
+
+ @return? io::write_all!
+*>
 fn void? save(String filename, char[] data)
 {
 	File file = open(filename, "wb")!;
 	defer (void)file.close();
-	while (data.len)
-	{
-		sz written = file.write(data)!;
-		data = data[written..];
-	}
+	io::write_all(&file, data)!;
 }
 
 <*
