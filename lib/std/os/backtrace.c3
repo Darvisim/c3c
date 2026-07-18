@@ -84,8 +84,12 @@ fn void*[] capture_current(void*[] buffer)
 	if (!buffer.len) return buffer[:0];
 	$switch:
 		$case env::POSIX:
-			CInt len = posix::backtrace(buffer.ptr, buffer.len);
-			return buffer[:len];
+			$if env::BSD_FAMILY:
+				usz len = posix::backtrace(buffer.ptr, buffer.len);
+			$else:
+				CInt len = posix::backtrace(buffer.ptr, buffer.len);
+			$endif
+				return buffer[:len];
 		$case env::WIN32:
 			Win32_WORD len = win32::rtlCaptureStackBackTrace(0, (usz)buffer.len, buffer.ptr, null);
 			return buffer[:len];
