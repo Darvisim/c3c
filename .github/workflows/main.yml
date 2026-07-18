@@ -1031,7 +1031,7 @@ jobs:
   
   release:
     runs-on: ubuntu-slim
-    needs: [build-msvc, build-msvc-arm64, build-linux, build-mac, build-linux-alpine, build-openbsd, build-netbsd, build-android, build-linux-musl-static]
+    needs: [build-msvc, build-msvc-arm64, build-linux, build-mac, build-linux-alpine, build-openbsd, build-netbsd, build-freebsd, build-android, build-linux-musl-static]
     if: github.ref == 'refs/heads/master' || endsWith(github.ref, '.x')
     permissions:
       contents: write
@@ -1046,7 +1046,7 @@ jobs:
       - name: Prepare Assets
         run: |
           for config in Release Debug; do
-            for platform in windows windows-aarch64 macos linux linux-musl linux-static openbsd netbsd android-aarch64 android-x86_64 windows-setup windows-setup-aarch64; do
+            for platform in windows windows-aarch64 macos linux linux-musl linux-static openbsd netbsd freebsd android-aarch64 android-x86_64 windows-setup windows-setup-aarch64; do
               if [ "$platform" = "windows-setup" ] || [ "$platform" = "windows-setup-aarch64" ]; then
                 ext="exe"
               # Windows and macOS produce zip, others tar.gz
