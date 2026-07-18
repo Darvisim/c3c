@@ -39,7 +39,7 @@ extern fn CInt kill(Pid_t pid, CInt sig);
 extern fn Pid_t waitpid(Pid_t pid, CInt* stat_loc, int options);
 extern fn CInt raise(CInt sig);
 extern fn usz backtrace(void** buffer, CInt size) @if(env::BSD_FAMILY);
-extern fn CInt backtrace(void** buffer, CInt size) @if(!env::BSD_FAMILY);
+extern fn CInt backtrace(void** buffer, CInt size) @if(!env::BSD_FAMILY && !env::LINUX && !env::ANDROID && !env::EMSCRIPTEN);
 extern fn ZString* backtrace_symbols(void** buffer, usz size) @if(env::BSD_FAMILY);
 extern fn ZString* backtrace_symbols(void** buffer, CInt size) @if(!env::BSD_FAMILY);
 extern fn CInt backtrace_symbols_fd(void** buffer, usz size, CInt fd) @if(env::BSD_FAMILY);
@@ -78,6 +78,49 @@ fn void install_signal_handler(CInt signal, SigActionFunction func)
 
     Sigaction old;
     libc::sigaction(signal, &action, &old);
+}
+
+fn CInt backtrace(void** buffer, CInt size) @if(env::LINUX || env::ANDROID || env::EMSCRIPTEN)
+{
+	if (size < 1) return 0;
+	void* handle = libc::dlopen("libc.so.6", libc::RTLD_LAZY|libc::RTLD_NODELETE);
+	if (handle)
+	{
+		defer libc::dlclose(handle);
+		BacktraceFn backtrace_fn = libc::dlsym(handle, "backtrace");
+		if (backtrace_fn)
+		{
+			return backtrace_fn(buffer, size);
+		}
+	}
+	// Loop through the return addresses until we hit a signal.
+	// This avoids using the frame address.
+	Sigaction restore_backtrace = {
+		.sa_sigaction = fn void(CInt, void*, void*) { libc::siglongjmp(&backtrace_jmpbuf, 1); },
+		.sa_flags = libc::SA_SIGINFO
+	};
+	Sigaction sig_bus, sig_segv, sig_ill;
+	libc::sigaction(libc::SIGBUS, &restore_backtrace, &sig_bus);
+	libc::sigaction(libc::SIGSEGV, &restore_backtrace, &sig_segv);
+	libc::sigaction(libc::SIGILL, &restore_backtrace, &sig_ill);
+
+	int i = 0;
+	if (libc::sigsetjmp(&backtrace_jmpbuf, 1) == 0)
+	{
+		for (i = 0; i < size; i++)
+		{
+			void* addr = builtin::get_returnaddress(i);
+			if (!addr) break;
+			buffer[i] = addr;
+		}
+	}
+
+	Sigaction old;
+	libc::sigaction(libc::SIGBUS, &sig_bus, &old);
+	libc::sigaction(libc::SIGSEGV, &sig_segv, &old);
+	libc::sigaction(libc::SIGILL, &sig_ill, &old);
+
+	return i;
 }
 
 struct PosixUContext_t @if(env::DARWIN)
