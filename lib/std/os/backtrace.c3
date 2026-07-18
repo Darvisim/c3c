@@ -86,7 +86,7 @@ fn void*[] capture_current(void*[] buffer)
 		$case env::POSIX:
 			$if env::BSD_FAMILY:
 				usz len = posix::backtrace(buffer.ptr, buffer.len);
-			$else:
+			$else
 				CInt len = posix::backtrace(buffer.ptr, buffer.len);
 			$endif
 				return buffer[:len];
