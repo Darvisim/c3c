@@ -22,6 +22,7 @@ env:
   LLVM_RELEASE_VERSION_LINUX_MUSL: 21
   LLVM_RELEASE_VERSION_OPENBSD: 20
   LLVM_RELEASE_VERSION_NETBSD: 19
+  LLVM_RELEASE_VERSION_FREEBSD: 19
   LLVM_DEV_VERSION: 22
   # CACHE_INVALIDATION_SEED: '%Y-%m-%d' # Daily
   CACHE_INVALIDATION_SEED: '%G-%V-1'   # Weekly
@@ -723,6 +724,65 @@ jobs:
         with:
           name: c3-netbsd-Debug
           path: c3-netbsd-Debug.tar.gz
+
+  build-freebsd:
+    name: FreeBSD (x64) ${{ matrix.version }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ['15.0']
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup FreeBSD VM
+        uses: cross-platform-actions/action@master
+        with:
+          operating_system: freebsd
+          version: ${{ matrix.version }}
+          cpu_count: 4
+          memory: 6G
+
+      - name: Install Dependencies
+        shell: cpa.sh {0}
+        run: |
+          for i in 1 2 3; do
+            sudo pkg install -y ninja cmake llvm${{ env.LLVM_RELEASE_VERSION_FREEBSD }} curl bash && break || sleep 5
+          done
+          
+      - name: Build (Release)
+        shell: cpa.sh {0}
+        run: |
+          cmake -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-release
+          
+      - name: Build (Debug)
+        shell: cpa.sh {0}
+        run: |
+          cmake -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-debug
+          
+      - name: Run Tests
+        shell: cpa.sh {0}
+        run: ./scripts/tools/ci_tests.sh "./build-debug/c3c"
+
+      - name: Package
+        shell: cpa.sh {0}
+        run: |
+          ./scripts/tools/package_build.sh "./build-release/c3c" "c3-freebsd-Release" "tar"
+          ./scripts/tools/package_build.sh "./build-debug/c3c" "c3-freebsd-Debug" "tar"
+          
+      - name: Upload Artifacts (Release)
+        uses: actions/upload-artifact@v7
+        with:
+          name: c3-freebsd-Release
+          path: c3-freebsd-Release.tar.gz
+
+      - name: Upload Artifacts (Debug)
+        uses: actions/upload-artifact@v7
+        with:
+          name: c3-freebsd-Debug
+          path: c3-freebsd-Debug.tar.gz
 
   build-with-docker:
     name: LLVM ${{ matrix.llvm_version }} Compatibility
