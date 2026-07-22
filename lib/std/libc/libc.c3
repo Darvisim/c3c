@@ -8,8 +8,7 @@ const int EXIT_FAILURE = 1;
 const int EXIT_SUCCESS = 0;
 const int RAND_MAX = 0x7fffffff;
 
-alias WChar @if(env::WIN32) = Char16;
-alias WChar @if(!env::WIN32) = Char32;
+alias WChar = env::WIN32 ? Char16 : Char32;
 
 struct DivResult
 {
@@ -71,6 +70,7 @@ module libc @if(env::LIBC);
 
 extern fn void abort();
 extern fn CInt abs(CInt n);
+extern fn void* aligned_alloc(usz align, usz size) @if(!env::WIN32);
 extern fn ZString asctime(Tm* timeptr);
 extern fn ZString asctime_r(Tm* timeptr, char* buf) @if(!env::WIN32);
 extern fn CInt atexit(TerminateFunction func);
@@ -93,7 +93,7 @@ extern fn CInt ferror(CFile stream);
 extern fn CInt fflush(CFile stream);
 extern fn CInt fgetc(CFile stream);
 extern fn ZString fgets(char* string, CInt n, CFile stream);
-extern fn CInt fgetpos(CFile stream, Fpos_t* pos) @if(!env::NETBSD);
+extern fn CInt fgetpos(CFile stream, Fpos_t* pos) @cname(env::NETBSD ??? "__fgetpos50" : "fgetpos");
 extern fn Fd fileno(CFile stream) @if(!env::WIN32);
 extern fn CFile fopen(ZString filename, ZString mode);
 extern fn CInt fprintf(CFile stream, ZString format, ...);
@@ -104,7 +104,7 @@ extern fn void free(void*);
 extern fn CFile freopen(ZString filename, ZString mode, CFile stream);
 extern fn CInt fscanf(CFile stream, ZString format, ...);
 extern fn CInt fseek(CFile stream, SeekIndex offset, CInt whence) @if(!env::WIN32);
-extern fn CInt fsetpos(CFile stream, Fpos_t* pos) @if(!env::NETBSD);
+extern fn CInt fsetpos(CFile stream, Fpos_t* pos) @cname(env::NETBSD ??? "__fgetpos50" : "fgetpos");
 extern fn SeekIndex ftell(CFile stream) @if(!env::WIN32);
 extern fn usz fwrite(void* ptr, usz size, usz nmemb, CFile stream);
 extern fn CInt getc(CFile stream);
@@ -112,16 +112,16 @@ extern fn CInt getchar();
 extern fn ZString getenv(ZString name);
 extern fn ZString gets(char* buffer);
 extern fn Tm* gmtime(Time_t* timer);
-extern fn Tm* gmtime_r(Time_t* timer, Tm* buf) @if(!env::WIN32 && !env::NETBSD);
+extern fn Tm* gmtime_r(Time_t* timer, Tm* buf) @cname(env::NETBSD ??? "__gmtime_r50" : "gmtime_r") @if(!env::WIN32);
 extern fn CInt ioctl(CInt fd, ulong request, ...);
 extern fn CInt isatty(Fd fd) @if(!env::WIN32);
 extern fn CLong labs(CLong x);
 extern fn LongDivResult ldiv(CLong number, CLong denom);
 extern fn Tm* localtime(Time_t* timer);
-extern fn Tm* localtime_r(Time_t* timer, Tm* result) @if(!env::WIN32 && !env::NETBSD);
-extern fn void longjmp(JmpBuf* buffer, CInt value) @if(!env::NETBSD && !env::EMSCRIPTEN);
-extern fn void longjmp(JmpBuf* buffer, CInt value) @cname("__longjmp14") @if(env::NETBSD);
+extern fn Tm* localtime_r(Time_t* timer, Tm* result) @cname(env::NETBSD ??? "__localtime_r50" : "localtime_r") @if(!env::WIN32);
+extern fn void longjmp(JmpBuf* buffer, CInt value) @cname(env::NETBSD ??? "__longjmp14" : "longjmp") @if(!env::EMSCRIPTEN);
 extern fn void* malloc(usz size);
+extern fn usz malloc_size(void* ptr) @if(env::DARWIN || env::OPENBSD || env::NETBSD);
 extern fn void* memchr(void* str, CInt c, usz n);
 extern fn CInt memcmp(void* buf1, void* buf2, usz count);
 extern fn void* memcpy(void* dest, void* src, usz n);
@@ -146,15 +146,11 @@ extern fn void rewind(CFile stream);
 extern fn CInt scanf(ZString format, ...);
 extern fn void setbuf(CFile stream, char* buffer);
 extern fn int setenv(ZString name, ZString value, CInt overwrite);
-extern fn CInt setjmp(JmpBuf* buffer) @if(!env::WIN32 && !env::NETBSD && !env::EMSCRIPTEN);
-extern fn CInt setjmp(JmpBuf* buffer) @cname("__setjmp14") @if(env::NETBSD);
+extern fn CInt setjmp(JmpBuf* buffer) @cname(env::NETBSD ??? "__setjmp14" : "setjmp") @if(!env::WIN32 && !env::EMSCRIPTEN);
 extern fn void setvbuf(CFile stream, char* buf, CInt type, usz size);
 extern fn SignalFunction signal(CInt sig, SignalFunction function);
-extern fn void siglongjmp(SigJmpBuf* buffer, CInt value) @if(!env::WIN32 && !env::NETBSD && !env::EMSCRIPTEN);
-extern fn void siglongjmp(SigJmpBuf* buffer, CInt value) @cname("__siglongjmp14") @if(env::NETBSD);
-extern fn CInt sigsetjmp(SigJmpBuf* buffer, CInt savemask) @if(!env::WIN32 && !env::NETBSD && !env::EMSCRIPTEN && !env::LINUX);
-extern fn CInt sigsetjmp(SigJmpBuf* buffer, CInt savemask) @cname("__sigsetjmp14") @if(env::NETBSD);
-extern fn CInt sigsetjmp(SigJmpBuf* buffer, CInt savemask) @cname("__sigsetjmp") @if(env::LINUX);
+extern fn void siglongjmp(SigJmpBuf* buffer, CInt value) @cname(env::NETBSD ??? "__siglongjmp14" : "siglongjmp") @if(!env::WIN32 && !env::EMSCRIPTEN);
+extern fn CInt sigsetjmp(SigJmpBuf* buffer, CInt savemask) @cname(env::NETBSD ??? "__sigsetjmp14" : env::LINUX ??? "__sigsetjmp" : "sigsetjmp") @if(!env::WIN32 && !env::EMSCRIPTEN);
 extern fn CInt snprintf(char* buffer, usz size, ZString format, ...);
 extern fn CInt sprintf(char* buffer, ZString format, ...);
 extern fn void srand(uint seed);
@@ -186,17 +182,17 @@ extern fn CULong strtoul(char* str, char** endptr, CInt base);
 extern fn usz strxfrm(char* dest, ZString src, usz n);
 extern fn CInt system(ZString str);
 extern fn ZString tempnam(ZString dir, ZString prefix) @cname(env::WIN32 ??? "_tempnam" : "tempnam") @nodiscard;
-extern fn Time_t timegm(Tm* timeptr) @if(!env::WIN32 && !env::NETBSD);
+extern fn Time_t timegm(Tm* timeptr) @cname(env::NETBSD ??? "__timegm50" : "timegm") @if(!env::WIN32);
 extern fn ZString tmpnam(char *buffer);
 extern fn CFile tmpfile();
 extern fn CInt ungetc(CInt c, CFile stream);
-extern fn CInt unsetenv(ZString name) @if(!env::NETBSD);
+extern fn CInt unsetenv(ZString name) @cname(env::NETBSD ??? "__unsetenv13" : "unsetenv");
 extern fn sz write(Fd fd, void* buffer, usz count) @if(!env::WIN32);
 
 extern fn CFile fmemopen(void* ptr, usz size, ZString mode);
 extern fn sz getline(char** linep, usz* linecapp, CFile stream);
 extern fn CInt timespec_get(TimeSpec* ts, CInt base);
-extern fn CInt nanosleep(TimeSpec* req, TimeSpec* remaining) @if(!env::NETBSD);
+extern fn CInt nanosleep(TimeSpec* req, TimeSpec* remaining) @cname(env::NETBSD ??? "__nanosleep50" : "nanosleep");
 extern fn ZString ctime(Time_t* timer);
 extern fn Time_t time(Time_t* timer);
 
@@ -208,9 +204,6 @@ module libc @if(env::LINUX || env::ANDROID || env::EMSCRIPTEN);
 extern CFile __stdin @cname("stdin");
 extern CFile __stdout @cname("stdout");
 extern CFile __stderr @cname("stderr");
-extern fn usz malloc_usable_size(void* ptr);
-macro usz malloc_size(void* ptr) => malloc_usable_size(ptr);
-extern fn void* aligned_alloc(usz align, usz size);
 macro CFile stdin() => __stdin;
 macro CFile stdout() => __stdout;
 macro CFile stderr() => __stderr;
@@ -236,16 +229,6 @@ fn void siglongjmp(SigJmpBuf* ptr, CInt i) => os::exit(i);
 
 
 module libc @if(env::NETBSD || env::OPENBSD);
-extern fn int fcntl(CInt socket, int cmd, ...);
-extern fn usz malloc_size(void* ptr);
-extern fn void* aligned_alloc(usz align, usz size);
-extern fn Tm* gmtime_r(Time_t* timer, Tm* buf) @cname("__gmtime_r50") @if(env::NETBSD);
-extern fn Tm* localtime_r(Time_t* timer, Tm* result) @cname("__localtime_r50") @if(env::NETBSD);
-extern fn CInt nanosleep(TimeSpec* req, TimeSpec* remaining) @cname("__nanosleep50") @if(env::NETBSD);
-extern fn CInt fgetpos(CFile stream, Fpos_t* pos) @cname("__fgetpos50") @if(env::NETBSD);
-extern fn CInt fsetpos(CFile stream, Fpos_t* pos) @cname("__fsetpos50") @if(env::NETBSD);
-extern fn Time_t timegm(Tm* timeptr) @cname("__timegm50") @if(env::NETBSD);
-extern fn CInt unsetenv(ZString name) @cname("__unsetenv13") @if(env::NETBSD);
 macro CFile stdin() { return fdopen(0, "r"); }
 macro CFile stdout() { return fdopen(1, "w"); }
 macro CFile stderr() { return fdopen(2, "w"); }
@@ -254,13 +237,11 @@ module libc @if(env::DARWIN || env::FREEBSD);
 extern CFile __stdinp;
 extern CFile __stdoutp;
 extern CFile __stderrp;
-extern fn usz malloc_size(void* ptr) @if(!env::FREEBSD);
-extern fn void* aligned_alloc(usz align, usz size);
 macro CFile stdin() => __stdinp;
 macro CFile stdout() => __stdoutp;
 macro CFile stderr() => __stderrp;
 
-module libc @if(env::FREEBSD);
+module libc @if(env::FREEBSD || env::LINUX || env::ANDROID || env::EMSCRIPTEN);
 extern fn usz malloc_usable_size(void* ptr);
 macro usz malloc_size(void* ptr) => malloc_usable_size(ptr);
 
@@ -467,19 +448,15 @@ struct TimeSpec
 }
 
 
-alias Clock_t @if(env::WIN32) = int;
-alias Clock_t @if(!env::WIN32) = CLong;
-
-alias TimeOffset @if(env::WASI) = int;
-alias TimeOffset @if(!env::WASI) = CLong;
+alias Clock_t = env::WIN32 ? int : CLong;
+alias TimeOffset = env::WASI ? int : CLong;
 
 const int TIME_UTC = 1;
 
 
 // This is a best-effort approximation, but the C standard does not enforce
 // that this is a compile-time standard.
-const CLOCKS_PER_SEC @if(env::WIN32) = 1000;
-const CLOCKS_PER_SEC @if(!env::WIN32) = 1000000;
+const CLOCKS_PER_SEC = env::WIN32 ? 1000 : 1000000;
 
 constdef Errno : inline CInt @if(env::DARWIN)
 {
