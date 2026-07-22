@@ -104,7 +104,7 @@ extern fn void free(void*);
 extern fn CFile freopen(ZString filename, ZString mode, CFile stream);
 extern fn CInt fscanf(CFile stream, ZString format, ...);
 extern fn CInt fseek(CFile stream, SeekIndex offset, CInt whence) @if(!env::WIN32);
-extern fn CInt fsetpos(CFile stream, Fpos_t* pos) @cname(env::NETBSD ??? "__fgetpos50" : "fgetpos");
+extern fn CInt fsetpos(CFile stream, Fpos_t* pos) @cname(env::NETBSD ??? "__fsetpos50" : "fsetpos");
 extern fn SeekIndex ftell(CFile stream) @if(!env::WIN32);
 extern fn usz fwrite(void* ptr, usz size, usz nmemb, CFile stream);
 extern fn CInt getc(CFile stream);
