@@ -238,7 +238,7 @@ struct PosixUContext_t @if(env::FREEBSD && env::X86_64)
 	int[4] __spare__;
 }
 
-struct Sigcontext @if(env::OPENBSD && X86_64)
+struct Sigcontext @if(env::OPENBSD && env::X86_64)
 {
 	long sc_cookie;
 	long sc_mask;
@@ -253,7 +253,7 @@ struct Sigcontext @if(env::OPENBSD && X86_64)
 	long[8] sc_xxx;
 }
 
-alias PosixUContext_t @if(env::OPENBSD && X86_64) = Sigcontext;
+alias PosixUContext_t @if(env::OPENBSD && env::X86_64) = Sigcontext;
 
 alias PosixUContext_t @if(!env::DARWIN && !((env::LINUX || env::BSD_FAMILY) && env::X86_64)) = void;
 
