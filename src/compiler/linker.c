@@ -821,7 +821,7 @@ static void linker_setup_bsd(const char ***args_ref, Linker linker_type, bool is
 	}
 	else
 	{
-		if (!is_openbsd) add_concat_file_arg(crt_dir, "crti.o");
+		add_concat_file_arg(crt_dir, "crti.o");
 		if (is_dylib || is_pie_pic_mode)
 		{
 			if (!is_dylib && is_pie(compiler.platform.reloc_model)) add_plain_arg("-pie");
@@ -835,7 +835,7 @@ static void linker_setup_bsd(const char ***args_ref, Linker linker_type, bool is
 			add_concat_file_arg(crt_dir, "crtbegin.o");
 			add_concat_file_arg(crt_dir, "crtend.o");
 		}
-		if (!is_openbsd) add_concat_file_arg(crt_dir, "crtn.o");
+		add_concat_file_arg(crt_dir, "crtn.o");
 	}
 	add_concat_quote_arg("-L", crt_dir);
 	if (compiler.build.bsd_sysroot)
@@ -863,15 +863,9 @@ static void linker_setup_bsd(const char ***args_ref, Linker linker_type, bool is
 			add_plain_arg("--dynamic-linker=/libexec/ld-elf.so.1");
 	}
 	linking_add_link(&compiler.linking, "c");
-	if (is_openbsd)
-	{
-		linking_add_link(&compiler.linking, "execinfo");
-	}
-	else
-	{
-		linking_add_link(&compiler.linking, "gcc");
-		linking_add_link(&compiler.linking, "gcc_s");
-	}
+	linking_add_link(&compiler.linking, "execinfo");
+	linking_add_link(&compiler.linking, "gcc");
+	linking_add_link(&compiler.linking, "gcc_s");
 	if (compiler.linking.link_math) linking_add_link(&compiler.linking, "m");
 	add_plain_arg("-m");
 	add_plain_arg(ld_target(compiler.platform.arch));
