@@ -27,6 +27,8 @@ const HW_FLOATINGPT		 = 10;		// int: has hw floating point?
 const HW_MACHINE_ARCH	 = 11;		// string: machine architecture 
 const HW_REALMEM		 = 12;		// int: 'real' memory 
 
+extern fn ZString* backtrace_symbols_fmt(void **addrlist, usz len, ZString fmt);
+
 fn Backtrace? backtrace_line_parse(Allocator allocator, String obj, String addr2line) @local
 {
 	@stack_mem(256; Allocator mem)
@@ -83,7 +85,7 @@ fn BacktraceList? symbolize_backtrace(Allocator allocator, void*[] backtrace)
 		list.free();
 	}
 
-	ZString *strings = posix::backtrace_symbols_fmt(backtrace.ptr, backtrace.len, "%n%D %f");
+	ZString *strings = backtrace_symbols_fmt(backtrace.ptr, backtrace.len, "%n%D %f");
 
 	for (int i = 0; i < backtrace.len; i++) {
 		String full = strings[i].str_view();
