@@ -91,7 +91,7 @@ fn BacktraceList? symbolize_backtrace(Allocator allocator, void*[] backtrace)
 		list.free();
 	}
 
-	ZString *strings = posix::backtrace_symbols_fmt(backtrace.ptr, backtrace.len, "%n%D %f");
+	ZString *strings = backtrace_symbols_fmt(backtrace.ptr, backtrace.len, "%n%D %f");
 
 	for (int i = 0; i < backtrace.len; i++) {
 		String full = strings[i].str_view();
