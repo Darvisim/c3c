@@ -238,7 +238,24 @@ struct PosixUContext_t @if(env::FREEBSD && env::X86_64)
 	int[4] __spare__;
 }
 
-alias PosixUContext_t @if(!env::DARWIN && !((env::LINUX || env::NETBSD || env::FREEBSD) && env::X86_64)) = void;
+struct Sigcontext @if(env::OPENBSD && X86_64)
+{
+	long sc_cookie;
+	long sc_mask;
+	long sc_pc;
+	long sc_ps;
+	ulong[32] sc_regs;
+	long sc_ownedfp;
+	ulong[32] sc_fpregs;
+	ulong sc_fpcr;
+	ulong sc_fp_control;
+	long[2] sc_reserved;
+`	long[8] sc_xxx;
+}
+
+alias PosixUContext_t @if(env::OPENBSD && X86_64) = Sigcontext;
+
+alias PosixUContext_t @if(!env::DARWIN && !((env::LINUX || env::BSD_FAMILY) && env::X86_64)) = void;
 
 macro void* stack_instruction(PosixUContext_t* uc)
 {
@@ -255,8 +272,8 @@ macro void* stack_instruction(PosixUContext_t* uc)
 			return (void*)uc.uc_mcontext.pc;*/
 		$case env::FREEBSD && env::X86_64:
 			return (void*)uc.uc_mcontext.mc_rip;
-/*		$case env::OPENBSD && env::X86_64:
-			return uc.sc_rip;*/
+		$case env::OPENBSD && env::X86_64:
+			return uc.sc_rip;
 		$case env::NETBSD && env::X86_64:
 			return (void*)uc.uc_mcontext.__gregs[_REG_RIP];
 		$default:
