@@ -46,9 +46,6 @@ const HW_BATTERY        = 27;   /* node: battery */
 const HW_UCOMNAMES      = 28;   /* strings: ucom names */
 const HW_MAXID          = 29;   /* number of valid hw ids */
 
-
-extern fn ZString* backtrace_symbols_fmt(void **addrlist, usz len, ZString fmt);
-
 fn Backtrace? backtrace_line_parse(Allocator allocator, String obj, String addr2line) @local
 {
 	@stack_mem(256; Allocator mem)
@@ -105,7 +102,7 @@ fn BacktraceList? symbolize_backtrace(Allocator allocator, void*[] backtrace)
 		list.free();
 	}
 
-	ZString *strings = backtrace_symbols_fmt(backtrace.ptr, backtrace.len, "%n%D %f");
+	ZString *strings = posix::backtrace_symbols_fmt(backtrace.ptr, backtrace.len, "%n%D %f");
 
 	for (int i = 0; i < backtrace.len; i++) {
 		String full = strings[i].str_view();
