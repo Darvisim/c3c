@@ -253,7 +253,7 @@ struct Sigcontext @if(env::OPENBSD && env::X86_64)
 	long[8] sc_xxx;
 }
 
-alias PosixUContext_t @if(env::OPENBSD && env::X86_64) = Sigcontext;
+typedef PosixUContext_t @if(env::OPENBSD && env::X86_64) = Sigcontext;
 
 alias PosixUContext_t @if(!env::DARWIN && !((env::LINUX || env::BSD_FAMILY) && env::X86_64)) = void;
 
