@@ -33,6 +33,8 @@ const HW_USERMEM64    = 14;  // quad: non-kernel memory (bytes)
 const HW_IOSTATNAMES  = 15;  // string: iostat names
 const HW_NCPUONLINE   = 16;  // number CPUs online
 
+extern fn ZString* backtrace_symbols_fmt(void **addrlist, usz len, ZString fmt);
+
 fn Backtrace? backtrace_line_parse(Allocator allocator, String obj, String addr2line) @local
 {
 	@stack_mem(256; Allocator mem)
