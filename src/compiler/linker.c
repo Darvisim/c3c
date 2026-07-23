@@ -864,8 +864,11 @@ static void linker_setup_bsd(const char ***args_ref, Linker linker_type, bool is
 	}
 	linking_add_link(&compiler.linking, "c");
 	linking_add_link(&compiler.linking, "execinfo");
-	linking_add_link(&compiler.linking, "gcc");
-	linking_add_link(&compiler.linking, "gcc_s");
+	if (is_netbsd)
+	{
+		linking_add_link(&compiler.linking, "gcc");
+		linking_add_link(&compiler.linking, "gcc_s");
+	}
 	if (compiler.linking.link_math) linking_add_link(&compiler.linking, "m");
 	add_plain_arg("-m");
 	add_plain_arg(ld_target(compiler.platform.arch));
