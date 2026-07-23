@@ -250,7 +250,7 @@ struct Sigcontext @if(env::OPENBSD && X86_64)
 	ulong sc_fpcr;
 	ulong sc_fp_control;
 	long[2] sc_reserved;
-`	long[8] sc_xxx;
+	long[8] sc_xxx;
 }
 
 alias PosixUContext_t @if(env::OPENBSD && X86_64) = Sigcontext;
