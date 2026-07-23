@@ -140,7 +140,8 @@ const REG_RIP      @if(env::LINUX && env::X86_64) = 16;
 const _REG_RIP     @if(env::NETBSD && env::X86_64) = 21;
 struct LibcFPState @if(env::LINUX && env::X86_64) { char[512] __data; }
 typedef Fpregset_t @if(env::NETBSD && env::X86_64) = char[512];
-struct Fxsave64 @if(env::OPENBSD && env::X86_64) = { char[512] __data; }
+struct Fxsave64 @if(env::OPENBSD && env::X86_64) { char[512] __data; }
+
 struct MContext_t @align(16) @if(env::LINUX && env::X86_64)
 {
 	Greg_t[23] gregs;
@@ -267,8 +268,8 @@ struct Sigcontext @packed @if(env::OPENBSD && env::X86_64)
 	long	sc_rsp;
 	long	sc_ss;
     Fxsave64 *sc_fpstate;
-    int	__sc_unused;
-	int	sc_mask;
+    int	    __sc_unused;
+	int	    sc_mask;
 	long	sc_cookie;
 }
 
