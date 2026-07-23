@@ -273,7 +273,7 @@ macro void* stack_instruction(PosixUContext_t* uc)
 		$case env::FREEBSD && env::X86_64:
 			return (void*)uc.uc_mcontext.mc_rip;
 		$case env::OPENBSD && env::X86_64:
-			return uc.sc_rip;
+			return (void*)uc.sc_rip;
 		$case env::NETBSD && env::X86_64:
 			return (void*)uc.uc_mcontext.__gregs[_REG_RIP];
 		$default:
