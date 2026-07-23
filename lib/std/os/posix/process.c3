@@ -140,7 +140,7 @@ const REG_RIP      @if(env::LINUX && env::X86_64) = 16;
 const _REG_RIP     @if(env::NETBSD && env::X86_64) = 21;
 struct LibcFPState @if(env::LINUX && env::X86_64) { char[512] __data; }
 typedef Fpregset_t @if(env::NETBSD && env::X86_64) = char[512];
-
+struct Fxsave64 @if(env::OPENBSD && env::X86_64) = { char[512] __data; }
 struct MContext_t @align(16) @if(env::LINUX && env::X86_64)
 {
 	Greg_t[23] gregs;
@@ -238,19 +238,38 @@ struct PosixUContext_t @if(env::FREEBSD && env::X86_64)
 	int[4] __spare__;
 }
 
-struct Sigcontext @if(env::OPENBSD && env::X86_64)
+struct Sigcontext @packed @if(env::OPENBSD && env::X86_64)
 {
-	long sc_cookie;
-	long sc_mask;
-	long sc_pc;
-	long sc_ps;
-	ulong[32] sc_regs;
-	long sc_ownedfp;
-	ulong[32] sc_fpregs;
-	ulong sc_fpcr;
-	ulong sc_fp_control;
-	long[2] sc_reserved;
-	long[8] sc_xxx;
+	long	sc_rdi;
+	long	sc_rsi;
+	long	sc_rdx;
+	long	sc_rcx;
+	long	sc_r8;
+	long	sc_r9;
+	long	sc_r10;
+	long	sc_r11;
+	long	sc_r12;
+	long	sc_r13;
+	long	sc_r14;
+	long	sc_r15;
+	long	sc_rbp;
+	long	sc_rbx;
+	long	sc_rax;
+	long	sc_gs;
+	long	sc_fs;
+	long	sc_es;
+	long	sc_ds;
+	long	sc_trapno;
+	long	sc_err;
+	long	sc_rip;
+	long	sc_cs;
+	long	sc_rflags;
+	long	sc_rsp;
+	long	sc_ss;
+    Fxsave64 *sc_fpstate;
+    int	__sc_unused;
+	int	sc_mask;
+	long	sc_cookie;
 }
 
 typedef PosixUContext_t @if(env::OPENBSD && env::X86_64) = Sigcontext;
