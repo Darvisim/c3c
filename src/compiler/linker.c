@@ -863,12 +863,19 @@ static void linker_setup_bsd(const char ***args_ref, Linker linker_type, bool is
 			add_plain_arg("--dynamic-linker=/libexec/ld-elf.so.1");
 	}
 	linking_add_link(&compiler.linking, "c");
-	linking_add_link(&compiler.linking, "pthread");
 	linking_add_link(&compiler.linking, "execinfo");
 	if(!is_openbsd)
 	{
-		linking_add_link(&compiler.linking, "gcc");
-		linking_add_link(&compiler.linking, "gcc_s");
+		if(is_netbsd)
+		{
+			linking_add_link(&compiler.linking, "gcc");
+			linking_add_link(&compiler.linking, "gcc_s");
+		}
+		else
+		{
+			linking_add_link(&compiler.linking, "elf");
+			linking_add_link(&compiler.linking, "compiler_rt");
+		}
 	}
 	if (compiler.linking.link_math) linking_add_link(&compiler.linking, "m");
 	add_plain_arg("-m");
