@@ -874,7 +874,7 @@ static void linker_setup_bsd(const char ***args_ref, Linker linker_type, bool is
 		else
 		{
 			linking_add_link(&compiler.linking, "elf");
-			linking_add_link(&compiler.linking, "compiler_rt");
+			linking_add_link(&compiler.linking, "unwind");
 		}
 	}
 	if (compiler.linking.link_math) linking_add_link(&compiler.linking, "m");
