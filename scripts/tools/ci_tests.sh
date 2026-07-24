@@ -194,12 +194,13 @@ run_staticlib_tests() {
         run_c3c -vv static-lib "$ROOT_DIR/resources/examples/staticlib-test/add.c3" -o libadd
         if [[ "$SYSTEM_NAME" == *"NetBSD"* ]]; then ranlib libadd.a; fi
 
-        if [[ "$SYSTEM_NAME" == *"BSD"* ]]; then
+        if [[ "$SYSTEM_NAME" == *"OpenBSD"* ]]; then
              cc "$ROOT_DIR/resources/examples/staticlib-test/test.c" -L. -ladd -lexecinfo -lm -lpthread -o a.out
         elif [[ "$SYSTEM_NAME" == "Linux" ]]; then
              cc "$ROOT_DIR/resources/examples/staticlib-test/test.c" -L. -ladd -ldl -lm -lpthread -o a.out
+        elif [[ "$SYSTEM_NAME" == *"NetBSD"* || "$SYSTEM_NAME" == *"FreeBSD"* ]]; then
+             cc "$ROOT_DIR/resources/examples/staticlib-test/test.c" -L. -ladd -lexecinfo -lm -o a.out
         else
-             # Mac / NetBSD
              cc "$ROOT_DIR/resources/examples/staticlib-test/test.c" -L. -ladd -o a.out
         fi
         ./a.out
