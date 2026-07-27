@@ -198,8 +198,6 @@ run_staticlib_tests() {
              cc "$ROOT_DIR/resources/examples/staticlib-test/test.c" -L. -ladd -lexecinfo -lm -lpthread -o a.out
         elif [[ "$SYSTEM_NAME" == "Linux" ]]; then
              cc "$ROOT_DIR/resources/examples/staticlib-test/test.c" -L. -ladd -ldl -lm -lpthread -o a.out
-        # elif [[ "$SYSTEM_NAME" == *"NetBSD"* || "$SYSTEM_NAME" == *"FreeBSD"* ]]; then
-        #      cc "$ROOT_DIR/resources/examples/staticlib-test/test.c" -L. -ladd -lexecinfo -lm -o a.out
         else
              cc "$ROOT_DIR/resources/examples/staticlib-test/test.c" -L. -ladd -o a.out
         fi
