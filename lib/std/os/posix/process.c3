@@ -38,7 +38,7 @@ extern fn CInt getpid();
 extern fn CInt kill(Pid_t pid, CInt sig);
 extern fn Pid_t waitpid(Pid_t pid, CInt* stat_loc, int options);
 extern fn CInt raise(CInt sig);
-extern fn usz backtrace(void** buffer, CInt size) @if(env::BSD_FAMILY);
+extern fn usz backtrace(void** buffer, usz size) @if(env::BSD_FAMILY);
 extern fn CInt backtrace(void** buffer, CInt size) @if(!env::BSD_FAMILY && !env::LINUX && !env::ANDROID && !env::EMSCRIPTEN);
 extern fn ZString* backtrace_symbols(void** buffer, usz size) @if(env::BSD_FAMILY);
 extern fn ZString* backtrace_symbols(void** buffer, CInt size) @if(!env::BSD_FAMILY);
