@@ -1010,7 +1010,6 @@ jobs:
           EOF
 
       - name: Compile iOS smoke test
-        if: false
         run: |
           ./build/c3c compile \
             --target ios-aarch64 \
@@ -1018,12 +1017,6 @@ jobs:
             -vv \
             -o build-ios/hello \
             build-ios/hello.c3
-
-      - name: Inspect iOS target implementation
-        run: |
-          grep -Rni -C 30 "ld64.lld" src || true
-          grep -Rni -C 30 '"-arch"' src || true
-          grep -Rni -C 30 "MACOS_AARCH64" src/build src/compiler || true
 
       - name: Inspect iOS binary
         if: success()
