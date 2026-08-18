@@ -1021,8 +1021,9 @@ jobs:
 
       - name: Inspect iOS target implementation
         run: |
-          grep -Rni -C 20 "IOS_AARCH64" src || true
-          grep -Rni -C 20 "MACOS_AARCH64" src || true
+          grep -Rni -C 30 "ld64.lld" src || true
+          grep -Rni -C 30 '"-arch"' src || true
+          grep -Rni -C 30 "MACOS_AARCH64" src/build src/compiler || true
 
       - name: Inspect iOS binary
         if: success()
