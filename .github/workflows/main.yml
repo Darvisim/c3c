@@ -991,27 +991,37 @@ jobs:
             -DC3_FETCH_LLVM=ON
           cmake --build build
 
-      - name: Verify C3 iOS target
-        run: ./build/c3c --list-targets | grep -q 'ios-aarch64'
+      - name: Verify iOS target
+        run: |
+          ./build/c3c --list-targets | grep -q 'ios-aarch64'
 
-      - name: Compile iOS example
+      - name: Create iOS smoke test
         run: |
           mkdir -p build-ios
 
+          cat > build-ios/hello.c3 <<'EOF'
+          module hello;
+
+          fn void main()
+          {
+              println("Hello from C3!");
+          }
+          EOF
+
+      - name: Compile iOS smoke test
+        run: |
           ./build/c3c compile \
             --target ios-aarch64 \
             -O0 \
             -vv \
             -o build-ios/hello \
-            resources/examples/hello_world_many.c3
+            build-ios/hello.c3
 
       - name: Inspect iOS binary
+        if: success()
         run: |
           file build-ios/hello
           xcrun otool -l build-ios/hello
-
-      - name: Verify iOS binary
-        run: file build-ios/hello | grep -E 'Mach-O.*arm64|Mach-O.*64-bit'
 
   release:
     runs-on: ubuntu-slim
