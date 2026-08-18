@@ -1021,8 +1021,8 @@ jobs:
 
       - name: Inspect iOS target implementation
         run: |
-          grep -Rni -C 20 "ios-aarch64" src || true
-          grep -Rni -C 10 "iOS not properly supported" src || true
+          grep -Rni -C 20 "IOS_AARCH64" src || true
+          grep -Rni -C 20 "MACOS_AARCH64" src || true
 
       - name: Inspect iOS binary
         if: success()
