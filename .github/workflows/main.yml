@@ -1019,7 +1019,10 @@ jobs:
             -o build-ios/hello \
             build-ios/hello.c3
 
-      - run: rg -n -C 30 'ios-aarch64' .
+      - name: Inspect iOS target implementation
+        run: |
+          grep -Rni -C 20 "ios-aarch64" src || true
+          grep -Rni -C 10 "iOS not properly supported" src || true
 
       - name: Inspect iOS binary
         if: success()
