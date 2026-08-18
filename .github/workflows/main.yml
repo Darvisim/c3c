@@ -1001,6 +1001,7 @@ jobs:
           ./build/c3c compile \
             --target ios-aarch64 \
             -O0 \
+            -vv \
             -o build-ios/hello \
             resources/examples/hello_world_many.c3
 
