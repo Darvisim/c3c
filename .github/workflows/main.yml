@@ -1001,10 +1001,11 @@ jobs:
 
           cat > build-ios/hello.c3 <<'EOF'
           module hello;
+          import std::io;
 
           fn void main()
           {
-              println("Hello from C3!");
+              io::printn("Hello from C3!");
           }
           EOF
 
