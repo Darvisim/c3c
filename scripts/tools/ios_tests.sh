@@ -150,7 +150,7 @@ run_unit_tests() {
     echo "--- Running iOS Unit Test Suites ---"
     cd "$ROOT_DIR/test"
 
-    run_c3c compile-only unit -O1 --test -o "$MY_WORK_DIR/unit_test_binary"
+    run_c3c compile-test unit -O1 --suppress-run -o "unit_test_binary"
     if [ -f "$MY_WORK_DIR/unit_test_binary" ]; then
         xcrun simctl spawn "$TARGET_DEVICE" "$MY_WORK_DIR/unit_test_binary"
     else
