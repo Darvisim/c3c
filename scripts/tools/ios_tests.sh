@@ -63,7 +63,7 @@ cleanup() {
 trap cleanup EXIT
 
 run_c3c() {
-    "$C3C_BIN" --cc "$CC" -z "-target" -z "${TARGET_TRIPLE}" -z "-isysroot" -z "${SDK_PATH}" --target "$TARGET_FLAG" --output-dir "$MY_WORK_DIR" --build-dir "$MY_WORK_DIR" --obj-out "$MY_WORK_DIR" "$@"
+    "$C3C_BIN" --cc "clang" -z "-target" -z "${TARGET_TRIPLE}" -z "-isysroot" -z "${SDK_PATH}" --target "$TARGET_FLAG" --output-dir "$MY_WORK_DIR" --build-dir "$MY_WORK_DIR" --obj-out "$MY_WORK_DIR" "$@"
 }
 
 run_c3c_sim_execute() {
