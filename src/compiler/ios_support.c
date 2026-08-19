@@ -18,7 +18,7 @@ const char *ios_sysroot(bool simulator)
     return NULL;
 }
 
-void parse_version(const char *version_string, Version *version)
+static void parse_version(const char *version_string, Version *version)
 {
   StringSlice slice = slice_from_string(version_string);
   StringSlice first = slice_next_token(&slice, '.');
