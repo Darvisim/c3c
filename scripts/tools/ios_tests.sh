@@ -134,6 +134,15 @@ run_testproject() {
     run_c3c clean
 }
 
+run_wasm_compile() {
+    local MY_WORK_DIR="$WORK_DIR/wasm"
+    mkdir -p "$MY_WORK_DIR"
+
+    echo "--- Running WASM Compile Check ---"
+    cd "$ROOT_DIR/resources/testfragments"
+    run_c3c compile --target wasm32 -g0 --no-entry -Os wasm4.c3
+}
+
 run_unit_tests() {
     local MY_WORK_DIR="$WORK_DIR/unit"
     mkdir -p "$MY_WORK_DIR"
@@ -141,7 +150,13 @@ run_unit_tests() {
     echo "--- Running iOS Unit Test Suites ---"
     cd "$ROOT_DIR/test"
 
-    run_c3c compile-test unit -O1
+    run_c3c compile-only unit -O1 --test -o "$MY_WORK_DIR/unit_test_binary"
+    if [ -f "$MY_WORK_DIR/unit_test_binary" ]; then
+        xcrun simctl spawn "$TARGET_DEVICE" "$MY_WORK_DIR/unit_test_binary"
+    else
+        echo "::error::Unit test compilation failed to produce binary target."
+        exit 1
+    fi
 
     echo "--- Running Test Suite Runner inside iOS Simulator Container ---"
     cd "$MY_WORK_DIR"
@@ -188,6 +203,7 @@ run_parallel examples run_examples
 run_parallel dynlib run_dynlib_tests
 run_parallel staticlib run_staticlib_tests
 #run_parallel testproject run_testproject
+run_parallel wasm run_wasm_compile
 
 exit_code=0
 for p in "${PIDS[@]}"; do
