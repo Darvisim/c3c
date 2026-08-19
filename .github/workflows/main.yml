@@ -977,7 +977,7 @@ jobs:
         include:
           - { target: ios-aarch64, name: aarch64 }
           - { target: ios-simulator-aarch64, name: aarch64-sim }
-          # - { target: ios-simulator-x86_64, name: x64-sim }
+          - { target: ios-simulator-x86_64, name: x64-sim }
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
@@ -1010,7 +1010,7 @@ jobs:
         if: ${{ startsWith(matrix.target, 'ios-simulator-') }}
         run: |
           chmod +x ./scripts/tools/ios_tests.sh
-          ./scripts/tools/ios_tests.sh ./build-debug/c3c
+          ./scripts/tools/ios_tests.sh ./build-debug/c3c ios-${{ matrix.name }}
 
   release:
     runs-on: ubuntu-slim
