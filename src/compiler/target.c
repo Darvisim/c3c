@@ -1941,7 +1941,7 @@ INLINE const char *llvm_ios_target_triple(const char *triple, bool simulator)
 {
 	if(compiler.build.ios.min_version)
 	{
-		scratch_buffer_clean();
+		scratch_buffer_clear();
 		scratch_buffer_append(triple);
 		scratch_buffer_append(compiler.build.ios.min_version);
 		if(simulator)
@@ -1953,7 +1953,7 @@ INLINE const char *llvm_ios_target_triple(const char *triple, bool simulator)
 	IosSDK *ios_sdk = compiler.build.ios.sdk;
 	if(!ios_sdk)
 	{
-		scratch_buffer_clean();
+		scratch_buffer_clear();
 		scratch_buffer_append(triple);
 		scratch_buffer_append("15.0.0");
 		if(simulator)
@@ -1962,7 +1962,7 @@ INLINE const char *llvm_ios_target_triple(const char *triple, bool simulator)
 		}
 		return scratch_buffer_to_string();
 	}
-	scratch_buffer_clean();
+	scratch_buffer_clear();
 	scratch_buffer_append(triple);
 	scratch_buffer_printf("%d.%d.0", ios_sdk->ios_min_deploy_target.major, ios_sdk->ios_min_deploy_target.minor);
 	if(simulator)
@@ -2446,7 +2446,7 @@ void target_setup(BuildTarget *build_target)
 				if(compiler.build.ios.sdk->ios_min_deploy_target.major < 7)
 				{
 					compiler.build.ios.sdk->ios_min_deploy_target = (Version) { 7, 0 };
-				]
+				}
 				if(compiler.build.ios.sdk->ios_deploy_target.major < 7)
 				{
 					compiler.build.ios.sdk->ios_deploy_target = (Version) { 7, 0 };
