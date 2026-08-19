@@ -3,7 +3,7 @@
 SHOW_SUCCESS_LOGS="${SHOW_SUCCESS_LOGS:-true}"
 
 if [ $# -lt 1 ]; then
-    echo "Usage: ./ios_tests.sh <path_to_c3c_binary>"
+    echo "Usage: ./ios_tests.sh <path_to_c3c_binary> [target_override]"
     exit 1
 fi
 
@@ -13,6 +13,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 REAL_ROOT_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
 C3C_BIN="$(realpath "$1")"
 ROOT_DIR="$REAL_ROOT_DIR"
+TARGET_FLAG="$2"
 
 echo ">>> Running iOS Target CI Tests using C3C at: $C3C_BIN"
 
@@ -47,7 +48,7 @@ cleanup() {
 trap cleanup EXIT
 
 run_c3c() {
-    "$C3C_BIN" --target ios-simulator --output-dir "$MY_WORK_DIR" --build-dir "$MY_WORK_DIR" --obj-out "$MY_WORK_DIR" "$@"
+    "$C3C_BIN" --target $TARGET_FLAG --output-dir "$MY_WORK_DIR" --build-dir "$MY_WORK_DIR" --obj-out "$MY_WORK_DIR" "$@"
 }
 
 run_c3c_sim_execute() {
@@ -142,7 +143,7 @@ run_unit_tests() {
     echo "--- Running Test Suite Runner inside iOS Simulator Container ---"
     cd "$MY_WORK_DIR"
     
-    "$C3C_BIN" --target ios-simulator --output-dir "$MY_WORK_DIR" --build-dir "$MY_WORK_DIR" --obj-out "$MY_WORK_DIR" compile "$ROOT_DIR/test/src/test_suite_runner.c3" -o suite_runner
+    "$C3C_BIN" --target $TARGET_FLAG --output-dir "$MY_WORK_DIR" --build-dir "$MY_WORK_DIR" --obj-out "$MY_WORK_DIR" compile "$ROOT_DIR/test/src/test_suite_runner.c3" -o suite_runner
     xcrun simctl spawn "$TARGET_DEVICE" "$MY_WORK_DIR/suite_runner" -- "$C3C_BIN" "$ROOT_DIR/test/test_suite/" --no-terminal
 }
 
