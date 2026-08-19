@@ -1940,10 +1940,15 @@ INLINE const char *llvm_macos_target_triple(const char *triple)
 
 INLINE const char *llvm_ios_target_triple(const char *triple, bool simulator)
 {
+	size_t base = strlen(triple);
+	if(base > 10 && strcmp(triple + base - 10, "-simulator") == 0)
+	{
+		base -= 10;
+	}
 	if(compiler.build.ios.min_version)
 	{
 		scratch_buffer_clear();
-		scratch_buffer_append(triple);
+		scratch_buffer_append_len(triple, base);
 		scratch_buffer_append(compiler.build.ios.min_version);
 		if(simulator)
 		{
@@ -1955,7 +1960,7 @@ INLINE const char *llvm_ios_target_triple(const char *triple, bool simulator)
 	if(!ios_sdk)
 	{
 		scratch_buffer_clear();
-		scratch_buffer_append(triple);
+		scratch_buffer_append_len(triple, base);
 		scratch_buffer_append("15.0.0");
 		if(simulator)
 		{
@@ -1964,7 +1969,7 @@ INLINE const char *llvm_ios_target_triple(const char *triple, bool simulator)
 		return scratch_buffer_to_string();
 	}
 	scratch_buffer_clear();
-	scratch_buffer_append(triple);
+	scratch_buffer_append_len(triple, base);
 	scratch_buffer_printf("%d.%d.0", ios_sdk->ios_min_deploy_target.major, ios_sdk->ios_min_deploy_target.minor);
 	if(simulator)
 	{
