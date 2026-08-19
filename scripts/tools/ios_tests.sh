@@ -15,21 +15,6 @@ C3C_BIN="$(realpath "$1")"
 ROOT_DIR="$REAL_ROOT_DIR"
 TARGET_FLAG="$2"
 
-SDK=""
-TARGET_TRIPLE=""
-if [[ "$TARGET_FLAG" == "ios-x64-sim" ]]; then
-    TARGET_TRIPLE="x86_64-apple-ios15.0-simulator"
-    SDK="iphonesimulator"
-elif [[ "$TARGET_FLAG" == "ios-aarch64-sim" ]]; then
-    TARGET_TRIPLE="arm64-apple-ios15.0-simulator"
-    SDK="iphonesimulator"
-else
-    TARGET_TRIPLE="arm64-apple-ios15.0"
-    SDK="iphoneos"
-fi
-
-SDK_PATH=$(xcrun --sdk ${SDK} --show-sdk-path)
-
 echo ">>> Running iOS Target CI Tests using C3C at: $C3C_BIN"
 
 echo ">>> Initializing iOS Simulator Target Lifecycle..."
@@ -63,7 +48,7 @@ cleanup() {
 trap cleanup EXIT
 
 run_c3c() {
-    "$C3C_BIN" --cc "clang" -z "-target" -z "${TARGET_TRIPLE}" -z "-isysroot" -z "${SDK_PATH}" --target "$TARGET_FLAG" --output-dir "$MY_WORK_DIR" --build-dir "$MY_WORK_DIR" --obj-out "$MY_WORK_DIR" "$@"
+    "$C3C_BIN" --target "$TARGET_FLAG" --output-dir "$MY_WORK_DIR" --build-dir "$MY_WORK_DIR" --obj-out "$MY_WORK_DIR" "$@"
 }
 
 run_c3c_sim_execute() {
@@ -145,7 +130,7 @@ run_testproject() {
     echo "--- Running Test Project for iOS Targets ---"
     cd "$ROOT_DIR/resources/testproject"
 
-    run_c3c build -vv --linker=builtin --trust=full
+    run_c3c build -vv
     run_c3c clean
 }
 
