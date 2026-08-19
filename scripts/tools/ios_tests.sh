@@ -27,10 +27,8 @@ else
     TARGET_TRIPLE="arm64-apple-ios15.0"
     SDK="iphoneos"
 fi
-SDK_PATH=$(xcrun --sdk ${SDK} --show-sdk-path)
 
-export CC="clang"
-export CFLAGS="-target ${TARGET_TRIPLE} -isysroot ${SDK_PATH}"
+SDK_PATH=$(xcrun --sdk ${SDK} --show-sdk-path)
 
 echo ">>> Running iOS Target CI Tests using C3C at: $C3C_BIN"
 
@@ -65,7 +63,7 @@ cleanup() {
 trap cleanup EXIT
 
 run_c3c() {
-    "$C3C_BIN" --cc "$CC" -z "$CFLAGS" --target "$TARGET_FLAG" --output-dir "$MY_WORK_DIR" --build-dir "$MY_WORK_DIR" --obj-out "$MY_WORK_DIR" "$@"
+    "$C3C_BIN" --cc "$CC" -z "-target" -z "${TARGET_TRIPLE}" -z "-isysroot" -z "${SDK_PATH}" --target "$TARGET_FLAG" --output-dir "$MY_WORK_DIR" --build-dir "$MY_WORK_DIR" --obj-out "$MY_WORK_DIR" "$@"
 }
 
 run_c3c_sim_execute() {
