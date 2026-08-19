@@ -71,29 +71,30 @@ run_examples() {
     mkdir -p "$MY_WORK_DIR"
 
     echo "--- Running iOS Standard Examples Matrix ---"
+    cd "$ROOT_DIR/resources"
+    
+    run_c3c compile examples/base64.c3
+    run_c3c compile examples/binarydigits.c3
+    run_c3c compile examples/brainfk.c3
+    run_c3c compile examples/factorial_macro.c3
+    run_c3c compile examples/fasta.c3
+    run_c3c compile examples/gameoflife.c3
+    run_c3c compile examples/hash.c3
+    run_c3c compile-only examples/levenshtein.c3
+    run_c3c compile examples/load_world.c3
+    run_c3c compile-only examples/map.c3
+    run_c3c compile examples/mandelbrot.c3
+    run_c3c compile examples/plus_minus.c3
+    run_c3c compile examples/nbodies.c3
+    run_c3c compile examples/spectralnorm.c3
+    run_c3c compile examples/swap.c3
+    run_c3c compile examples/contextfree/boolerr.c3
+    run_c3c compile examples/contextfree/dynscope.c3
+    run_c3c compile examples/contextfree/guess_number.c3
+    run_c3c compile examples/contextfree/multi.c3
+    run_c3c compile examples/contextfree/cleanup.c3
+
     cd "$ROOT_DIR/resources/examples"
-    
-    run_c3c compile base64.c3
-    run_c3c compile binarydigits.c3
-    run_c3c compile brainfk.c3
-    run_c3c compile factorial_macro.c3
-    run_c3c compile fasta.c3
-    run_c3c compile gameoflife.c3
-    run_c3c compile hash.c3
-    run_c3c compile-only levenshtein.c3
-    run_c3c compile load_world.c3
-    run_c3c compile-only map.c3
-    run_c3c compile mandelbrot.c3
-    run_c3c compile plus_minus.c3
-    run_c3c compile nbodies.c3
-    run_c3c compile spectralnorm.c3
-    run_c3c compile swap.c3
-    run_c3c compile contextfree/boolerr.c3
-    run_c3c compile contextfree/dynscope.c3
-    run_c3c compile contextfree/guess_number.c3
-    run_c3c compile contextfree/multi.c3
-    run_c3c compile contextfree/cleanup.c3
-    
     run_c3c_sim_execute hello_world_many.c3
     run_c3c_sim_execute time.c3
     run_c3c_sim_execute fannkuch-redux.c3
