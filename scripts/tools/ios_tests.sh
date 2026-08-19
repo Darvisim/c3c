@@ -58,7 +58,7 @@ run_c3c_sim_execute() {
     run_c3c compile "$@" -o "$target_name"
     
     if [ -f "$MY_WORK_DIR/$target_name" ]; then
-        xcrun simctl spawn --standalone "$TARGET_DEVICE" "$MY_WORK_DIR/$target_name"
+        xcrun simctl spawn "$TARGET_DEVICE" "$MY_WORK_DIR/$target_name"
         rm -f "$MY_WORK_DIR/$target_name"
     else
         echo "::error::Simulated binary target emission failed to locate at $MY_WORK_DIR/$target_name"
@@ -129,8 +129,8 @@ run_testproject() {
 
     echo "--- Running Test Project for iOS Targets ---"
     cd "$ROOT_DIR/resources/testproject"
-
-    run_c3c build -vv --trust=full --linker=builtin
+    
+    run_c3c build --trust=full --linker=builtin
     run_c3c clean
 }
 
