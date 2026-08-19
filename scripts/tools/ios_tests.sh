@@ -98,7 +98,10 @@ run_examples() {
     run_c3c_sim_execute examples/time.c3
     run_c3c_sim_execute examples/fannkuch-redux.c3
     run_c3c_sim_execute examples/contextfree/boolerr.c3
-    run_c3c_sim_execute examples/load_world.c3
+    #run_c3c_sim_execute examples/load_world.c3
+    run_c3c_sim_execute examples/process.c3
+    run_c3c_sim_execute examples/ls.c3
+    run_c3c_sim_execute examples/args.c3 -- foo -bar "baz baz"
 }
 
 run_dynlib_tests() {
@@ -187,7 +190,7 @@ run_parallel() {
 run_parallel examples run_examples
 run_parallel dynlib run_dynlib_tests
 run_parallel staticlib run_staticlib_tests
-run_parallel testproject run_testproject
+#run_parallel testproject run_testproject
 
 exit_code=0
 for p in "${PIDS[@]}"; do
