@@ -48,7 +48,7 @@ cleanup() {
 trap cleanup EXIT
 
 run_c3c() {
-    "$C3C_BIN" --target $TARGET_FLAG --output-dir "$MY_WORK_DIR" --build-dir "$MY_WORK_DIR" --obj-out "$MY_WORK_DIR" "$@"
+    "$C3C_BIN" --cc "clang" --target "$TARGET_FLAG" --output-dir "$MY_WORK_DIR" --build-dir "$MY_WORK_DIR" --obj-out "$MY_WORK_DIR" "$@"
 }
 
 run_c3c_sim_execute() {
@@ -58,10 +58,8 @@ run_c3c_sim_execute() {
     run_c3c compile "$@" -o "$target_name"
     
     if [ -f "$MY_WORK_DIR/$target_name" ]; then
-        cd "$MY_WORK_DIR"
-        xcrun simctl spawn "$TARGET_DEVICE" "./$target_name"
-        rm -f "./$target_name"
-        cd "$ROOT_DIR/resources"
+        xcrun simctl spawn --standalone "$TARGET_DEVICE" "$MY_WORK_DIR/$target_name"
+        rm -f "$MY_WORK_DIR/$target_name"
     else
         echo "::error::Simulated binary target emission failed to locate at $MY_WORK_DIR/$target_name"
         exit 1
@@ -95,17 +93,11 @@ run_examples() {
     run_c3c compile examples/contextfree/guess_number.c3
     run_c3c compile examples/contextfree/multi.c3
     run_c3c compile examples/contextfree/cleanup.c3
-
-    cd "$ROOT_DIR/resources/examples"
+    
     run_c3c_sim_execute examples/hello_world_many.c3
     run_c3c_sim_execute examples/time.c3
     run_c3c_sim_execute examples/fannkuch-redux.c3
     run_c3c_sim_execute examples/contextfree/boolerr.c3
-
-    cp "$ROOT_DIR/resources/examples/world.txt" "$MY_WORK_DIR/world.txt"
-    mkdir -p "$MY_WORK_DIR/examples"
-    cp "$ROOT_DIR/resources/examples/world.txt" "$MY_WORK_DIR/examples/world.txt"
-    
     run_c3c_sim_execute examples/load_world.c3
 }
 
@@ -137,19 +129,9 @@ run_testproject() {
 
     echo "--- Running Test Project for iOS Targets ---"
     cd "$ROOT_DIR/resources/testproject"
-
-    local clang_target=""
-    if [[ "$TARGET_FLAG" == *"x64"* ]]; then
-        clang_target="x86_64-apple-ios-simulator"
-    else
-        clang_target="arm64-apple-ios-simulator"
-    fi
     
-    local sim_sysroot=$(xcrun --sdk iphonesimulator --show-sdk-path)
-    local cc_override="clang -target ${clang_target} -isysroot ${sim_sysroot}"
-    
-    "$C3C_BIN" build --target "$TARGET_FLAG" --cc "$cc_override" --trust=full --linker=builtin --output-dir "$MY_WORK_DIR" --build-dir "$MY_WORK_DIR" --obj-out "$MY_WORK_DIR"
-    "$C3C_BIN" clean
+    c3c_run build --trust=full --linker=builtin
+    c3c_run clean
 }
 
 run_unit_tests() {
