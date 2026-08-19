@@ -8,6 +8,7 @@
 - `benchmark` and `test` project targets now work properly with `c3c benchmark` and `c3c test`. 
 - Add `$reflect(foo).param_struct` and `Foo::param_struct` properties. #3099
 - Allow the parse `faultset { ... }`. For `faultset`, `faultconst` and `excuse`.
+- Improved error messages when underlined error is too long, or lines are too long. #3383
 
 ### Stdlib changes
 - `CachedInStream` and `CachedOutStream` added.
@@ -19,6 +20,8 @@
 - Can not run targeted benchmark function in project #1651.
 - Detection of dead code would get reset after visiting a scope, causing a crash in codegen. #3453.
 - Switch was incorrectly copied inside of defer, causing crash in codegen. #3454
+- Codegen for debug info was incorrect for default init on arguments, causing crash with LLVM23. 
+- Codegen for bitstruct `b.foo--` was incorrect, causing crash with LLVM23.
 
 ## 0.8.3 Change list
 
