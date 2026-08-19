@@ -1968,10 +1968,6 @@ INLINE const char *llvm_ios_target_triple(const char *triple, bool simulator)
 		}
 		return scratch_buffer_to_string();
 	}
-	if(ios_sdk->ios_min_deploy_target.major < 14)
-	{
-		ios_sdk->ios_min_deploy_target.major = 14;
-	}
 	scratch_buffer_clear();
 	scratch_buffer_append_len(triple, base);
 	scratch_buffer_printf("%d.%d.0", ios_sdk->ios_min_deploy_target.major, ios_sdk->ios_min_deploy_target.minor);
