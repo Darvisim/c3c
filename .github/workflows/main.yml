@@ -976,9 +976,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { target: ios-aarch64, name: aarch64, os: macos-latest }
-          - { target: ios-simulator-aarch64, name: aarch64-sim, os: macos-latest }
-          - { target: ios-simulator-x86_64, name: x64-sim, os: macos-26-intel }
+          - { target: ios-aarch64, name: aarch64, sdk: iphoneos, os: macos-latest }
+          - { target: ios-simulator-aarch64, name: aarch64-sim, sdk: iphonesimulator, os: macos-latest }
+          - { target: ios-simulator-x86_64, name: x64-sim, sdk: iphonesimulator, os: macos-26-intel }
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
@@ -986,6 +986,7 @@ jobs:
       - name: CMake Build
         run: |
           cmake -B build-debug -G Ninja \
+            -DCMAKE_OSX_SYSROOT="$(xcrun --sdk "${{ matrix.sdk }}" --show-sdk-path)" \
             -DCMAKE_BUILD_TYPE=Debug \
             -DC3_FETCH_LLVM=ON
           cmake --build build-debug
