@@ -1306,6 +1306,7 @@ static int jump_buffer_size()
 			return 24;
 		case IOS_AARCH64:
 		case IOS_AARCH64_SIM:
+		case IOS_X64_SIM:
 		case MACOS_AARCH64:
 			// Based on macOS headers
 			return 25;
