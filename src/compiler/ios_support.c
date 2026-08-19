@@ -65,7 +65,7 @@ const char *ios_cross_compile_library(bool simulator)
   if(app_data)
   {
     scratch_buffer_clear();
-    scratch_buffer_clear("%s/c3/%s", app_data, sdk_dirname);
+    scratch_buffer_printf("%s/c3/%s", app_data, sdk_dirname);
     const char *path = scratch_buffer_to_string();
     if(file_is_dir(path)) return path;
   }
