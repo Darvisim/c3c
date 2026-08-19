@@ -58,8 +58,10 @@ run_c3c_sim_execute() {
     run_c3c compile "$@" -o "$target_name"
     
     if [ -f "$MY_WORK_DIR/$target_name" ]; then
-        xcrun simctl spawn --standalone "$TARGET_DEVICE" "$MY_WORK_DIR/$target_name"
-        rm -f "$MY_WORK_DIR/$target_name"
+        cd "$MY_WORK_DIR"
+        xcrun simctl spawn "$TARGET_DEVICE" "./$target_name"
+        rm -f "./$target_name"
+        cd "$ROOT_DIR/resources"
     else
         echo "::error::Simulated binary target emission failed to locate at $MY_WORK_DIR/$target_name"
         exit 1
@@ -95,16 +97,16 @@ run_examples() {
     run_c3c compile examples/contextfree/cleanup.c3
 
     cd "$ROOT_DIR/resources/examples"
-    run_c3c_sim_execute hello_world_many.c3
-    run_c3c_sim_execute time.c3
-    run_c3c_sim_execute fannkuch-redux.c3
-    run_c3c_sim_execute contextfree/boolerr.c3
+    run_c3c_sim_execute examples/hello_world_many.c3
+    run_c3c_sim_execute examples/time.c3
+    run_c3c_sim_execute examples/fannkuch-redux.c3
+    run_c3c_sim_execute examples/contextfree/boolerr.c3
 
+    cp "$ROOT_DIR/resources/examples/world.txt" "$MY_WORK_DIR/world.txt"
     mkdir -p "$MY_WORK_DIR/examples"
-    echo "01010101" > "$MY_WORK_DIR/world.txt"
-    echo "01010101" > "$MY_WORK_DIR/examples/world.txt"
+    cp "$ROOT_DIR/resources/examples/world.txt" "$MY_WORK_DIR/examples/world.txt"
     
-    run_c3c_sim_execute load_world.c3
+    run_c3c_sim_execute examples/load_world.c3
 }
 
 run_dynlib_tests() {
@@ -136,20 +138,17 @@ run_testproject() {
     echo "--- Running Test Project for iOS Targets ---"
     cd "$ROOT_DIR/resources/testproject"
 
+    local clang_target=""
+    if [[ "$TARGET_FLAG" == *"x64"* ]]; then
+        clang_target="x86_64-apple-ios-simulator"
+    else
+        clang_target="arm64-apple-ios-simulator"
+    fi
+    
     local sim_sysroot=$(xcrun --sdk iphonesimulator --show-sdk-path)
+    local cc_override="clang -target ${clang_target} -isysroot ${sim_sysroot}"
     
-    mkdir -p "$MY_WORK_DIR/tmp_c_compile"
-    mkdir -p "$MY_WORK_DIR/clib"
-    mkdir -p "$MY_WORK_DIR/clib2"
-
-    local clang_cmd="clang -target $TARGET_FLAG -isysroot $sim_sysroot -c"
-
-    $clang_cmd tmp_c_compile/test.c -o "$MY_WORK_DIR/tmp_c_compile/test.o"
-    $clang_cmd clib2/hello.c -o "$MY_WORK_DIR/clib2/hello.o"
-    $clang_cmd clib/hello2.c -o "$MY_WORK_DIR/clib/hello2.o"
-    $clang_cmd clib/whitespace\ test.c -o "$MY_WORK_DIR/clib/whitespace test.o"
-    
-    "$C3C_BIN" build --target "$TARGET_FLAG" --trust=full --linker=builtin --output-dir "$MY_WORK_DIR" --build-dir "$MY_WORK_DIR" --obj-out "$MY_WORK_DIR"
+    "$C3C_BIN" build --target "$TARGET_FLAG" --cc "$cc_override" --trust=full --linker=builtin --output-dir "$MY_WORK_DIR" --build-dir "$MY_WORK_DIR" --obj-out "$MY_WORK_DIR"
     "$C3C_BIN" clean
 }
 
