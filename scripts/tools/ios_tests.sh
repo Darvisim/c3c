@@ -129,7 +129,20 @@ run_testproject() {
 
     echo "--- Running Test Project for iOS Targets ---"
     cd "$ROOT_DIR/resources/testproject"
-    
+
+    local SIM_SDK_PATH=$(xcrun --sdk iphonesimulator --show-sdk-path)
+
+    local TARGET_ARCH=""
+    if [[ "$TARGET_FLAG" == "x64-sim" ]]; then
+        TARGET_ARCH="x86_64"
+    else
+        TARGET_ARCH="arm64"
+    fi
+
+    export CC="clang"
+    export CFLAGS="-target ${TARGET_ARCH}-apple-ios15.0-simulator -isysroot ${SIM_SDK_PATH}"
+    export CXXFLAGS="-target ${TARGET_ARCH}-apple-ios15.0-simulator -isysroot ${SIM_SDK_PATH}"
+
     run_c3c build --trust=full --linker=builtin
     run_c3c clean
 }
