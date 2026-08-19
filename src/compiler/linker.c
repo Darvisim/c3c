@@ -352,6 +352,11 @@ static void linker_setup_ios(const char ***args_ref, Linker linker_type)
 	{
 		add_plain_arg("-target");
 		add_plain_arg(compiler.platform.target_triple);
+		if (compiler.build.ios.sysroot)
+		{
+			add_plain_arg("-isysroot");
+			add_plain_arg(compiler.build.ios.sysroot);
+		}
 		return;
 	}
 	add_plain_arg("-arch");
