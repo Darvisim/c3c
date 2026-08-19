@@ -988,14 +988,11 @@ jobs:
       - name: CMake Build
         run: |
           cmake -B build-debug -G Ninja \
+            -DCMAKE_SYSTEM_NAME=iOS \
             -DCMAKE_OSX_SYSROOT="$(xcrun --sdk "${{ matrix.sdk }}" --show-sdk-path)" \
             -DCMAKE_OSX_DEPLOYMENT_TARGET="15.0" \
             -DCMAKE_BUILD_TYPE=Debug \
-            -DC3_FETCH_LLVM=ON \
-            -DCMAKE_EXE_LINKER_FLAGS="-L/opt/homebrew/opt/xar/lib" \
-            -DCMAKE_SHARED_LINKER_FLAGS="-L/opt/homebrew/opt/xar/lib" \
-            -DCMAKE_C_FLAGS="-I/opt/homebrew/opt/xar/include" \
-            -DCMAKE_CXX_FLAGS="-I/opt/homebrew/opt/xar/include"
+            -DC3_FETCH_LLVM=ON
           cmake --build build-debug
 
       - name: Setup and Boot iOS Simulator
