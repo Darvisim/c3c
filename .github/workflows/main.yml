@@ -982,19 +982,12 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
-
-      - run: brew install llvm
       
       - name: CMake Build
         run: |
           cmake -B build-debug -G Ninja \
-            -DCMAKE_SYSTEM_NAME=iOS \
-            -DCMAKE_OSX_SYSROOT="$(xcrun --sdk "${{ matrix.sdk }}" --show-sdk-path)" \
-            -DCMAKE_OSX_DEPLOYMENT_TARGET="15.0" \
             -DCMAKE_BUILD_TYPE=Debug \
-            -DC3_FETCH_LLVM=OFF \
-            -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=BOTH \
-            -DCMAKE_PREFIX_PATH="$(brew --prefix llvm)"
+            -DC3_FETCH_LLVM=ON
           cmake --build build-debug
 
       - name: Setup and Boot iOS Simulator
