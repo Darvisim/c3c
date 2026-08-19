@@ -971,13 +971,13 @@ jobs:
 
   test-ios:
     name: iOS (${{ matrix.name }})
-    runs-on: macos-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
-          - { target: ios-aarch64, name: aarch64 }
-          - { target: ios-simulator-aarch64, name: aarch64-sim }
-          - { target: ios-simulator-x86_64, name: x64-sim }
+          - { target: ios-aarch64, name: aarch64, os: macos-latest }
+          - { target: ios-simulator-aarch64, name: aarch64-sim, os: macos-latest }
+          - { target: ios-simulator-x86_64, name: x64-sim, os: macos-26-intel }
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
