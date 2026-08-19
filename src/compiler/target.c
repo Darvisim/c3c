@@ -1937,6 +1937,41 @@ INLINE const char *llvm_macos_target_triple(const char *triple)
 	return scratch_buffer_to_string();
 }
 
+INLINE const char *llvm_ios_target_triple(const char *triple, bool simulator)
+{
+	if(compiler.build.ios.min_version)
+	{
+		scratch_buffer_clean();
+		scratch_buffer_append(triple);
+		scratch_buffer_append(compiler.build.ios.min_version);
+		if(simulator)
+		{
+			scratch_buffer_append("-simulator");
+		}
+		return scratch_buffer_to_string();
+	}
+	IosSDK *ios_sdk = compiler.build.ios.sdk;
+	if(!ios_sdk)
+	{
+		scratch_buffer_clean();
+		scratch_buffer_append(triple);
+		scratch_buffer_append("15.0.0");
+		if(simulator)
+		{
+			scratch_buffer_append("-simulator");
+		}
+		return scratch_buffer_to_string();
+	}
+	scratch_buffer_clean();
+	scratch_buffer_append(triple);
+	scratch_buffer_printf("%d.%d.0", ios_sdk->ios_min_deploy_target.major, ios_sdk->ios_min_deploy_target.minor);
+	if(simulator)
+	{
+		scratch_buffer_append("-simulator");
+	}
+	return scratch_buffer_to_string();
+}
+
 #if LLVM_AVAILABLE
 #define INITIALIZE_TARGET(X) do { \
   DEBUG_LOG("Initialize target: %s.", #X); \
@@ -2383,7 +2418,53 @@ void target_setup(BuildTarget *build_target)
 
 	if (compiler.platform.os == OS_TYPE_IOS)
 	{
-		WARNING("iOS not properly supported yet.");
+		if(!compiler.build.ios.sysroot)
+		{
+			compiler.build.ios.sysroot = ios_sysroot(compiler.build.ios.simulator);
+		}
+		const char *sysroot = compiler.build.ios.sysroot ? compiler.build.ios.sysroot : ios_sysroot(compiler.build.ios.simulator);
+		if(!sysroot)
+		{
+			const char *path = ios_cross_compile_library(compiler.build.ios.simulator);
+			if(path)
+			{
+				if(!compiler.build.quiet && !compiler.build.silent)
+				{
+					OUTF("Using iOS SDK at: %s\n", path);
+				}
+				sysroot = scratch_buffer_copy();
+				compiler.build.ios.sysroot = sysroot;
+			}
+		}
+		compiler.build.ios.sdk = NULL;
+		if(sysroot)
+		{
+			INFO_LOG("iOS SDK: %s", sysroot);
+			compiler.build.ios.sdk = ios_sysroot_sdk_information(sysroot);
+			if(compiler.platform.arch == ARCH_TYPE_AARCH64)
+			{
+				if(compiler.build.ios.sdk->ios_min_deploy_target.major < 7)
+				{
+					compiler.build.ios.sdk->ios_min_deploy_target = (Version) { 7, 0 };
+				]
+				if(compiler.build.ios.sdk->ios_deploy_target.major < 7)
+				{
+					compiler.build.ios.sdk->ios_deploy_target = (Version) { 7, 0 };
+				}
+			}
+			else if(compiler.platform.arch == ARCH_TYPE_X86_64)
+			{
+				if(compiler.build.ios.sdk->ios_min_deploy_target.major < 13)
+				{
+					compiler.build.ios.sdk->ios_min_deploy_target = (Version) { 13, 0 };
+				}
+				if(compiler.build.ios.sdk->ios_deploy_target.major < 13)
+				{
+					compiler.build.ios.sdk->ios_deploy_target = (Version) { 13, 0 };
+				}
+			}
+		}
+		compiler.platform.target_triple = strdup(llvm_ios_target_triple(compiler.platform.target_triple, compiler.build.ios.simulator));
 	}
 	if (compiler.platform.os == OS_TYPE_MACOSX)
 	{
