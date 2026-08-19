@@ -131,7 +131,7 @@ run_testproject() {
     echo "--- Running Test Project for iOS Targets ---"
     cd "$ROOT_DIR/resources/testproject"
     
-    run_c3c build --trust=full --linker=builtin
+    "$C3C_BIN" build --target "$TARGET_FLAG" --trust=full --linker=builtin --output-dir "$MY_WORK_DIR" --build-dir "$MY_WORK_DIR" --obj-out "$MY_WORK_DIR"
     run_c3c clean
 }
 
