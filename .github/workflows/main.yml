@@ -983,6 +983,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - run: brew install xar
+
       - name: CMake Build
         run: |
           cmake -B build-debug -G Ninja \
@@ -990,9 +992,10 @@ jobs:
             -DCMAKE_OSX_DEPLOYMENT_TARGET="15.0" \
             -DCMAKE_BUILD_TYPE=Debug \
             -DC3_FETCH_LLVM=ON \
-            -DCMAKE_EXE_LINKER_FLAGS="-L/usr/lib -lxar" \
-            -DCMAKE_MODULE_LINKER_FLAGS="-L/usr/lib -lxar" \
-            -DCMAKE_SHARED_LINKER_FLAGS="-L/usr/lib -lxar"
+            -DCMAKE_EXE_LINKER_FLAGS="-L/opt/homebrew/opt/xar/lib" \
+            -DCMAKE_SHARED_LINKER_FLAGS="-L/opt/homebrew/opt/xar/lib" \
+            -DCMAKE_C_FLAGS="-I/opt/homebrew/opt/xar/include" \
+            -DCMAKE_CXX_FLAGS="-I/opt/homebrew/opt/xar/include"
           cmake --build build-debug
 
       - name: Setup and Boot iOS Simulator
