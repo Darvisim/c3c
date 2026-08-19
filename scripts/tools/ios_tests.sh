@@ -130,7 +130,7 @@ run_testproject() {
     echo "--- Running Test Project for iOS Targets ---"
     cd "$ROOT_DIR/resources/testproject"
     
-    run_c3c build --trust=full --linker=builtin
+    run_c3c_sim_execute "$WORK_DIR/testproject" -vv --trust=full --linker=builtin
     run_c3c clean
 }
 
