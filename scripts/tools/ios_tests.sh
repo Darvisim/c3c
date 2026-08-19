@@ -17,17 +17,20 @@ TARGET_FLAG="$2"
 
 SDK=""
 TARGET_TRIPLE=""
-if [[ "$TARGET_FLAG" == "x64-sim" ]]; then
+if [[ "$TARGET_FLAG" == "ios-x64-sim" ]]; then
     TARGET_TRIPLE="x86_64-apple-ios15.0-simulator"
-elif [[ "$TARGET_FLAG" == "aarch64-sim" ]]; then
+    SDK="iphonesimulator"
+elif [[ "$TARGET_FLAG" == "ios-aarch64-sim" ]]; then
     TARGET_TRIPLE="arm64-apple-ios15.0-simulator"
+    SDK="iphonesimulator"
 else
-    TARGET_TRIPLE="arm64-apple-ios15.0-simulator"
+    TARGET_TRIPLE="arm64-apple-ios15.0"
+    SDK="iphoneos"
 fi
 SDK_PATH=$(xcrun --sdk ${SDK} --show-sdk-path)
 
 export CC="clang"
-export CFLAGS="-target ${TARGET_ARCH}-apple-ios15.0-simulator -isysroot ${SDK_PATH}"
+export CFLAGS="-target ${TARGET_TRIPLE} -isysroot ${SDK_PATH}"
 
 echo ">>> Running iOS Target CI Tests using C3C at: $C3C_BIN"
 
