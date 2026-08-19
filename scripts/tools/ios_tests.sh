@@ -58,7 +58,7 @@ run_c3c_sim_execute() {
     run_c3c compile "$@" -o "$target_name"
     
     if [ -f "$MY_WORK_DIR/$target_name" ]; then
-        xcrun simctl spawn "$TARGET_DEVICE" "$MY_WORK_DIR/$target_name"
+        xcrun simctl spawn --standalone "$TARGET_DEVICE" "$MY_WORK_DIR/$target_name"
         rm -f "$MY_WORK_DIR/$target_name"
     else
         echo "::error::Simulated binary target emission failed to locate at $MY_WORK_DIR/$target_name"
@@ -133,11 +133,14 @@ run_testproject() {
 
     local sim_sysroot=$(xcrun --sdk iphonesimulator --show-sdk-path)
     
-    export CC="clang -target $TARGET_FLAG -isysroot $sim_sysroot"
+    export CC="clang"
     export CFLAGS="-target $TARGET_FLAG -isysroot $sim_sysroot"
+    export LDFLAGS="-target $TARGET_FLAG -isysroot $sim_sysroot"
     
     "$C3C_BIN" build --target "$TARGET_FLAG" --trust=full --linker=builtin --output-dir "$MY_WORK_DIR" --build-dir "$MY_WORK_DIR" --obj-out "$MY_WORK_DIR"
     "$C3C_BIN" clean
+
+    unset CC CFLAGS LDFLAGS
 }
 
 run_unit_tests() {
