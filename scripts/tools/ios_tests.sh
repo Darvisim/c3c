@@ -130,9 +130,14 @@ run_testproject() {
 
     echo "--- Running Test Project for iOS Targets ---"
     cd "$ROOT_DIR/resources/testproject"
+
+    local sim_sysroot=$(xcrun --sdk iphonesimulator --show-sdk-path)
+    
+    export CC="clang -target $TARGET_FLAG -isysroot $sim_sysroot"
+    export CFLAGS="-target $TARGET_FLAG -isysroot $sim_sysroot"
     
     "$C3C_BIN" build --target "$TARGET_FLAG" --trust=full --linker=builtin --output-dir "$MY_WORK_DIR" --build-dir "$MY_WORK_DIR" --obj-out "$MY_WORK_DIR"
-    run_c3c clean
+    "$C3C_BIN" clean
 }
 
 run_unit_tests() {
