@@ -2419,7 +2419,7 @@ void target_setup(BuildTarget *build_target)
 
 	if (compiler.platform.os == OS_TYPE_IOS)
 	{
-		compiler.build.ios.simulator = (compiler.platform.target_triple->compiler.build.arch_os_target == IOS_AARCH64_SIM || IOS_X64_SIM);
+		compiler.build.ios.simulator = compiler.build.arch_os_target == IOS_AARCH64_SIM || compiler.build.arch_os_target == IOS_X64_SIM;
 		if(!compiler.build.ios.sysroot)
 		{
 			compiler.build.ios.sysroot = ios_sysroot(compiler.build.ios.simulator);
