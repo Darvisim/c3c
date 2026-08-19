@@ -990,7 +990,9 @@ jobs:
             -DCMAKE_OSX_SYSROOT="$(xcrun --sdk "${{ matrix.sdk }}" --show-sdk-path)" \
             -DCMAKE_OSX_DEPLOYMENT_TARGET="15.0" \
             -DCMAKE_BUILD_TYPE=Debug \
-            -DC3_FETCH_LLVM=ON
+            -DC3_FETCH_LLVM=ON \
+            -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=BOTH \
+            -DCMAKE_FIND_ROOT_PATH="${{ github.workspace }}/build-debug/llvm"
           cmake --build build-debug
 
       - name: Setup and Boot iOS Simulator
