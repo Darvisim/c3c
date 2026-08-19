@@ -15,16 +15,19 @@ C3C_BIN="$(realpath "$1")"
 ROOT_DIR="$REAL_ROOT_DIR"
 TARGET_FLAG="$2"
 
-local SIM_SDK_PATH=$(xcrun --sdk iphonesimulator --show-sdk-path)
-local TARGET_ARCH=""
+SDK=""
+TARGET_TRIPLE=""
 if [[ "$TARGET_FLAG" == "x64-sim" ]]; then
-    TARGET_ARCH="x86_64"
+    TARGET_TRIPLE="x86_64-apple-ios15.0-simulator"
+elif [[ "$TARGET_FLAG" == "aarch64-sim" ]]; then
+    TARGET_TRIPLE="arm64-apple-ios15.0-simulator"
 else
-    TARGET_ARCH="arm64"
+    TARGET_TRIPLE="arm64-apple-ios15.0-simulator"
 fi
+SDK_PATH=$(xcrun --sdk ${SDK} --show-sdk-path)
 
 export CC="clang"
-export CFLAGS="-target ${TARGET_ARCH}-apple-ios15.0-simulator -isysroot ${SIM_SDK_PATH}"
+export CFLAGS="-target ${TARGET_ARCH}-apple-ios15.0-simulator -isysroot ${SDK_PATH}"
 
 echo ">>> Running iOS Target CI Tests using C3C at: $C3C_BIN"
 
