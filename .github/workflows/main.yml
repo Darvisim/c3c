@@ -973,6 +973,7 @@ jobs:
     name: iOS (${{ matrix.name }})
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - { target: ios-aarch64, name: aarch64, os: macos-latest }
