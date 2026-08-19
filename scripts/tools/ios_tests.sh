@@ -99,6 +99,11 @@ run_examples() {
     run_c3c_sim_execute time.c3
     run_c3c_sim_execute fannkuch-redux.c3
     run_c3c_sim_execute contextfree/boolerr.c3
+
+    mkdir -p "$MY_WORK_DIR/examples"
+    echo "01010101" > "$MY_WORK_DIR/world.txt"
+    echo "01010101" > "$MY_WORK_DIR/examples/world.txt"
+    
     run_c3c_sim_execute load_world.c3
 }
 
@@ -133,14 +138,19 @@ run_testproject() {
 
     local sim_sysroot=$(xcrun --sdk iphonesimulator --show-sdk-path)
     
-    export CC="clang"
-    export CFLAGS="-target $TARGET_FLAG -isysroot $sim_sysroot"
-    export LDFLAGS="-target $TARGET_FLAG -isysroot $sim_sysroot"
+    mkdir -p "$MY_WORK_DIR/tmp_c_compile"
+    mkdir -p "$MY_WORK_DIR/clib"
+    mkdir -p "$MY_WORK_DIR/clib2"
+
+    local clang_cmd="clang -target $TARGET_FLAG -isysroot $sim_sysroot -c"
+
+    $clang_cmd tmp_c_compile/test.c -o "$MY_WORK_DIR/tmp_c_compile/test.o"
+    $clang_cmd clib2/hello.c -o "$MY_WORK_DIR/clib2/hello.o"
+    $clang_cmd clib/hello2.c -o "$MY_WORK_DIR/clib/hello2.o"
+    $clang_cmd clib/whitespace\ test.c -o "$MY_WORK_DIR/clib/whitespace test.o"
     
     "$C3C_BIN" build --target "$TARGET_FLAG" --trust=full --linker=builtin --output-dir "$MY_WORK_DIR" --build-dir "$MY_WORK_DIR" --obj-out "$MY_WORK_DIR"
     "$C3C_BIN" clean
-
-    unset CC CFLAGS LDFLAGS
 }
 
 run_unit_tests() {
