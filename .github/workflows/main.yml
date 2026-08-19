@@ -971,7 +971,7 @@ jobs:
 
   test-ios:
     name: iOS (${{ matrix.name }})
-    runs-on: macos-latest
+    runs-on: macos-14
     strategy:
       matrix:
         include:
