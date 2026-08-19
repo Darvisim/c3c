@@ -30,7 +30,7 @@ IosSDK *ios_sysroot_sdk_information(const char *sdk_path)
 {
   JsonParser parser;
   size_t len;
-  scratch_buffer_clean();
+  scratch_buffer_clear();
   scratch_buffer_printf("%s/SDKSettings.json", sdk_path);
   const char * settings_json_path = scratch_buffer_to_string();
   if(!file_exists(settings_json_path)) error_exit("Invalid iOS SDK path: '%s'.", sdk_path);
