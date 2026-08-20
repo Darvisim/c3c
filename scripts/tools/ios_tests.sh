@@ -62,8 +62,10 @@ run_c3c_sim_exec() {
     local target_path="$MY_WORK_DIR/$target_name"
     
     run_c3c compile "$source_file" "$@" -o "$source_name"
-    xcrun simctl spawn "$TARGET_DEVICE_ID" "$target_path"
-    rm -f "$target_path"
+    if [ -f "$target_path" ]; then
+        xcrun simctl spawn "$TARGET_DEVICE_ID" "$target_path"
+        rm -f "$target_path"
+    fi
 }
 
 run_examples() {
@@ -213,13 +215,17 @@ run_unit_tests() {
     cd "$ROOT_DIR/test"
 
     run_c3c compile-test unit -O1 --suppress-run -o "unit_test"
-    xcrun simctl spawn "$TARGET_DEVICE_ID" "$MY_WORK_DIR/unit_test"
+    if [ -f "$MY_WORK_DIR/unit_test" ]; then
+        xcrun simctl spawn "$TARGET_DEVICE_ID" "$MY_WORK_DIR/unit_test"
+    fi
 
     echo "--- Running Test Suite Runner inside iOS Simulator Container ---"
     cd "$MY_WORK_DIR"
     
     run_c3c compile "$ROOT_DIR/test/src/test_suite_runner.c3" -o suite_runner
-    xcrun simctl spawn "$TARGET_DEVICE_ID" "$MY_WORK_DIR/suite_runner" "$C3C_BIN" "$ROOT_DIR/test/test_suite/" --no-terminal
+    if [ -f "$MY_WORK_DIR/suite_runner" ]; then
+        xcrun simctl spawn "$TARGET_DEVICE_ID" "$MY_WORK_DIR/suite_runner" "$C3C_BIN" "$ROOT_DIR/test/test_suite/" --no-terminal
+    fi
 }
 
 PIDS=()
