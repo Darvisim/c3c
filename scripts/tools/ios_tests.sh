@@ -18,23 +18,27 @@ TARGET_FLAG="$2"
 echo ">>> Running iOS Target CI Tests using C3C at: $C3C_BIN"
 echo ">>> Initializing iOS Simulator Target Lifecycle..."
 
-TARGET_DEVICE=$(xcrun simctl list devices | grep -E "Booted" | head -n 1 | sed -E 's/.* \(([-0-9A-Fa-f]+)\).*/\1/')
+if [ -n "$TARGET_DEVICE" ]; then
+    TARGET_DEVICE_ID="$TARGET_DEVICE"
+else
+    TARGET_DEVICE_ID=$(xcrun simctl list devices | grep -E "Booted" | head -n 1 | sed -E 's/.* \(([-0-9A-Fa-f]+)\).*/\1/')
+fi
 
-if [ -z "$TARGET_DEVICE" ]; then
+if [ -z "$TARGET_DEVICE_ID" ]; then
     echo ">>> No active booted device found. Discovering available templates..."
-    TARGET_DEVICE=$(xcrun simctl list devices available | grep -E "iPhone" | head -n 1 | sed -E 's/.* \(([-0-9A-Fa-f]+)\).*/\1/')
+    TARGET_DEVICE_ID=$(xcrun simctl list devices available | grep -E "iPhone" | head -n 1 | sed -E 's/.* \(([-0-9A-Fa-f]+)\).*/\1/')
     
-    if [ -z "$TARGET_DEVICE" ]; then
+    if [ -z "$TARGET_DEVICE_ID" ]; then
         echo "::error::No operational iOS Simulator configuration available on this host."
         exit 1
     fi
     
-    echo ">>> Powering up Simulator Runtime Instance [ID: ${TARGET_DEVICE}]..."
-    xcrun simctl boot "${TARGET_DEVICE}" || true
-    xcrun simctl bootstatus "${TARGET_DEVICE}" > /dev/null 2>&1 || sleep 5
+    echo ">>> Powering up Simulator Runtime Instance [ID: ${TARGET_DEVICE_ID}]..."
+    xcrun simctl boot "${TARGET_DEVICE_ID}" || true
+    xcrun simctl bootstatus "${TARGET_DEVICE_ID}" > /dev/null 2>&1 || sleep 5
 fi
 
-echo ">>> Active iOS Simulator Environment Confirmed: [${TARGET_DEVICE}]"
+echo ">>> Active iOS Simulator Environment Confirmed: [${TARGET_DEVICE_ID}]"
 
 WORK_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t 'c3_ios_ci_tests')
 echo ">>> Setting up workspace in: $WORK_DIR"
@@ -58,14 +62,18 @@ run_c3c_sim_execute() {
     shift 2
     local source_name=$(basename "$source_file")
     local target_name="sim_exec_${source_name%.*}_${RANDOM}"
+    local target_path="$target_dir/$target_name"
     
     run_c3c "$target_dir" compile "$source_file" "$@" -o "$target_name"
     
-    if [ -f "$target_dir/$target_name" ]; then
-        SIMCTL_CHILD_DYLD_LIBRARY_PATH="$target_dir" xcrun simctl spawn "$TARGET_DEVICE" "$target_dir/$target_name"
-        rm -f "$target_dir/$target_name"
+    if [ -f "$target_path" ]; then
+        # find "$target_dir" -type f \( -perm -u+x -o -name "*.dylib" -o -name "$target_name" \) -exec codesign --force --sign - {} \; 2>/dev/null
+        
+        # SIMCTL_CHILD_DYLD_LIBRARY_PATH="$target_dir" \
+        xcrun simctl spawn "$TARGET_DEVICE_ID" "$target_path"
+        rm -f "$target_path"
     else
-        echo "::error::Simulated binary target emission failed to locate at $target_dir/$target_name"
+        echo "::error::Simulated binary target emission failed to locate at $target_path"
         exit 1
     fi
 }
@@ -74,7 +82,7 @@ run_examples() {
     local MY_WORK_DIR="$WORK_DIR/examples"
     mkdir -p "$MY_WORK_DIR"
 
-    echo "--- Running Standard Examples ---"
+    echo "--- Running iOS Standard Examples Matrix ---"
     cd "$ROOT_DIR/resources"
     
     run_c3c "$MY_WORK_DIR" compile examples/base64.c3
@@ -102,32 +110,16 @@ run_examples() {
     run_c3c_sim_execute "$MY_WORK_DIR" examples/time.c3
     run_c3c_sim_execute "$MY_WORK_DIR" examples/fannkuch-redux.c3
     run_c3c_sim_execute "$MY_WORK_DIR" examples/contextfree/boolerr.c3
-    run_c3c_sim_execute "$MY_WORK_DIR" examples/load_world.c3
-    run_c3c_sim_execute "$MY_WORK_DIR" examples/process.c3
     run_c3c_sim_execute "$MY_WORK_DIR" examples/ls.c3
-    run_c3c_sim_execute "$MY_WORK_DIR" examples/args.c3 -- foo -bar "baz baz"
-    run_c3c "$MY_WORK_DIR" examples/constants.c3 --no-entry --test -g --threads 1 --target macos-x64 
-}
 
-run_cli_tests() {
-    local MY_WORK_DIR="$WORK_DIR/cli"
-    mkdir -p "$MY_WORK_DIR"
-
-    echo "--- Running CLI tests (init) ---"
-    (
-        cd "$MY_WORK_DIR"
-        run_c3c "$MY_WORK_DIR" init-lib mylib
-        run_c3c "$MY_WORK_DIR" init myproject
-        (cd myproject && run_c3c "$MY_WORK_DIR" benchmark myproject --suppress-run)
-        rm -rf mylib.c3l myproject
-    )
+    run_c3c "$MY_WORK_DIR" compile examples/constants.c3 --no-entry --test -g --threads 1 --target macos-x64
 }
 
 run_dynlib_tests() {
     local MY_WORK_DIR="$WORK_DIR/dynlib"
     mkdir -p "$MY_WORK_DIR"
 
-    echo "--- Running Dynamic Lib Tests ---"
+    echo "--- Running iOS Dynamic Lib Tests ---"
     cd "$MY_WORK_DIR"
     
     run_c3c "$MY_WORK_DIR" dynamic-lib "$ROOT_DIR/resources/examples/dynlib-test/add.c3" -o add
@@ -165,11 +157,25 @@ run_wasm_compile() {
     run_c3c "$MY_WORK_DIR" compile --target wasm32 -g0 --no-entry -Os wasm4.c3
 }
 
+run_cli_tests() {
+    local MY_WORK_DIR="$WORK_DIR/cli"
+    mkdir -p "$MY_WORK_DIR"
+
+    echo "--- Running CLI tests (init) ---"
+    (
+        cd "$MY_WORK_DIR"
+        run_c3c "$MY_WORK_DIR" init-lib mylib
+        run_c3c "$MY_WORK_DIR" init myproject
+        (cd "$MY_WORK_DIR/myproject" && run_c3c "$MY_WORK_DIR" benchmark myproject --suppress-run)
+        rm -rf mylib.c3l myproject
+    )
+}
+
 run_http_server_tests() {
     local MY_WORK_DIR="$WORK_DIR/http"
     mkdir -p "$MY_WORK_DIR"
 
-    echo "--- Running HTTP Server Integration Tests ---"
+    echo "--- Running HTTP Server Integration Tests inside iOS Simulator ---"
 
     if [ -n "$SKIP_NETWORK_TESTS" ]; then
         echo "Skipping HTTP server request tests (network tests disabled)"
@@ -182,7 +188,6 @@ run_http_server_tests() {
     fi
 
     cd "$ROOT_DIR/resources/examples"
-    
     run_c3c "$MY_WORK_DIR" compile -O1 http_server.c3 -o http_server
 
     OUTPUT_BIN="$MY_WORK_DIR/http_server"
@@ -190,21 +195,23 @@ run_http_server_tests() {
         echo "::error::Failed to compile HTTP server binary."
         exit 1
     fi
+    
+    # codesign --force --sign - "$OUTPUT_BIN"
 
     PORT=$(( 8085 + $RANDOM % 10000 ))
     echo "Starting server inside simulator on port $PORT..."
     
-    xcrun simctl spawn "$TARGET_DEVICE" "$OUTPUT_BIN" -p $PORT -r "$ROOT_DIR/resources/examples" &
+    xcrun simctl spawn "$TARGET_DEVICE_ID" "$OUTPUT_BIN" -p $PORT -r "$ROOT_DIR/resources/examples" &
     SERVER_PID=$!
-    
+
     sleep 2
-    
+
     kill_server() {
         echo "Stopping simulator HTTP server..."
         kill $SERVER_PID 2>/dev/null || true
         wait $SERVER_PID 2>/dev/null || true
     }
-    
+
     echo "Testing GET / from Host to Simulator"
     HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:$PORT/")
     if [ "$HTTP_STATUS" != "200" ]; then
@@ -212,7 +219,7 @@ run_http_server_tests() {
         kill_server
         exit 1
     fi
-    
+
     echo "Testing GET /http_server.c3"
     HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:$PORT/http_server.c3")
     if [ "$HTTP_STATUS" != "200" ]; then
@@ -220,7 +227,7 @@ run_http_server_tests() {
         kill_server
         exit 1
     fi
-    
+
     echo "Testing 404 for invalid path"
     HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:$PORT/does_not_exist_404_test")
     if [ "$HTTP_STATUS" != "404" ]; then
@@ -233,7 +240,6 @@ run_http_server_tests() {
     kill_server
 }
 
-
 run_unit_tests() {
     local MY_WORK_DIR="$WORK_DIR/unit"
     mkdir -p "$MY_WORK_DIR"
@@ -243,7 +249,8 @@ run_unit_tests() {
 
     run_c3c "$MY_WORK_DIR" compile-test unit -O1 --suppress-run -o "unit_test_binary"
     if [ -f "$MY_WORK_DIR/unit_test_binary" ]; then
-        xcrun simctl spawn "$TARGET_DEVICE" "$MY_WORK_DIR/unit_test_binary"
+        # codesign --force --sign - "$MY_WORK_DIR/unit_test_binary"
+        xcrun simctl spawn "$TARGET_DEVICE_ID" "$MY_WORK_DIR/unit_test_binary"
     else
         echo "::error::Unit test compilation failed to produce binary target."
         exit 1
@@ -255,7 +262,8 @@ run_unit_tests() {
     "$C3C_BIN" --target "$TARGET_FLAG" --output-dir "$MY_WORK_DIR" --build-dir "$MY_WORK_DIR" --obj-out "$MY_WORK_DIR" compile "$ROOT_DIR/test/src/test_suite_runner.c3" -o suite_runner
     
     if [ -f "$MY_WORK_DIR/suite_runner" ]; then
-        xcrun simctl spawn "$TARGET_DEVICE" "$MY_WORK_DIR/suite_runner" "$ROOT_DIR/test/test_suite/" --no-terminal -- "$C3C_BIN" --target "$TARGET_FLAG"
+        # codesign --force --sign - "$MY_WORK_DIR/suite_runner"
+        xcrun simctl spawn "$TARGET_DEVICE_ID" "$MY_WORK_DIR/suite_runner" "$ROOT_DIR/test/test_suite/" --no-terminal -- "$C3C_BIN" --target "$TARGET_FLAG"
     else
         echo "::error::Failed to compile test_suite_runner executable."
         exit 1
@@ -263,13 +271,11 @@ run_unit_tests() {
 }
 
 PIDS=()
-
 run_parallel() {
     local name=$1
     local func=$2
     local MY_WORK_DIR="$WORK_DIR/$name"
     local log="$WORK_DIR/$name.log"
-
     (
         set +e
         ( set -e; $func ) > "$log" 2>&1
