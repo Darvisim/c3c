@@ -348,12 +348,13 @@ static void linker_setup_macos(const char ***args_ref, Linker linker_type)
 
 static void linker_setup_ios(const char ***args_ref, Linker linker_type)
 {
+	compiler.build.ios.simulator = compiler.build.arch_os_target == IOS_AARCH64_SIM || compiler.build.arch_os_target == IOS_X64_SIM;
 	if (linker_type == LINKER_CC)
 	{
 		add_plain_arg("-target");
 		add_plain_arg(compiler.platform.target_triple);
 		add_plain_arg("-isysroot");
-		if (compiler.build.ios.sysroot) add_plain_arg(compiler.build.ios.sysroot);
+		add_plain_arg(compiler.build.ios.sysroot);
 		return;
 	}
 	add_plain_arg("-arch");
@@ -370,7 +371,7 @@ static void linker_setup_ios(const char ***args_ref, Linker linker_type)
 	}
 	linking_add_link(&compiler.linking, "System");
 	add_plain_arg("-syslibroot");
-	if (compiler.build.ios.sysroot) add_quote_arg(compiler.build.ios.sysroot);
+	add_quote_arg(compiler.build.ios.sysroot);
 	add_plain_arg("-pie");
 	add_plain_arg("-platform_version");
 	if (compiler.build.ios.simulator)
