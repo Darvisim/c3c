@@ -1025,8 +1025,11 @@ jobs:
           else
               SCRIPT_TARGET="ios-${{ matrix.arch }}"
           fi
-          
           ./scripts/tools/ios_tests.sh ./build-debug/c3c "$SCRIPT_TARGET"
+
+      - name: Shutdown iOS Simulator
+        if: ${{ matrix.simulator && always() }}
+        run: |
           xcrun simctl shutdown booted
           xcrun simctl erase all
 
