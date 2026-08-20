@@ -51,20 +51,16 @@ cleanup() {
 trap cleanup EXIT
 
 run_c3c() {
-    local target_dir="$1"
-    shift
-    "$C3C_BIN" --target "$TARGET_FLAG" --output-dir "$target_dir" --build-dir "$target_dir" --obj-out "$target_dir" "$@"
+    "$C3C_BIN" --target "$TARGET_FLAG" --output-dir "$MY_WORK_DIR" --build-dir "$MY_WORK_DIR" --obj-out "$MY_WORK_DIR" "$@"
 }
 
-run_c3c_sim_execute() {
-    local target_dir="$1"
-    local source_file="$2"
-    shift 2
+run_c3c_sim_exec() {
+    local source_file="$1"
+    shift
     local source_name=$(basename "$source_file")
-    local target_name="sim_exec_${source_name%.*}_${RANDOM}"
-    local target_path="$target_dir/$target_name"
+    local target_path="$MY_WORK_DIR/$source_name"
     
-    run_c3c "$target_dir" compile "$source_file" "$@" -o "$target_name"
+    run_c3c compile "$source_file" "$@" -o "$source_name"
     
     if [ -f "$target_path" ]; then
         xcrun simctl spawn "$TARGET_DEVICE_ID" "$target_path"
@@ -82,33 +78,33 @@ run_examples() {
     echo "--- Running iOS Standard Examples Matrix ---"
     cd "$ROOT_DIR/resources"
     
-    run_c3c "$MY_WORK_DIR" compile examples/base64.c3
-    run_c3c "$MY_WORK_DIR" compile examples/binarydigits.c3
-    run_c3c "$MY_WORK_DIR" compile examples/brainfk.c3
-    run_c3c "$MY_WORK_DIR" compile examples/factorial_macro.c3
-    run_c3c "$MY_WORK_DIR" compile examples/fasta.c3
-    run_c3c "$MY_WORK_DIR" compile examples/gameoflife.c3
-    run_c3c "$MY_WORK_DIR" compile examples/hash.c3
-    run_c3c "$MY_WORK_DIR" compile-only examples/levenshtein.c3
-    run_c3c "$MY_WORK_DIR" compile examples/load_world.c3
-    run_c3c "$MY_WORK_DIR" compile-only examples/map.c3
-    run_c3c "$MY_WORK_DIR" compile examples/mandelbrot.c3
-    run_c3c "$MY_WORK_DIR" compile examples/plus_minus.c3
-    run_c3c "$MY_WORK_DIR" compile examples/nbodies.c3
-    run_c3c "$MY_WORK_DIR" compile examples/spectralnorm.c3
-    run_c3c "$MY_WORK_DIR" compile examples/swap.c3
-    run_c3c "$MY_WORK_DIR" compile examples/contextfree/boolerr.c3
-    run_c3c "$MY_WORK_DIR" compile examples/contextfree/dynscope.c3
-    run_c3c "$MY_WORK_DIR" compile examples/contextfree/guess_number.c3
-    run_c3c "$MY_WORK_DIR" compile examples/contextfree/multi.c3
-    run_c3c "$MY_WORK_DIR" compile examples/contextfree/cleanup.c3
+    run_c3c compile examples/base64.c3
+    run_c3c compile examples/binarydigits.c3
+    run_c3c compile examples/brainfk.c3
+    run_c3c compile examples/factorial_macro.c3
+    run_c3c compile examples/fasta.c3
+    run_c3c compile examples/gameoflife.c3
+    run_c3c compile examples/hash.c3
+    run_c3c compile-only examples/levenshtein.c3
+    run_c3c compile examples/load_world.c3
+    run_c3c compile-only examples/map.c3
+    run_c3c compile examples/mandelbrot.c3
+    run_c3c compile examples/plus_minus.c3
+    run_c3c compile examples/nbodies.c3
+    run_c3c compile examples/spectralnorm.c3
+    run_c3c compile examples/swap.c3
+    run_c3c compile examples/contextfree/boolerr.c3
+    run_c3c compile examples/contextfree/dynscope.c3
+    run_c3c compile examples/contextfree/guess_number.c3
+    run_c3c compile examples/contextfree/multi.c3
+    run_c3c compile examples/contextfree/cleanup.c3
     
-    run_c3c_sim_execute "$MY_WORK_DIR" examples/hello_world_many.c3
-    run_c3c_sim_execute "$MY_WORK_DIR" examples/time.c3
-    run_c3c_sim_execute "$MY_WORK_DIR" examples/fannkuch-redux.c3
-    run_c3c_sim_execute "$MY_WORK_DIR" examples/contextfree/boolerr.c3
+    run_c3c_sim_exec examples/hello_world_many.c3
+    run_c3c_sim_exec examples/time.c3
+    run_c3c_sim_exec examples/fannkuch-redux.c3
+    run_c3c_sim_exec examples/contextfree/boolerr.c3
 
-    run_c3c "$MY_WORK_DIR" compile examples/constants.c3 --no-entry --test -g --threads 1 --target macos-x64
+    run_c3c compile --no-entry --test -g --threads 1 --target macos-x64 examples/constants.c3
 }
 
 run_dynlib_tests() {
@@ -118,8 +114,8 @@ run_dynlib_tests() {
     echo "--- Running iOS Dynamic Lib Tests ---"
     cd "$MY_WORK_DIR"
     
-    run_c3c "$MY_WORK_DIR" -vv dynamic-lib "$ROOT_DIR/resources/examples/dynlib-test/add.c3" -o add
-    run_c3c_sim_execute "$MY_WORK_DIR" "$ROOT_DIR/resources/examples/dynlib-test/test.c3" -l "add.dylib"
+    run_c3c -vv dynamic-lib "$ROOT_DIR/resources/examples/dynlib-test/add.c3" -o add
+    run_c3c_sim_exec "$ROOT_DIR/resources/examples/dynlib-test/test.c3" -l "add.dylib"
 }
 
 run_staticlib_tests() {
@@ -129,8 +125,8 @@ run_staticlib_tests() {
     echo "--- Running iOS Static Lib Tests ---"
     cd "$MY_WORK_DIR"
     
-    run_c3c "$MY_WORK_DIR" -vv static-lib "$ROOT_DIR/resources/examples/staticlib-test/add.c3" -o libadd
-    run_c3c_sim_execute "$MY_WORK_DIR" "$ROOT_DIR/resources/examples/staticlib-test/test.c3" -L . -l add
+    run_c3c -vv static-lib "$ROOT_DIR/resources/examples/staticlib-test/add.c3" -o libadd
+    run_c3c_sim_exec "$ROOT_DIR/resources/examples/staticlib-test/test.c3" -L . -l add
 }
 
 run_testproject() {
@@ -140,8 +136,14 @@ run_testproject() {
     echo "--- Running Test Project for iOS Targets ---"
     cd "$ROOT_DIR/resources/testproject"
     
-    run_c3c "$MY_WORK_DIR" build -vv --trust=full --linker=builtin
-    run_c3c "$MY_WORK_DIR" clean
+    run_c3c build -vv --trust=full --linker=builtin -o "testproject"
+    if [ -f "$MY_WORK_DIR/testproject" ]; then
+        xcrun simctl spawn "$TARGET_DEVICE_ID" "$MY_WORK_DIR/testproject"
+    else
+        echo "::error::Failed to locate binary at $MY_WORK_DIR/testproject"
+        exit 1
+    fi
+    run_c3c clean
 }
 
 run_wasm_compile() {
@@ -150,7 +152,7 @@ run_wasm_compile() {
 
     echo "--- Running WASM Compile Check ---"
     cd "$ROOT_DIR/resources/testfragments"
-    run_c3c "$MY_WORK_DIR" compile --target wasm32 -g0 --no-entry -Os wasm4.c3
+    run_c3c compile --target wasm32 -g0 --no-entry -Os wasm4.c3
 }
 
 run_cli_tests() {
@@ -160,9 +162,9 @@ run_cli_tests() {
     echo "--- Running CLI tests (init) ---"
     (
         cd "$MY_WORK_DIR"
-        run_c3c "$MY_WORK_DIR" init-lib mylib
-        run_c3c "$MY_WORK_DIR" init myproject
-        (cd "$MY_WORK_DIR/myproject" && run_c3c "$MY_WORK_DIR" benchmark myproject --suppress-run)
+        run_c3c init-lib mylib
+        run_c3c init myproject
+        (cd myproject && run_c3c benchmark myproject --suppress-run)
         rm -rf mylib.c3l myproject
     )
 }
@@ -174,7 +176,7 @@ run_http_server_tests() {
     echo "--- Running HTTP Server Integration Tests inside iOS Simulator ---"
 
     cd "$ROOT_DIR/resources/examples"
-    run_c3c "$MY_WORK_DIR" compile -O1 http_server.c3 -o http_server
+    run_c3c compile -O1 http_server.c3 -o http_server
 
     OUTPUT_BIN="$MY_WORK_DIR/http_server"
     if [ ! -f "$OUTPUT_BIN" ]; then
@@ -190,17 +192,11 @@ run_http_server_tests() {
 
     sleep 2
 
-    kill_server() {
-        echo "Stopping simulator HTTP server..."
-        kill $SERVER_PID 2>/dev/null || true
-        wait $SERVER_PID 2>/dev/null || true
-    }
-
     echo "Testing GET / from Host to Simulator"
     HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:$PORT/")
     if [ "$HTTP_STATUS" != "200" ]; then
         echo "::error::HTTP GET / failed with status $HTTP_STATUS."
-        kill_server
+        kill $SERVER_PID 2>/dev/null || true
         exit 1
     fi
 
@@ -208,7 +204,7 @@ run_http_server_tests() {
     HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:$PORT/http_server.c3")
     if [ "$HTTP_STATUS" != "200" ]; then
         echo "::error::HTTP GET /http_server.c3 failed with status $HTTP_STATUS."
-        kill_server
+        kill $SERVER_PID 2>/dev/null || true
         exit 1
     fi
 
@@ -216,12 +212,12 @@ run_http_server_tests() {
     HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:$PORT/does_not_exist_404_test")
     if [ "$HTTP_STATUS" != "404" ]; then
         echo "::error::HTTP GET /does_not_exist_404_test expected 404, but got $HTTP_STATUS."
-        kill_server
+        kill $SERVER_PID 2>/dev/null || true
         exit 1
     fi
 
     echo "HTTP Server Integration Tests passed."
-    kill_server
+    kill $SERVER_PID 2>/dev/null || true
 }
 
 run_unit_tests() {
@@ -231,7 +227,7 @@ run_unit_tests() {
     echo "--- Running iOS Unit Test Suites ---"
     cd "$ROOT_DIR/test"
 
-    run_c3c "$MY_WORK_DIR" compile-test unit -O1 --suppress-run -o "unit_test_binary"
+    run_c3c compile-test unit -O1 --suppress-run -o "unit_test_binary"
     if [ -f "$MY_WORK_DIR/unit_test_binary" ]; then
         xcrun simctl spawn "$TARGET_DEVICE_ID" "$MY_WORK_DIR/unit_test_binary"
     else
@@ -242,7 +238,7 @@ run_unit_tests() {
     echo "--- Running Test Suite Runner inside iOS Simulator Container ---"
     cd "$MY_WORK_DIR"
     
-    run_c3c "$MY_WORK_DIR" compile "$ROOT_DIR/test/src/test_suite_runner.c3" -o suite_runner
+    run_c3c compile "$ROOT_DIR/test/src/test_suite_runner.c3" -o suite_runner
     
     if [ -f "$MY_WORK_DIR/suite_runner" ]; then
         xcrun simctl spawn "$TARGET_DEVICE_ID" "$MY_WORK_DIR/suite_runner" "$C3C_BIN" "$ROOT_DIR/test/test_suite/" --no-terminal
