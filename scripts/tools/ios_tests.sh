@@ -173,9 +173,11 @@ run_http_server_tests() {
 
     PORT=$(( 8085 + $RANDOM % 10000 ))
     echo "Starting server inside simulator on port $PORT..."
-    
-    xcrun simctl spawn "$TARGET_DEVICE_ID" "$OUTPUT_BIN" -p $PORT -r "$ROOT_DIR/resources/examples" &
-    SERVER_PID=$!
+
+    if [ -f "$OUTPUT_BIN" ]; then
+        xcrun simctl spawn "$TARGET_DEVICE_ID" "$OUTPUT_BIN" -p $PORT -r "$ROOT_DIR/resources/examples" &
+        SERVER_PID=$!
+    fi
 
     sleep 2
 
