@@ -1417,18 +1417,12 @@ const char *cc_compiler(const char *cc, const char *file, const char *flags, con
 	const char ***args_ref = &parts;
 	add_quote_arg(cc);
 
-	if (!is_cl_exe)
+	if (compiler.platform.os == OS_TYPE_IOS)
 	{
-		if (compiler.platform.os == OS_TYPE_IOS || compiler.platform.os == OS_TYPE_MACOSX)
-		{
-			add_plain_arg("-target");
-			add_plain_arg(compiler.platform.target_triple);
-			if (compiler.platform.os == OS_TYPE_IOS)
-			{
-				add_plain_arg("-isysroot");
-				add_plain_arg(compiler.build.ios.sysroot);
-			}
-		}
+		add_plain_arg("-target");
+		add_plain_arg(compiler.platform.target_triple);
+		add_plain_arg("-isysroot");
+		add_plain_arg(compiler.build.ios.sysroot);
 	}
 		
 	if (is_cl_exe) add_plain_arg("/nologo");
