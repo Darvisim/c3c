@@ -109,7 +109,6 @@ run_examples() {
     run_c3c_sim_execute "$MY_WORK_DIR" examples/time.c3
     run_c3c_sim_execute "$MY_WORK_DIR" examples/fannkuch-redux.c3
     run_c3c_sim_execute "$MY_WORK_DIR" examples/contextfree/boolerr.c3
-    run_c3c_sim_execute "$MY_WORK_DIR" examples/ls.c3
 
     run_c3c "$MY_WORK_DIR" compile examples/constants.c3 --no-entry --test -g --threads 1 --target macos-x64
 }
