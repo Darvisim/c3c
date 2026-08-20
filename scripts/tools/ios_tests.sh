@@ -170,15 +170,17 @@ run_http_server_tests() {
     run_c3c compile -O1 http_server.c3 -o http_server
 
     OUTPUT_BIN="$MY_WORK_DIR/http_server"
-
+    if [ ! -f "$OUTPUT_BIN" ]; then
+        echo "::error::Failed to compile HTTP server binary."
+        exit 1
+    fi
+    
     PORT=$(( 8085 + $RANDOM % 10000 ))
     echo "Starting server inside simulator on port $PORT..."
-
-    if [ -f "$OUTPUT_BIN" ]; then
-        xcrun simctl spawn "$TARGET_DEVICE_ID" "$OUTPUT_BIN" -p $PORT -r "$ROOT_DIR/resources/examples" &
-        SERVER_PID=$!
-    fi
-
+    
+    xcrun simctl spawn "$TARGET_DEVICE_ID" "$OUTPUT_BIN" -p $PORT -r "$ROOT_DIR/resources/examples" &
+    SERVER_PID=$!
+    
     sleep 2
 
     echo "Testing GET / from Host to Simulator"
