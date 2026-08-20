@@ -242,10 +242,10 @@ run_unit_tests() {
     echo "--- Running Test Suite Runner inside iOS Simulator Container ---"
     cd "$MY_WORK_DIR"
     
-    "$C3C_BIN" --target "$TARGET_FLAG" --output-dir "$MY_WORK_DIR" --build-dir "$MY_WORK_DIR" --obj-out "$MY_WORK_DIR" compile "$ROOT_DIR/test/src/test_suite_runner.c3" -o suite_runner
+    run_c3c "$MY_WORK_DIR" compile "$ROOT_DIR/test/src/test_suite_runner.c3" -o suite_runner
     
     if [ -f "$MY_WORK_DIR/suite_runner" ]; then
-        xcrun simctl spawn "$TARGET_DEVICE_ID" "$MY_WORK_DIR/suite_runner" "$ROOT_DIR/test/test_suite/" --no-terminal -- "$C3C_BIN" --target "$TARGET_FLAG"
+        xcrun simctl spawn "$TARGET_DEVICE_ID" "$MY_WORK_DIR/suite_runner" "$C3C_BIN" "$ROOT_DIR/test/test_suite/" --no-terminal
     else
         echo "::error::Failed to compile test_suite_runner executable."
         exit 1
