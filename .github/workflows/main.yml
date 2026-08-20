@@ -977,7 +977,7 @@ jobs:
         include:
           - { arch: aarch64, simulator: false, os: macos-latest }
           - { arch: aarch64, simulator: true, os: macos-latest }
-          - { arch: aarch64, simulator: true, os: macos-26-intel }
+          - { arch: x64, simulator: true, os: macos-26-intel }
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
@@ -1019,7 +1019,6 @@ jobs:
           export TARGET_DEVICE="$TARGET_DEVICE_ID"
           chmod +x ./scripts/tools/ios_tests.sh
           
-          # Construct your target flags on the fly from simple matrix keys!
           if [ "${{ matrix.simulator }}" = "true" ]; then
               SCRIPT_TARGET="ios-${{ matrix.arch }}-sim"
           else
