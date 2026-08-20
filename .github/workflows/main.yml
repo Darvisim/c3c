@@ -1027,8 +1027,8 @@ jobs:
           fi
           
           ./scripts/tools/ios_tests.sh ./build-debug/c3c "$SCRIPT_TARGET"
+          xcrun simctl shutdown booted
           xcrun simctl erase all
-          xcrun simctl shutdown all
 
   release:
     runs-on: ubuntu-slim
