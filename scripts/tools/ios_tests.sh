@@ -67,7 +67,7 @@ run_c3c_sim_execute() {
     run_c3c "$target_dir" compile "$source_file" "$@" -o "$target_name"
     
     if [ -f "$target_path" ]; then
-        xcrun simctl spawn "$TARGET_DEVICE_ID" "$target_path"
+        xcrun simctl spawn "$TARGET_DEVICE_ID" sh -c "cd '$ROOT_DIR/resources' && '$target_path'"
         rm -f "$target_path"
     else
         echo "::error::Simulated binary target emission failed to locate at $target_path"
@@ -107,6 +107,7 @@ run_examples() {
     run_c3c_sim_execute "$MY_WORK_DIR" examples/time.c3
     run_c3c_sim_execute "$MY_WORK_DIR" examples/fannkuch-redux.c3
     run_c3c_sim_execute "$MY_WORK_DIR" examples/contextfree/boolerr.c3
+    run_c3c_sim_execute "$MY_WORK_DIR" examples/load_world.c3
     run_c3c_sim_execute "$MY_WORK_DIR" examples/ls.c3
 
     run_c3c "$MY_WORK_DIR" compile examples/constants.c3 --no-entry --test -g --threads 1 --target macos-x64
