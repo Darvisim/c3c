@@ -348,41 +348,32 @@ static void linker_setup_macos(const char ***args_ref, Linker linker_type)
 
 static void linker_setup_ios(const char ***args_ref, Linker linker_type)
 {
-	if(linker_type == LINKER_CC)
+	if (linker_type == LINKER_CC)
 	{
 		add_plain_arg("-target");
 		add_plain_arg(compiler.platform.target_triple);
-		if (compiler.build.ios.sysroot)
-		{
-			add_plain_arg("-isysroot");
-			add_plain_arg(compiler.build.ios.sysroot);
-		}
+		add_plain_arg("-isysroot");
+		if (compiler.build.ios.sysroot) add_plain_arg(compiler.build.ios.sysroot);
 		return;
 	}
 	add_plain_arg("-arch");
 	add_plain_arg(arch_to_linker_arch(compiler.platform.arch));
-	if(strip_unused() && compiler.build.type == TARGET_TYPE_EXECUTABLE)
+	if (strip_unused() && compiler.build.type == TARGET_TYPE_EXECUTABLE)
 	{
 		add_plain_arg("-no_exported_symbols");
-		add_plain_arg("-dead_strip");
+		add_plain_arg("-dead_strip"); 
 	}
-	if(!link_libc()) return;
-	if(!compiler.build.ios.sdk)
+	if (!link_libc()) return;
+	if (!compiler.build.ios.sdk)
 	{
 		error_exit("Cannot crosslink iOS without providing --ios-sdk.");
 	}
 	linking_add_link(&compiler.linking, "System");
-	if (compiler.build.ios.sysroot)
-	{
-		add_plain_arg("-syslibroot");
-		add_quote_arg(compiler.build.ios.sysroot);
-	}
-	if (compiler.build.type == TARGET_TYPE_EXECUTABLE)
-	{
-		add_plain_arg("-pie");
-	}
+	add_plain_arg("-syslibroot");
+	if (compiler.build.ios.sysroot) add_quote_arg(compiler.build.ios.sysroot);
+	add_plain_arg("-pie");
 	add_plain_arg("-platform_version");
-	if(compiler.build.ios.simulator)
+	if (compiler.build.ios.simulator)
 	{
 		add_plain_arg("ios-simulator");
 	}
