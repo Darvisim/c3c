@@ -993,6 +993,7 @@ jobs:
         if: ${{ matrix.simulator }}
         id: sim-setup
         run: |
+          xcrun simctl delete unavailable
           echo ">>> Locating targeted simulator instance..."
           RUNTIME_ID=$(xcrun simctl list devices available | awk '/-- iOS 26.5 --/{flag=1;next}/--/{flag=0}flag' | grep -E "iPhone" | head -n 1 | sed -E 's/.* \(([-0-9A-Fa-f]+)\).*/\1/')
           
@@ -1026,6 +1027,8 @@ jobs:
           fi
           
           ./scripts/tools/ios_tests.sh ./build-debug/c3c "$SCRIPT_TARGET"
+          xcrun simctl erase all
+          xcrun simctl shutdown all
 
   release:
     runs-on: ubuntu-slim
