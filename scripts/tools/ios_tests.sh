@@ -58,17 +58,12 @@ run_c3c_sim_exec() {
     local source_file="$1"
     shift
     local source_name=$(basename "$source_file")
-    local target_path="$MY_WORK_DIR/$source_name"
+    local target_name="${source_name%.*}"
+    local target_path="$MY_WORK_DIR/$target_name"
     
     run_c3c compile "$source_file" "$@" -o "$source_name"
-    
-    if [ -f "$target_path" ]; then
-        xcrun simctl spawn "$TARGET_DEVICE_ID" "$target_path"
-        rm -f "$target_path"
-    else
-        echo "::error::Simulated binary target emission failed to locate at $target_path"
-        exit 1
-    fi
+    xcrun simctl spawn "$TARGET_DEVICE_ID" "$target_path"
+    rm -f "$target_path"
 }
 
 run_examples() {
@@ -173,10 +168,6 @@ run_http_server_tests() {
     run_c3c compile -O1 http_server.c3 -o http_server
 
     OUTPUT_BIN="$MY_WORK_DIR/http_server"
-    if [ ! -f "$OUTPUT_BIN" ]; then
-        echo "::error::Failed to compile HTTP server binary."
-        exit 1
-    fi
 
     PORT=$(( 8085 + $RANDOM % 10000 ))
     echo "Starting server inside simulator on port $PORT..."
@@ -221,25 +212,14 @@ run_unit_tests() {
     echo "--- Running iOS Unit Test Suites ---"
     cd "$ROOT_DIR/test"
 
-    run_c3c compile-test unit -O1 --suppress-run -o "unit_test_binary"
-    if [ -f "$MY_WORK_DIR/unit_test_binary" ]; then
-        xcrun simctl spawn "$TARGET_DEVICE_ID" "$MY_WORK_DIR/unit_test_binary"
-    else
-        echo "::error::Unit test compilation failed to produce binary target."
-        exit 1
-    fi
+    run_c3c compile-test unit -O1 --suppress-run -o "unit_test"
+    xcrun simctl spawn "$TARGET_DEVICE_ID" "$MY_WORK_DIR/unit_test"
 
     echo "--- Running Test Suite Runner inside iOS Simulator Container ---"
     cd "$MY_WORK_DIR"
     
     run_c3c compile "$ROOT_DIR/test/src/test_suite_runner.c3" -o suite_runner
-    
-    if [ -f "$MY_WORK_DIR/suite_runner" ]; then
-        xcrun simctl spawn "$TARGET_DEVICE_ID" "$MY_WORK_DIR/suite_runner" "$C3C_BIN" "$ROOT_DIR/test/test_suite/" --no-terminal
-    else
-        echo "::error::Failed to compile test_suite_runner executable."
-        exit 1
-    fi
+    xcrun simctl spawn "$TARGET_DEVICE_ID" "$MY_WORK_DIR/suite_runner" "$C3C_BIN" "$ROOT_DIR/test/test_suite/" --no-terminal
 }
 
 PIDS=()
