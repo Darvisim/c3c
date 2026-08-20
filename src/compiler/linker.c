@@ -348,6 +348,7 @@ static void linker_setup_macos(const char ***args_ref, Linker linker_type)
 
 static void linker_setup_ios(const char ***args_ref, Linker linker_type)
 {
+	compiler.build.ios.simulator = compiler.build.arch_os_target == IOS_AARCH64_SIM || compiler.build.arch_os_target == IOS_X64_SIM;
 	if (linker_type == LINKER_CC)
 	{
 		add_plain_arg("-target");
