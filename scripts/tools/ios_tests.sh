@@ -67,8 +67,6 @@ run_c3c_sim_execute() {
     run_c3c "$target_dir" compile "$source_file" "$@" -o "$target_name"
     
     if [ -f "$target_path" ]; then
-        # find "$target_dir" -type f \( -perm -u+x -o -name "*.dylib" -o -name "$target_name" \) -exec codesign --force --sign - {} \; 2>/dev/null
-        # SIMCTL_CHILD_DYLD_LIBRARY_PATH="$target_dir" \
         xcrun simctl spawn "$TARGET_DEVICE_ID" "$target_path"
         rm -f "$target_path"
     else
@@ -176,16 +174,6 @@ run_http_server_tests() {
 
     echo "--- Running HTTP Server Integration Tests inside iOS Simulator ---"
 
-    if [ -n "$SKIP_NETWORK_TESTS" ]; then
-        echo "Skipping HTTP server request tests (network tests disabled)"
-        return
-    fi
-
-    if ! command -v curl &> /dev/null; then
-        echo "::warning::curl not found on host Mac, skipping HTTP server integration tests"
-        return
-    fi
-
     cd "$ROOT_DIR/resources/examples"
     run_c3c "$MY_WORK_DIR" compile -O1 http_server.c3 -o http_server
 
@@ -194,8 +182,6 @@ run_http_server_tests() {
         echo "::error::Failed to compile HTTP server binary."
         exit 1
     fi
-    
-    # codesign --force --sign - "$OUTPUT_BIN"
 
     PORT=$(( 8085 + $RANDOM % 10000 ))
     echo "Starting server inside simulator on port $PORT..."
@@ -248,7 +234,6 @@ run_unit_tests() {
 
     run_c3c "$MY_WORK_DIR" compile-test unit -O1 --suppress-run -o "unit_test_binary"
     if [ -f "$MY_WORK_DIR/unit_test_binary" ]; then
-        # codesign --force --sign - "$MY_WORK_DIR/unit_test_binary"
         xcrun simctl spawn "$TARGET_DEVICE_ID" "$MY_WORK_DIR/unit_test_binary"
     else
         echo "::error::Unit test compilation failed to produce binary target."
@@ -261,7 +246,6 @@ run_unit_tests() {
     "$C3C_BIN" --target "$TARGET_FLAG" --output-dir "$MY_WORK_DIR" --build-dir "$MY_WORK_DIR" --obj-out "$MY_WORK_DIR" compile "$ROOT_DIR/test/src/test_suite_runner.c3" -o suite_runner
     
     if [ -f "$MY_WORK_DIR/suite_runner" ]; then
-        # codesign --force --sign - "$MY_WORK_DIR/suite_runner"
         xcrun simctl spawn "$TARGET_DEVICE_ID" "$MY_WORK_DIR/suite_runner" "$ROOT_DIR/test/test_suite/" --no-terminal -- "$C3C_BIN" --target "$TARGET_FLAG"
     else
         echo "::error::Failed to compile test_suite_runner executable."
