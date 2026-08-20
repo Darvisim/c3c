@@ -166,18 +166,23 @@ run_http_server_tests() {
 
     echo "--- Running HTTP Server Integration Tests inside iOS Simulator ---"
 
+    if ! command -v curl &> /dev/null; then
+        echo "::warning::curl not found on host Mac, skipping HTTP server integration tests"
+        return
+    fi
+
     cd "$ROOT_DIR/resources/examples"
     run_c3c compile -O1 http_server.c3 -o http_server
+
+    OUTPUT_BIN="$MY_WORK_DIR/http_server"
     
     PORT=$(( 8085 + $RANDOM % 10000 ))
     echo "Starting server inside simulator on port $PORT..."
-
-    if [ -f "$MY_WORK_DIR/http_server" ]; then
-        xcrun simctl spawn "$TARGET_DEVICE_ID" "$MY_WORK_DIR/http_server" -p $PORT -r "$ROOT_DIR/resources/examples" &
-        SERVER_PID=$!
-    fi
     
-    sleep 2
+    xcrun simctl spawn "$TARGET_DEVICE_ID" "$OUTPUT_BIN" -p $PORT -r "$ROOT_DIR/resources/examples" &
+    SERVER_PID=$!
+    
+    sleep 1
 
     echo "Testing GET / from Host to Simulator"
     HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:$PORT/")
