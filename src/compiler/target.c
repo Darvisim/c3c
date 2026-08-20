@@ -2426,7 +2426,7 @@ void target_setup(BuildTarget *build_target)
 	{
 		compiler.build.ios.simulator = compiler.build.arch_os_target == IOS_AARCH64_SIM || compiler.build.arch_os_target == IOS_X64_SIM;
 		if (!compiler.build.ios.sysroot) compiler.build.ios.sysroot = ios_sysroot(compiler.build.ios.simulator);
-		const char *sysroot = compiler.build.ios.sysroot ? compiler.build.ios.sysroot : ios_sysroot();
+		const char *sysroot = compiler.build.ios.sysroot ? compiler.build.ios.sysroot : ios_sysroot(compiler.build.ios.simulator);
 		if(!sysroot)
 		{
 			const char *path = ios_cross_compile_library(compiler.build.ios.simulator);
