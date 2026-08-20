@@ -1941,40 +1941,33 @@ INLINE const char *llvm_macos_target_triple(const char *triple)
 INLINE const char *llvm_ios_target_triple(const char *triple, bool simulator)
 {
 	size_t base = strlen(triple);
-	if(base > 10 && strcmp(triple + base - 10, "-simulator") == 0)
+	if (base > 10 && strcmp(triple + base - 10, "-simulator") == 0)
 	{
 		base -= 10;
 	}
-	if(compiler.build.ios.min_version)
+	if (compiler.build.ios.min_version)
 	{
 		scratch_buffer_clear();
 		scratch_buffer_append_len(triple, base);
 		scratch_buffer_append(compiler.build.ios.min_version);
-		if(simulator)
-		{
-			scratch_buffer_append("-simulator");
-		}
+		if (simulator) scratch_buffer_append("-simulator");
 		return scratch_buffer_to_string();
 	}
 	IosSDK *ios_sdk = compiler.build.ios.sdk;
-	if(!ios_sdk)
+	if (!ios_sdk)
 	{
 		scratch_buffer_clear();
 		scratch_buffer_append_len(triple, base);
 		scratch_buffer_append("15.0");
-		if(simulator)
-		{
-			scratch_buffer_append("-simulator");
-		}
+		if (simulator) scratch_buffer_append("-simulator");
 		return scratch_buffer_to_string();
 	}
+	int major = ios_sdk->ios_min_deploy_target.major;
+	if (major < 14) major = 14;
 	scratch_buffer_clear();
 	scratch_buffer_append_len(triple, base);
-	scratch_buffer_printf("%d.%d.0", ios_sdk->ios_min_deploy_target.major, ios_sdk->ios_min_deploy_target.minor);
-	if(simulator)
-	{
-			scratch_buffer_append("-simulator");
-	}
+	scratch_buffer_printf("%d.%d.0", major, ios_sdk->ios_min_deploy_target.minor);
+	if (simulator) scratch_buffer_append("-simulator");
 	return scratch_buffer_to_string();
 }
 
@@ -2427,12 +2420,12 @@ void target_setup(BuildTarget *build_target)
 		compiler.build.ios.simulator = compiler.build.arch_os_target == IOS_AARCH64_SIM || compiler.build.arch_os_target == IOS_X64_SIM;
 		if (!compiler.build.ios.sysroot) compiler.build.ios.sysroot = ios_sysroot(compiler.build.ios.simulator);
 		const char *sysroot = compiler.build.ios.sysroot ? compiler.build.ios.sysroot : ios_sysroot(compiler.build.ios.simulator);
-		if(!sysroot)
+		if (!sysroot)
 		{
 			const char *path = ios_cross_compile_library(compiler.build.ios.simulator);
-			if(path)
+			if (path)
 			{
-				if(!compiler.build.quiet && !compiler.build.silent)
+				if (!compiler.build.quiet && !compiler.build.silent)
 				{
 					OUTF("Using iOS SDK at: %s\n", path);
 				}
@@ -2441,28 +2434,28 @@ void target_setup(BuildTarget *build_target)
 			}
 		}
 		compiler.build.ios.sdk = NULL;
-		if(sysroot)
+		if (sysroot)
 		{
 			INFO_LOG("iOS SDK: %s", sysroot);
 			compiler.build.ios.sdk = ios_sysroot_sdk_information(sysroot);
-			if(compiler.platform.arch == ARCH_TYPE_AARCH64)
+			if (compiler.platform.arch == ARCH_TYPE_AARCH64)
 			{
-				if(compiler.build.ios.sdk->ios_min_deploy_target.major < 12)
+				if (compiler.build.ios.sdk->ios_min_deploy_target.major < 12)
 				{
 					compiler.build.ios.sdk->ios_min_deploy_target = (Version) { 12, 0 };
 				}
-				if(compiler.build.ios.sdk->ios_deploy_target.major < 12)
+				if (compiler.build.ios.sdk->ios_deploy_target.major < 12)
 				{
 					compiler.build.ios.sdk->ios_deploy_target = (Version) { 12, 0 };
 				}
 			}
-			else if(compiler.platform.arch == ARCH_TYPE_X86_64)
+			else if (compiler.platform.arch == ARCH_TYPE_X86_64)
 			{
-				if(compiler.build.ios.sdk->ios_min_deploy_target.major < 14)
+				if (compiler.build.ios.sdk->ios_min_deploy_target.major < 14)
 				{
 					compiler.build.ios.sdk->ios_min_deploy_target = (Version) { 14, 0 };
 				}
-				if(compiler.build.ios.sdk->ios_deploy_target.major < 14)
+				if (compiler.build.ios.sdk->ios_deploy_target.major < 14)
 				{
 					compiler.build.ios.sdk->ios_deploy_target = (Version) { 14, 0 };
 				}
