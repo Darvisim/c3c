@@ -177,7 +177,7 @@ run_http_server_tests() {
     xcrun simctl spawn "$TARGET_DEVICE_ID" "$OUTPUT_BIN" -p $PORT -r "$ROOT_DIR/resources/examples" &
     SERVER_PID=$!
     
-    sleep 5
+    sleep 2
 
     echo "Testing GET / from Host to Simulator"
     HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:$PORT/")
