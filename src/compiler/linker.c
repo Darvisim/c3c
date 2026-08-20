@@ -372,9 +372,15 @@ static void linker_setup_ios(const char ***args_ref, Linker linker_type)
 		error_exit("Cannot crosslink iOS without providing --ios-sdk.");
 	}
 	linking_add_link(&compiler.linking, "System");
-	add_plain_arg("-syslibroot");
-	add_quote_arg(compiler.build.ios.sysroot);
-	add_plain_arg("-pie");
+	if (compiler.build.ios.sysroot)
+	{
+		add_plain_arg("-syslibroot");
+		add_quote_arg(compiler.build.ios.sysroot);
+	}
+	if (compiler.build.type == TARGET_TYPE_EXECUTABLE)
+	{
+		add_plain_arg("-pie");
+	}
 	add_plain_arg("-platform_version");
 	if(compiler.build.ios.simulator)
 	{
