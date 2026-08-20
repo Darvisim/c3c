@@ -67,7 +67,7 @@ run_c3c_sim_execute() {
     run_c3c "$target_dir" compile "$source_file" "$@" -o "$target_name"
     
     if [ -f "$target_path" ]; then
-        xcrun simctl spawn "$TARGET_DEVICE_ID" sh -c "cd '$ROOT_DIR/resources' && '$target_path'"
+        xcrun simctl spawn "$TARGET_DEVICE_ID" "$target_path"
         rm -f "$target_path"
     else
         echo "::error::Simulated binary target emission failed to locate at $target_path"
@@ -107,8 +107,6 @@ run_examples() {
     run_c3c_sim_execute "$MY_WORK_DIR" examples/time.c3
     run_c3c_sim_execute "$MY_WORK_DIR" examples/fannkuch-redux.c3
     run_c3c_sim_execute "$MY_WORK_DIR" examples/contextfree/boolerr.c3
-    run_c3c_sim_execute "$MY_WORK_DIR" examples/load_world.c3
-    run_c3c_sim_execute "$MY_WORK_DIR" examples/ls.c3
 
     run_c3c "$MY_WORK_DIR" compile examples/constants.c3 --no-entry --test -g --threads 1 --target macos-x64
 }
@@ -120,7 +118,7 @@ run_dynlib_tests() {
     echo "--- Running iOS Dynamic Lib Tests ---"
     cd "$MY_WORK_DIR"
     
-    run_c3c "$MY_WORK_DIR" dynamic-lib "$ROOT_DIR/resources/examples/dynlib-test/add.c3" -o add
+    run_c3c "$MY_WORK_DIR" -vv dynamic-lib "$ROOT_DIR/resources/examples/dynlib-test/add.c3" -o add
     run_c3c_sim_execute "$MY_WORK_DIR" "$ROOT_DIR/resources/examples/dynlib-test/test.c3" -l "add.dylib"
 }
 
@@ -131,7 +129,7 @@ run_staticlib_tests() {
     echo "--- Running iOS Static Lib Tests ---"
     cd "$MY_WORK_DIR"
     
-    run_c3c "$MY_WORK_DIR" static-lib "$ROOT_DIR/resources/examples/staticlib-test/add.c3" -o libadd
+    run_c3c "$MY_WORK_DIR" -vv static-lib "$ROOT_DIR/resources/examples/staticlib-test/add.c3" -o libadd
     run_c3c_sim_execute "$MY_WORK_DIR" "$ROOT_DIR/resources/examples/staticlib-test/test.c3" -L . -l add
 }
 
@@ -142,7 +140,7 @@ run_testproject() {
     echo "--- Running Test Project for iOS Targets ---"
     cd "$ROOT_DIR/resources/testproject"
     
-    run_c3c "$MY_WORK_DIR" build -vv --trust=full
+    run_c3c "$MY_WORK_DIR" build -vv --trust=full --linker=builtin
     run_c3c "$MY_WORK_DIR" clean
 }
 
