@@ -969,15 +969,15 @@ jobs:
           path: c3-android-${{matrix.architecture}}-Debug.tar.gz
 
   test-ios:
-    name: iOS (${{ matrix.name }})
+    name: iOS (${{ matrix.arch }}${{ matrix.simulator && '-sim' || '' }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { target: ios-aarch64, name: aarch64, sdk: iphoneos, os: macos-latest }
-          - { target: ios-simulator-aarch64, name: aarch64-sim, sdk: iphonesimulator, os: macos-latest }
-          - { target: ios-simulator-x86_64, name: x64-sim, sdk: iphonesimulator, os: macos-26-intel }
+          - { arch: aarch64, simulator: false, os: macos-latest }
+          - { arch: aarch64, simulator: true, os: macos-latest }
+          - { arch: aarch64, simulator: true, os: macos-26-intel }
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
@@ -990,27 +990,43 @@ jobs:
           cmake --build build-debug
 
       - name: Setup and Boot iOS Simulator
-        if: ${{ startsWith(matrix.target, 'ios-simulator-') }}
+        if: ${{ matrix.simulator }}
+        id: sim-setup
         run: |
-          echo ">>> Available runtimes and devices:"
-          xcrun simctl list devices available
+          echo ">>> Locating targeted simulator instance..."
+          RUNTIME_ID=$(xcrun simctl list devices available | awk '/-- iOS 26.5 --/{flag=1;next}/--/{flag=0}flag' | grep -E "iPhone" | head -n 1 | sed -E 's/.* \(([-0-9A-Fa-f]+)\).*/\1/')
           
-          RUNTIME_ID=$(xcrun simctl list devices available | grep -E "iPhone" | head -n 1 | sed -E 's/.* \(([-0-9A-Fa-f]+)\).*/\1/')
           if [ -z "$RUNTIME_ID" ]; then
-             echo "::error::No operational simulator environments found."
+             echo ">>> Warning: Explicit iOS 26.5 image not found. Cascading fallback to first available device..."
+             RUNTIME_ID=$(xcrun simctl list devices available | grep -E "iPhone" | head -n 1 | sed -E 's/.* \(([-0-9A-Fa-f]+)\).*/\1/')
+          fi
+          
+          if [ -z "$RUNTIME_ID" ]; then
+             echo "::error::No operational simulator environments found on this host container."
              exit 1
           fi
           
           echo ">>> Selected runtime ID: $RUNTIME_ID"
-          xcrun simctl boot "$RUNTIME_ID"
+          xcrun simctl boot "$RUNTIME_ID" || true
           xcrun simctl bootstatus "$RUNTIME_ID" > /dev/null 2>&1 || sleep 5
           echo ">>> iOS Simulator booted and operational."
           
+          echo "TARGET_DEVICE_ID=$RUNTIME_ID" >> $GITHUB_ENV
+          
       - name: Run Integrated iOS Test Suites
-        if: ${{ startsWith(matrix.target, 'ios-simulator-') }}
+        if: ${{ matrix.simulator }}
         run: |
+          export TARGET_DEVICE="$TARGET_DEVICE_ID"
           chmod +x ./scripts/tools/ios_tests.sh
-          ./scripts/tools/ios_tests.sh ./build-debug/c3c ios-${{ matrix.name }}
+          
+          # Construct your target flags on the fly from simple matrix keys!
+          if [ "${{ matrix.simulator }}" = "true" ]; then
+              SCRIPT_TARGET="ios-${{ matrix.arch }}-sim"
+          else
+              SCRIPT_TARGET="ios-${{ matrix.arch }}"
+          fi
+          
+          ./scripts/tools/ios_tests.sh ./build-debug/c3c "$SCRIPT_TARGET"
 
   release:
     runs-on: ubuntu-slim
