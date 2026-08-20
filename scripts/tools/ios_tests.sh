@@ -136,13 +136,7 @@ run_testproject() {
     echo "--- Running Test Project for iOS Targets ---"
     cd "$ROOT_DIR/resources/testproject"
     
-    run_c3c build -vv --trust=full --linker=builtin -o "testproject"
-    if [ -f "$MY_WORK_DIR/testproject" ]; then
-        xcrun simctl spawn "$TARGET_DEVICE_ID" "$MY_WORK_DIR/testproject"
-    else
-        echo "::error::Failed to locate binary at $MY_WORK_DIR/testproject"
-        exit 1
-    fi
+    run_c3c run -vv --trust=full --linker=builtin
     run_c3c clean
 }
 
