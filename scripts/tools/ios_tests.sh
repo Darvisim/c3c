@@ -72,9 +72,12 @@ run_c3c_sim_exec() {
     
     run_c3c compile "$source_file" "$@" -o "$target_name"
     if [ -f "$target_path" ]; then
+        local sim_tmp_dir="$HOME/Library/Developer/CoreSimulator/Devices/$DEVICE_ID/data/tmp"
+        mkdir -p "$sim_tmp_dir"
+        cp "$target_path" "$sim_tmp_dir/"
+        chmod +x "$sim_tmp_dir/$target_name"
         # xcrun simctl spawn simulates the behavior of compile-run output on the simulator
-        local host_cwd=$(pwd)
-        xcrun simctl spawn "$DEVICE_ID" sh -c "cd '$host_cwd' && '$target_path'" 
+        xcrun simctl spawn "$DEVICE_ID" sh -c "cd /tmp && ./$target_name" 
     fi
 }
 
