@@ -1001,7 +1001,7 @@ jobs:
                   (.devices["com.apple.CoreSimulator.SimRuntime.iOS-26-5"] // [])[]? 
                   | select(.name | test("iPhone")) 
                   | .udid,
-                  (.devices[] | .[])? 
+                  (.devices[] | select(type == "array") | .[])? 
                   | select(.isAvailable == true and (.name | test("iPhone"))) 
                   | .udid
               ) // empty
