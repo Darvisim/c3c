@@ -1026,15 +1026,16 @@ jobs:
               | .name
           ')
           
-          echo ">>> Simulator Details:"
+          echo ">>> Selected Simulator Details:"
           echo "Device Name: $DEVICE_NAME"
           echo "UUID: $RUNTIME_ID"
-          
+
+          echo ">>> Booting up simulator..."
           xcrun simctl boot "$RUNTIME_ID" || true
           xcrun simctl bootstatus "$RUNTIME_ID" >/dev/null 2>&1 || sleep 5
           
           echo ">>> iOS Simulator is booted and ready."
-          echo "TARGET_DEVICE_ID=$RUNTIME_ID" >> "$GITHUB_ENV"
+          echo "DEVICE_ID=$RUNTIME_ID" >> "$GITHUB_ENV"
           
       - name: Run Unified Tests (iOS)
         run: |
@@ -1051,11 +1052,18 @@ jobs:
       - name: Shutdown iOS Simulator
         if: ${{ matrix.simulator && always() }}
         run: |
+          # Incase no UUID gets generated, no need to initiate shutdown
+          if [ -z "$DEVICE_ID" ]; then
+            echo "::warning::Shutdown skipped due to no booted simulator."
+            exit 0
+          fi
+          
           # Shutdown the simulator and erase contents so no bad cache remains,
           # irrespective of whether the tests pass or fail
-          echo ">>> Shutting down booted simulator"
+          echo ">>> Shutting down booted simulator with UUID: $DEVICE_ID"
           xcrun simctl shutdown booted
           xcrun simctl erase all
+          echo ">>> Simulator shutdown successfully!"
 
   release:
     runs-on: ubuntu-slim
