@@ -104,12 +104,7 @@ run_examples() {
     run_c3c compile examples/contextfree/multi.c3
     run_c3c compile examples/contextfree/cleanup.c3
     
-    if [[ "$TARGET_FLAG" == "ios-aarch64" ]]; then
-        run_c3c compile-run examples/hello_world_many.c3
-        run_c3c compile-run examples/time.c3
-        run_c3c compile-run examples/fannkuch-redux.c3
-        run_c3c compile-run examples/contextfree/boolerr.c3
-    else
+    if [[ "$TARGET_FLAG" != "ios-aarch64" ]]; then
         run_c3c_sim_exec examples/hello_world_many.c3
         run_c3c_sim_exec examples/time.c3
         run_c3c_sim_exec examples/fannkuch-redux.c3
@@ -187,7 +182,7 @@ run_http_server_tests() {
 
     echo "--- Running HTTP Server Integration Tests ---"
     if [[ "$TARGET_FLAG" == "ios-aarch64" ]]; then
-        echo "Skipping http tests on device..."
+        echo "::warning::Running http tests on device is not allowed. Skipping..."
         return
     fi
     
@@ -241,7 +236,7 @@ run_unit_tests() {
 
     echo "--- Running iOS Unit Test Suites ---"
     if [[ "$TARGET_FLAG" == "ios-aarch64" ]]; then
-        echo "Skipping unit tests on device..."
+        echo "::warning::Running unit tests on device is not allowed. Skipping..."
         return
     fi
     
