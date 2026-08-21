@@ -982,7 +982,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       
-      - name: CMake Build
+      - name: CMake Build (Host)
         run: |
           cmake -B build-debug -G Ninja \
             -DCMAKE_BUILD_TYPE=Debug \
@@ -992,9 +992,11 @@ jobs:
       - name: Setup and Boot iOS Simulator
         if: ${{ matrix.simulator }}
         run: |
+          # free up disk space by removing unavailable or old simulators
           xcrun simctl delete unavailable
           RUNTIME_JSON=$(xcrun simctl list devices available -j)
           echo ">>> Initializing iOS Simulator setup..."
+          
           # Find latest iOS runtime key dynamically and pick first iPhone,
           # else fallback to first available iPhone from any runtime
           RUNTIME_ID=$(echo "$RUNTIME_JSON" | jq -r '
@@ -1043,11 +1045,15 @@ jobs:
           else
               SCRIPT_TARGET="ios-${{ matrix.arch }}"
           fi
+          
           ./scripts/tools/ios_tests.sh ./build-debug/c3c "$SCRIPT_TARGET"
 
       - name: Shutdown iOS Simulator
         if: ${{ matrix.simulator && always() }}
         run: |
+          # Shutdown the simulator and erase contents so no bad cache remains,
+          # irrespective of whether the tests pass or fail
+          echo ">>> Shutting down booted simulator"
           xcrun simctl shutdown booted
           xcrun simctl erase all
 
