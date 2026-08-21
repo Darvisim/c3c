@@ -13,6 +13,8 @@
 ### Stdlib changes
 - `CachedInStream` and `CachedOutStream` added.
 - `InStream.read` now consistently returns 0 on EOF, and never throws io::EOF, and requires a non-zero buffer target.
+- `pool::ThreadPool` now only available using `ThreadPoolOld` unless `-D OLD_THREADPOOL` is used.
+- Add `std::collections::Tree`.
 
 ### Fixes
 - Vmem incorrectly handled reserve page sizes.
@@ -24,6 +26,7 @@
 - Codegen for bitstruct `b.foo--` was incorrect, causing crash with LLVM23.
 - `@str_pascalcase`/`@str_camelcase` treated digits as word separators and dropped them from the output. #3287
 - Typedef access resolution preferred inner type field over method. #3457
+- Generic gets instantiated despite being disabled with `@feat` #3459
 
 ## 0.8.3 Change list
 
