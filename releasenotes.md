@@ -9,12 +9,14 @@
 - Add `$reflect(foo).param_struct` and `Foo::param_struct` properties. #3099
 - Allow the parse `faultset { ... }`. For `faultset`, `faultconst` and `excuse`.
 - Improved error messages when underlined error is too long, or lines are too long. #3383
+- Add `--implicit-float` setting to control emission of floating point operations. #3449
 
 ### Stdlib changes
 - `CachedInStream` and `CachedOutStream` added.
 - `InStream.read` now consistently returns 0 on EOF, and never throws io::EOF, and requires a non-zero buffer target.
 - `pool::ThreadPool` now only available using `ThreadPoolOld` unless `-D OLD_THREADPOOL` is used.
 - Add `std::collections::Tree`.
+- `std::net` added `Socket.peer_address`, `peer_port`, `local_address`, and `local_port` for retrieving remote and local socket address information. #3460
 
 ### Fixes
 - Vmem incorrectly handled reserve page sizes.
