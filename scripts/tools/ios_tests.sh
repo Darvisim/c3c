@@ -17,22 +17,12 @@ C3C_BIN="$(realpath "$1")"
 # ROOT_DIR points to the actual source repository
 ROOT_DIR="$REAL_ROOT_DIR"
 
-# Target to be passed to --target
+# Target flag to be passed to --target
 TARGET_FLAG="$2"
 
 echo ">>> Running iOS Target CI Tests using C3C at: $C3C_BIN"
 
 TARGET_DEVICE_ID="${TARGET_DEVICE_ID}"
-# :-$(xcrun simctl list devices | grep -E "Booted" | head -n 1 | sed -E 's/.* \(([-0-9A-Fa-f]+)\).*/\1/')}"
-# if [ -z "$TARGET_DEVICE_ID" ]; then
-#     TARGET_DEVICE_ID=$(xcrun simctl list devices available | grep -E "iPhone" | head -n 1 | sed -E 's/.* \(([-0-9A-Fa-f]+)\).*/\1/')
-#     if [ -z "$TARGET_DEVICE_ID" ]; then
-#         echo "::error::No operational iOS Simulator configuration available on this host."
-#         exit 1
-#     fi
-#     xcrun simctl boot "${TARGET_DEVICE_ID}" || true
-#     xcrun simctl bootstatus "${TARGET_DEVICE_ID}" >/dev/null 2>&1 || sleep 5
-# fi
 
 # Detect iOS target
 TARGET=$([[ "$TARGET_FLAG" == "ios-aarch64" ]] && echo "Device" || echo "Simulator")
@@ -53,7 +43,8 @@ trap cleanup EXIT
 
 # --- Tests ---
 
-# Helper to run c3c with correct workspace isolation and with the iOS target passed
+# Helper to run c3c with correct workspace isolation
+# and the target flag passed here, so it becomes a native environment for both simulator and device
 run_c3c() {
     "$C3C_BIN" --target "$TARGET_FLAG" --output-dir "$MY_WORK_DIR" --build-dir "$MY_WORK_DIR" --obj-out "$MY_WORK_DIR" "$@"
 }
