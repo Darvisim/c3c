@@ -103,11 +103,14 @@ run_examples() {
     run_c3c compile examples/contextfree/guess_number.c3
     run_c3c compile examples/contextfree/multi.c3
     run_c3c compile examples/contextfree/cleanup.c3
-    
-    run_c3c_sim_exec examples/hello_world_many.c3
-    run_c3c_sim_exec examples/time.c3
-    run_c3c_sim_exec examples/fannkuch-redux.c3
-    run_c3c_sim_exec examples/contextfree/boolerr.c3
+
+    # Skip tests that spawn an output on device
+    if [[ "$TARGET_FLAG" != "ios-aarch64" ]]; then
+        run_c3c_sim_exec examples/hello_world_many.c3
+        run_c3c_sim_exec examples/time.c3
+        run_c3c_sim_exec examples/fannkuch-redux.c3
+        run_c3c_sim_exec examples/contextfree/boolerr.c3
+    fi
 
     run_c3c compile --no-entry --test -g --threads 1 --target macos-x64 examples/constants.c3
 }
@@ -134,7 +137,10 @@ run_dynlib_tests() {
     cd "$MY_WORK_DIR"
     
     run_c3c -vv dynamic-lib "$ROOT_DIR/resources/examples/dynlib-test/add.c3" -o add
-    run_c3c_sim_exec "$ROOT_DIR/resources/examples/dynlib-test/test.c3" -l "add.dylib"
+    # Skip dynamic lib spawn on device
+    if [[ "$TARGET_FLAG" != "ios-aarch64" ]]; then
+        run_c3c_sim_exec "$ROOT_DIR/resources/examples/dynlib-test/test.c3" -l "add.dylib"
+    fi
 }
 
 run_staticlib_tests() {
@@ -145,7 +151,10 @@ run_staticlib_tests() {
     cd "$MY_WORK_DIR"
     
     run_c3c -vv static-lib "$ROOT_DIR/resources/examples/staticlib-test/add.c3" -o libadd
-    run_c3c_sim_exec "$ROOT_DIR/resources/examples/staticlib-test/test.c3" -L . -l add
+    # Skip static lib spawn on device
+    if [[ "$TARGET_FLAG" != "ios-aarch64" ]]; then
+        run_c3c_sim_exec "$ROOT_DIR/resources/examples/staticlib-test/test.c3" -L . -l add
+    fi
 }
 
 run_testproject() {
@@ -173,7 +182,11 @@ run_http_server_tests() {
     mkdir -p "$MY_WORK_DIR"
 
     echo "--- Running HTTP Server Integration Tests ---"
-
+    if [[ "$TARGET_FLAG" == "ios-aarch64" ]]; then
+        echo "Skipping http tests on device..."
+        return
+    fi
+    
     cd "$ROOT_DIR/resources/examples"
     run_c3c compile -O1 http_server.c3 -o http_server
 
@@ -223,8 +236,12 @@ run_unit_tests() {
     mkdir -p "$MY_WORK_DIR"
 
     echo "--- Running iOS Unit Test Suites ---"
+    if [[ "$TARGET_FLAG" == "ios-aarch64" ]]; then
+        echo "Skipping unit tests on device..."
+        return
+    fi
+    
     cd "$ROOT_DIR/test"
-
     run_c3c compile-test unit -O1 --suppress-run -o "unit_test"
     if [ -f "$MY_WORK_DIR/unit_test" ]; then
         xcrun simctl spawn "$TARGET_DEVICE_ID" "$MY_WORK_DIR/unit_test"
