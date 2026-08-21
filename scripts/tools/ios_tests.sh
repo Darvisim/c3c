@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
+# Usage: ./ios_tests.sh <path_to_c3c_binary> [target_override]
 
+# Toggle to show output of successful parallel tasks (true: show, false: hide)
 SHOW_SUCCESS_LOGS="${SHOW_SUCCESS_LOGS:-true}"
 
 if [ $# -lt 1 ]; then
@@ -8,6 +10,9 @@ if [ $# -lt 1 ]; then
 fi
 
 set -e
+
+# --- Setup Paths & Environment ---
+
 # Resolve Script and Real Root Directory
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 REAL_ROOT_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
@@ -49,7 +54,8 @@ trap cleanup EXIT
 # --- Tests ---
 
 # Helper to run c3c with correct workspace isolation
-# and the target passed here, so it becomes a native environment for both simulator and device
+# and the target is passed to the --target flag,
+# so it becomes a native environment for both simulator and device
 run_c3c() {
     "$C3C_BIN" --target "$TARGET_FLAG" --output-dir "$MY_WORK_DIR" --build-dir "$MY_WORK_DIR" --obj-out "$MY_WORK_DIR" "$@"
 }
@@ -98,7 +104,8 @@ run_examples() {
     run_c3c compile examples/contextfree/guess_number.c3
     run_c3c compile examples/contextfree/multi.c3
     run_c3c compile examples/contextfree/cleanup.c3
-    
+
+    # skip spawn tests on physical device
     if [[ "$TARGET_FLAG" != "ios-aarch64" ]]; then
         run_c3c_sim_exec examples/hello_world_many.c3
         run_c3c_sim_exec examples/time.c3
@@ -131,7 +138,7 @@ run_dynlib_tests() {
     cd "$MY_WORK_DIR"
     
     run_c3c -vv dynamic-lib "$ROOT_DIR/resources/examples/dynlib-test/add.c3" -o add
-    # Skip dynamic lib spawn on device
+    # Skip dynamic lib spawn on physical device
     if [[ "$TARGET_FLAG" != "ios-aarch64" ]]; then
         run_c3c_sim_exec "$ROOT_DIR/resources/examples/dynlib-test/test.c3" -l "add.dylib"
     fi
@@ -145,7 +152,7 @@ run_staticlib_tests() {
     cd "$MY_WORK_DIR"
     
     run_c3c -vv static-lib "$ROOT_DIR/resources/examples/staticlib-test/add.c3" -o libadd
-    # Skip static lib spawn on device
+    # Skip static lib spawn on physical device
     if [[ "$TARGET_FLAG" != "ios-aarch64" ]]; then
         run_c3c_sim_exec "$ROOT_DIR/resources/examples/staticlib-test/test.c3" -L . -l add
     fi
