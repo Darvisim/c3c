@@ -8,38 +8,39 @@ if [ $# -lt 1 ]; then
 fi
 
 set -e
-
+# Resolve Script and Real Root Directory
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 REAL_ROOT_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
+
 C3C_BIN="$(realpath "$1")"
+
+# ROOT_DIR points to the actual source repository
 ROOT_DIR="$REAL_ROOT_DIR"
+
+# Target to be passed to --target
 TARGET_FLAG="$2"
 
 echo ">>> Running iOS Target CI Tests using C3C at: $C3C_BIN"
-echo ">>> Initializing iOS Simulator Target Lifecycle..."
 
-if [ -n "$TARGET_DEVICE" ]; then
-    TARGET_DEVICE_ID="$TARGET_DEVICE"
-else
-    TARGET_DEVICE_ID=$(xcrun simctl list devices | grep -E "Booted" | head -n 1 | sed -E 's/.* \(([-0-9A-Fa-f]+)\).*/\1/')
-fi
+TARGET_DEVICE_ID="${TARGET_DEVICE_ID}"
+# :-$(xcrun simctl list devices | grep -E "Booted" | head -n 1 | sed -E 's/.* \(([-0-9A-Fa-f]+)\).*/\1/')}"
+# if [ -z "$TARGET_DEVICE_ID" ]; then
+#     TARGET_DEVICE_ID=$(xcrun simctl list devices available | grep -E "iPhone" | head -n 1 | sed -E 's/.* \(([-0-9A-Fa-f]+)\).*/\1/')
+#     if [ -z "$TARGET_DEVICE_ID" ]; then
+#         echo "::error::No operational iOS Simulator configuration available on this host."
+#         exit 1
+#     fi
+#     xcrun simctl boot "${TARGET_DEVICE_ID}" || true
+#     xcrun simctl bootstatus "${TARGET_DEVICE_ID}" >/dev/null 2>&1 || sleep 5
+# fi
 
-if [ -z "$TARGET_DEVICE_ID" ]; then
-    echo ">>> No active booted device found. Discovering available templates..."
-    TARGET_DEVICE_ID=$(xcrun simctl list devices available | grep -E "iPhone" | head -n 1 | sed -E 's/.* \(([-0-9A-Fa-f]+)\).*/\1/')
-    
-    if [ -z "$TARGET_DEVICE_ID" ]; then
-        echo "::error::No operational iOS Simulator configuration available on this host."
-        exit 1
-    fi
-    
-    echo ">>> Powering up Simulator Runtime Instance [ID: ${TARGET_DEVICE_ID}]..."
-    xcrun simctl boot "${TARGET_DEVICE_ID}" || true
-    xcrun simctl bootstatus "${TARGET_DEVICE_ID}" > /dev/null 2>&1 || sleep 5
-fi
+# Detect iOS target
+TARGET=$([[ "$TARGET_FLAG" == "ios-aarch64" ]] && echo "Device" || echo "Simulator")
+echo ">>> Detected System: iOS ($TARGET)"
 
-echo ">>> Active iOS Simulator Environment Confirmed: [${TARGET_DEVICE_ID}]"
+# --- Create Disposable Workspace ---
 
+# Create temp directory
 WORK_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t 'c3_ios_ci_tests')
 echo ">>> Setting up workspace in: $WORK_DIR"
 
@@ -50,10 +51,16 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# --- Tests ---
+
+# Helper to run c3c with correct workspace isolation and with the iOS target passed
 run_c3c() {
     "$C3C_BIN" --target "$TARGET_FLAG" --output-dir "$MY_WORK_DIR" --build-dir "$MY_WORK_DIR" --obj-out "$MY_WORK_DIR" "$@"
 }
 
+# on iOS you cannot do compile-run, 
+# if done, the kernel will kill or abort the process,
+# hence we simulate c3c compile-run with this helper
 run_c3c_sim_exec() {
     local source_file="$1"
     shift
@@ -63,6 +70,7 @@ run_c3c_sim_exec() {
     
     run_c3c compile "$source_file" "$@" -o "$target_name"
     if [ -f "$target_path" ]; then
+        # xcrun simctl spawn simulates the behavior of compile-run output on the simulator
         xcrun simctl spawn "$TARGET_DEVICE_ID" "$target_path"
         rm -f "$target_path"
     fi
@@ -72,7 +80,7 @@ run_examples() {
     local MY_WORK_DIR="$WORK_DIR/examples"
     mkdir -p "$MY_WORK_DIR"
 
-    echo "--- Running iOS Standard Examples Matrix ---"
+    echo "--- Running Standard Examples ---"
     cd "$ROOT_DIR/resources"
     
     run_c3c compile examples/base64.c3
@@ -104,11 +112,25 @@ run_examples() {
     run_c3c compile --no-entry --test -g --threads 1 --target macos-x64 examples/constants.c3
 }
 
+run_cli_tests() {
+    local MY_WORK_DIR="$WORK_DIR/cli"
+    mkdir -p "$MY_WORK_DIR"
+
+    echo "--- Running CLI tests (init) ---"
+    (
+        cd "$MY_WORK_DIR"
+        run_c3c init-lib mylib
+        run_c3c init myproject
+        (cd myproject && run_c3c benchmark myproject --suppress-run)
+        rm -rf mylib.c3l myproject
+    )
+}
+
 run_dynlib_tests() {
     local MY_WORK_DIR="$WORK_DIR/dynlib"
     mkdir -p "$MY_WORK_DIR"
 
-    echo "--- Running iOS Dynamic Lib Tests ---"
+    echo "--- Running Dynamic Lib Tests ---"
     cd "$MY_WORK_DIR"
     
     run_c3c -vv dynamic-lib "$ROOT_DIR/resources/examples/dynlib-test/add.c3" -o add
@@ -119,7 +141,7 @@ run_staticlib_tests() {
     local MY_WORK_DIR="$WORK_DIR/staticlib"
     mkdir -p "$MY_WORK_DIR"
 
-    echo "--- Running iOS Static Lib Tests ---"
+    echo "--- Running Static Lib Tests ---"
     cd "$MY_WORK_DIR"
     
     run_c3c -vv static-lib "$ROOT_DIR/resources/examples/staticlib-test/add.c3" -o libadd
@@ -130,7 +152,7 @@ run_testproject() {
     local MY_WORK_DIR="$WORK_DIR/testproject"
     mkdir -p "$MY_WORK_DIR"
 
-    echo "--- Running Test Project for iOS Targets ---"
+    echo "--- Running Test Project ---"
     cd "$ROOT_DIR/resources/testproject"
     
     run_c3c build -vv --trust=full --linker=builtin
@@ -146,25 +168,11 @@ run_wasm_compile() {
     run_c3c compile --target wasm32 -g0 --no-entry -Os wasm4.c3
 }
 
-run_cli_tests() {
-    local MY_WORK_DIR="$WORK_DIR/cli"
-    mkdir -p "$MY_WORK_DIR"
-
-    echo "--- Running CLI tests (init) ---"
-    (
-        cd "$MY_WORK_DIR"
-        run_c3c init-lib mylib
-        run_c3c init myproject
-        (cd myproject && run_c3c benchmark myproject --suppress-run)
-        rm -rf mylib.c3l myproject
-    )
-}
-
 run_http_server_tests() {
     local MY_WORK_DIR="$WORK_DIR/http"
     mkdir -p "$MY_WORK_DIR"
 
-    echo "--- Running HTTP Server Integration Tests inside iOS Simulator ---"
+    echo "--- Running HTTP Server Integration Tests ---"
 
     cd "$ROOT_DIR/resources/examples"
     run_c3c compile -O1 http_server.c3 -o http_server
@@ -172,14 +180,15 @@ run_http_server_tests() {
     OUTPUT_BIN="$MY_WORK_DIR/http_server"
 
     PORT=$(( 8085 + $RANDOM % 10000 ))
-    echo "Starting server inside simulator on port $PORT..."
+    echo "Starting server on port $PORT..."
     
     xcrun simctl spawn "$TARGET_DEVICE_ID" "$OUTPUT_BIN" -p $PORT -r "$ROOT_DIR/resources/examples" &
     SERVER_PID=$!
     
     sleep 2
 
-    echo "Testing GET / from Host to Simulator"
+    # Test root path (directory listing)
+    echo "Testing GET /"
     HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:$PORT/")
     if [ "$HTTP_STATUS" != "200" ]; then
         echo "::error::HTTP GET / failed with status $HTTP_STATUS."
@@ -187,6 +196,7 @@ run_http_server_tests() {
         exit 1
     fi
 
+    # Test served file
     echo "Testing GET /http_server.c3"
     HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:$PORT/http_server.c3")
     if [ "$HTTP_STATUS" != "200" ]; then
@@ -195,6 +205,7 @@ run_http_server_tests() {
         exit 1
     fi
 
+    # Test missing file (404 expected)
     echo "Testing 404 for invalid path"
     HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:$PORT/does_not_exist_404_test")
     if [ "$HTTP_STATUS" != "404" ]; then
@@ -228,6 +239,9 @@ run_unit_tests() {
     fi
 }
 
+# --- Execution ---
+
+# Function to run a suite and capture its output in the background
 PIDS=()
 run_parallel() {
     local name=$1
@@ -236,6 +250,7 @@ run_parallel() {
     local log="$WORK_DIR/$name.log"
     (
         set +e
+        # Inner subshell handles the actual test execution with 'set -e'
         ( set -e; $func ) > "$log" 2>&1
         local status=$?
 
@@ -260,6 +275,7 @@ run_parallel() {
     PIDS+=($!)
 }
 
+# Run everything except Unit Tests in parallel
 run_parallel examples run_examples
 run_parallel cli run_cli_tests
 run_parallel dynlib run_dynlib_tests
@@ -268,16 +284,18 @@ run_parallel testproject run_testproject
 run_parallel wasm run_wasm_compile
 run_parallel http run_http_server_tests
 
+# Wait for background tasks
 exit_code=0
 for p in "${PIDS[@]}"; do
     wait "$p" || exit_code=1
 done
 
 if [ $exit_code -ne 0 ]; then
-    echo "::error::One or more parallel iOS simulator test suites failed."
+    echo "::error::One or more parallel iOS test suites failed."
     exit 1
 fi
 
+# Run unit tests last in the foreground
 run_unit_tests
 
-echo ">>> All iOS Simulator CI Tests Passed Successfully!"
+echo ">>> All iOS CI Tests Passed Successfully!"
