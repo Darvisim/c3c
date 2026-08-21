@@ -112,7 +112,7 @@ run_examples() {
         run_c3c_sim_exec examples/fannkuch-redux.c3
         run_c3c_sim_exec examples/contextfree/boolerr.c3
         run_c3c_sim_exec examples/ls.c3
-        run_c3c_sim_exec examples/args.c3 foo bar "baz baz"
+        run_c3c_sim_exec examples/args.c3 "foo -bar baz baz"
     fi
 
     run_c3c compile --no-entry --test -g --threads 1 --target macos-x64 examples/constants.c3
