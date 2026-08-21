@@ -73,7 +73,7 @@ run_c3c_sim_exec() {
     run_c3c compile "$source_file" "$@" -o "$target_name"
     if [ -f "$target_path" ]; then
         # xcrun simctl spawn simulates the behavior of compile-run output on the simulator
-        xcrun simctl spawn "$DEVICE_ID" "$target_path"
+        xcrun simctl spawn "$DEVICE_ID" "$target_path" "$@"
     fi
 }
 
@@ -112,7 +112,7 @@ run_examples() {
         run_c3c_sim_exec examples/fannkuch-redux.c3
         run_c3c_sim_exec examples/contextfree/boolerr.c3
         run_c3c_sim_exec examples/ls.c3
-        run_c3c_sim_exec examples/args.c3 "foo -bar baz baz"
+        run_c3c_sim_exec examples/args.c3 -- foo -bar "baz baz"
     fi
 
     run_c3c compile --no-entry --test -g --threads 1 --target macos-x64 examples/constants.c3
