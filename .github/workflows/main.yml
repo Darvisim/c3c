@@ -994,30 +994,34 @@ jobs:
         id: sim-setup
         run: |
           xcrun simctl delete unavailable
-          echo ">>> Locating targeted simulator instance..."
-          RUNTIME_ID=$(xcrun simctl list devices available | awk '/-- iOS 26.5 --/{flag=1;next}/--/{flag=0}flag' | grep -E "iPhone" | head -n 1 | sed -E 's/.* \(([-0-9A-Fa-f]+)\).*/\1/')
+          RUNTIME_JSON=$(xcrun simctl list devices available -j)
+          echo ">>> Initializing iOS Simulator..."
+          RUNTIME_ID=$(echo "$RUNTIME_JSON" | jq -r '
+              first(
+                  .devices["com.apple.CoreSimulator.SimRuntime.iOS-26-5"][]? | select(.name | test("iPhone")) | .udid,
+                  .devices[] | .[] | select(.isAvailable == true and (.name | test("iPhone"))) | .udid
+              ) // empty
+          ')
           
           if [ -z "$RUNTIME_ID" ]; then
-             echo ">>> Warning: Explicit iOS 26.5 image not found. Cascading fallback to first available device..."
-             RUNTIME_ID=$(xcrun simctl list devices available | grep -E "iPhone" | head -n 1 | sed -E 's/.* \(([-0-9A-Fa-f]+)\).*/\1/')
+              echo "::error::No operational simulator found."
+              exit 1
           fi
           
-          if [ -z "$RUNTIME_ID" ]; then
-             echo "::error::No operational simulator environments found on this host container."
-             exit 1
-          fi
+          DEVICE_NAME=$(echo "$RUNTIME_JSON" | jq -r --arg id "$RUNTIME_ID" '.devices[] | .[] | select(.udid == $id) | .name')
           
-          echo ">>> Selected runtime ID: $RUNTIME_ID"
+          echo ">>> Simulator Details:"
+          echo "Device Name: $DEVICE_NAME"
+          echo "UUID: $RUNTIME_ID"
+          
           xcrun simctl boot "$RUNTIME_ID" || true
-          xcrun simctl bootstatus "$RUNTIME_ID" > /dev/null 2>&1 || sleep 5
-          echo ">>> iOS Simulator booted and operational."
+          xcrun simctl bootstatus "$RUNTIME_ID" >/dev/null 2>&1 || sleep 5
           
-          echo "TARGET_DEVICE_ID=$RUNTIME_ID" >> $GITHUB_ENV
+          echo ">>> iOS Simulator is booted and ready."
+          echo "TARGET_DEVICE_ID=$RUNTIME_ID" >> "$GITHUB_ENV"
           
-      - name: Run Integrated iOS Test Suites
-        if: ${{ matrix.simulator }}
+      - name: Run Unified Tests (iOS)
         run: |
-          export TARGET_DEVICE="$TARGET_DEVICE_ID"
           chmod +x ./scripts/tools/ios_tests.sh
           
           if [ "${{ matrix.simulator }}" = "true" ]; then
