@@ -23,8 +23,8 @@ TARGET_FLAG="$2"
 echo ">>> Running iOS Target CI Tests using C3C at: $C3C_BIN"
 
 # check if simulator UUID is captured
-TARGET_DEVICE_ID="${TARGET_DEVICE_ID}"
-if [[ -z "$TARGET_DEVICE_ID" && "$TARGET_FLAG" != "ios-aarch64" ]]; then
+DEVICE_ID="${DEVICE_ID}"
+if [[ -z "$DEVICE_ID" && "$TARGET_FLAG" != "ios-aarch64" ]]; then
     echo "::error::Cannot perform tasks on simulator without UUID"
     exit 1
 fi
@@ -67,8 +67,7 @@ run_c3c_sim_exec() {
     run_c3c compile "$source_file" "$@" -o "$target_name"
     if [ -f "$target_path" ]; then
         # xcrun simctl spawn simulates the behavior of compile-run output on the simulator
-        xcrun simctl spawn "$TARGET_DEVICE_ID" "$target_path"
-        # rm -f "$target_path"
+        xcrun simctl spawn "$DEVICE_ID" "$target_path"
     fi
 }
 
@@ -190,7 +189,7 @@ run_http_server_tests() {
     PORT=$(( 8085 + $RANDOM % 10000 ))
     echo "Starting server on port $PORT..."
     
-    xcrun simctl spawn "$TARGET_DEVICE_ID" "$OUTPUT_BIN" -p $PORT -r "$ROOT_DIR/resources/examples" &
+    xcrun simctl spawn "$DEVICE_ID" "$OUTPUT_BIN" -p $PORT -r "$ROOT_DIR/resources/examples" &
     SERVER_PID=$!
     
     sleep 2
@@ -239,7 +238,7 @@ run_unit_tests() {
     cd "$ROOT_DIR/test"
     run_c3c compile-test unit -O1 --suppress-run -o "unit_test"
     if [ -f "$MY_WORK_DIR/unit_test" ]; then
-        xcrun simctl spawn "$TARGET_DEVICE_ID" "$MY_WORK_DIR/unit_test"
+        xcrun simctl spawn "$DEVICE_ID" "$MY_WORK_DIR/unit_test"
     fi
 
     echo "--- Running Test Suite Runner inside iOS Simulator Container ---"
@@ -247,7 +246,7 @@ run_unit_tests() {
     
     run_c3c compile "$ROOT_DIR/test/src/test_suite_runner.c3" -o suite_runner
     if [ -f "$MY_WORK_DIR/suite_runner" ]; then
-        xcrun simctl spawn "$TARGET_DEVICE_ID" "$MY_WORK_DIR/suite_runner" "$C3C_BIN" "$ROOT_DIR/test/test_suite/" --no-terminal
+        xcrun simctl spawn "$DEVICE_ID" "$MY_WORK_DIR/suite_runner" "$C3C_BIN" "$ROOT_DIR/test/test_suite/" --no-terminal
     fi
 }
 
