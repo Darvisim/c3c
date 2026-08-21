@@ -1000,10 +1000,10 @@ jobs:
           RUNTIME_ID=$(echo "$RUNTIME_JSON" | jq -r '
               first(
                   (.devices[
-                      (.devices | keys[]
-                      | select(test("com\\.apple\\.CoreSimulator\\.SimRuntime\\.iOS"))
-                      | sort
-                      | last)
+                      ([ .devices | keys[] 
+                         | select(test("com\\.apple\\.CoreSimulator\\.SimRuntime\\.iOS")) ] 
+                       | sort 
+                       | last)
                   ] // [])[]?
                   | select(type == "object" and (.name | test("iPhone")))
                   | .udid,
