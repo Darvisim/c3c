@@ -998,8 +998,12 @@ jobs:
           echo ">>> Initializing iOS Simulator..."
           RUNTIME_ID=$(echo "$RUNTIME_JSON" | jq -r '
               first(
-                  .devices["com.apple.CoreSimulator.SimRuntime.iOS-26-5"][]? | select(.name | test("iPhone")) | .udid,
-                  .devices[] | .[] | select(.isAvailable == true and (.name | test("iPhone"))) | .udid
+                  (.devices["com.apple.CoreSimulator.SimRuntime.iOS-26-5"] // [])[]? 
+                  | select(.name | test("iPhone")) 
+                  | .udid,
+                  (.devices[] | .[])? 
+                  | select(.isAvailable == true and (.name | test("iPhone"))) 
+                  | .udid
               ) // empty
           ')
           
