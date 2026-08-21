@@ -234,7 +234,7 @@ run_unit_tests() {
     local MY_WORK_DIR="$WORK_DIR/unit"
     mkdir -p "$MY_WORK_DIR"
 
-    echo "--- Running iOS Unit Test Suites ---"
+    echo "--- Running Unit Test Suites ---"
     if [[ "$TARGET_FLAG" == "ios-aarch64" ]]; then
         echo "::warning::Running unit tests on device is not allowed. Skipping..."
         return
