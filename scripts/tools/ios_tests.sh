@@ -22,7 +22,12 @@ TARGET_FLAG="$2"
 
 echo ">>> Running iOS Target CI Tests using C3C at: $C3C_BIN"
 
+# check if simulator UUID is captured
 TARGET_DEVICE_ID="${TARGET_DEVICE_ID}"
+if [[ -z "$TARGET_DEVICE_ID" && "$TARGET_FLAG" != "ios-aarch64" ]]; then
+    echo "::error::Cannot perform tasks on simulator without UUID"
+    exit 1
+fi
 
 # Detect iOS target
 TARGET=$([[ "$TARGET_FLAG" == "ios-aarch64" ]] && echo "Device" || echo "Simulator")
@@ -44,7 +49,7 @@ trap cleanup EXIT
 # --- Tests ---
 
 # Helper to run c3c with correct workspace isolation
-# and the target flag passed here, so it becomes a native environment for both simulator and device
+# and the target passed here, so it becomes a native environment for both simulator and device
 run_c3c() {
     "$C3C_BIN" --target "$TARGET_FLAG" --output-dir "$MY_WORK_DIR" --build-dir "$MY_WORK_DIR" --obj-out "$MY_WORK_DIR" "$@"
 }
@@ -63,7 +68,7 @@ run_c3c_sim_exec() {
     if [ -f "$target_path" ]; then
         # xcrun simctl spawn simulates the behavior of compile-run output on the simulator
         xcrun simctl spawn "$TARGET_DEVICE_ID" "$target_path"
-        rm -f "$target_path"
+        # rm -f "$target_path"
     fi
 }
 
