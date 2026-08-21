@@ -991,40 +991,48 @@ jobs:
 
       - name: Setup and Boot iOS Simulator
         if: ${{ matrix.simulator }}
-        id: sim-setup
         run: |
           xcrun simctl delete unavailable
           RUNTIME_JSON=$(xcrun simctl list devices available -j)
-          echo "$RUNTIME_JSON" | jq '.'
-          exit 0
-          # echo ">>> Initializing iOS Simulator..."
-          # RUNTIME_ID=$(echo "$RUNTIME_JSON" | jq -r '
-          #     first(
-          #         (.devices["com.apple.CoreSimulator.SimRuntime.iOS-26-5"] // [])[]? 
-          #         | select(.name | test("iPhone")) 
-          #         | .udid,
-          #         (.devices[] | select(type == "array") | .[])? 
-          #         | select(.isAvailable == true and (.name | test("iPhone"))) 
-          #         | .udid
-          #     ) // empty
-          # ')
+          echo ">>> Initializing iOS Simulator setup..."
+          # Find latest iOS runtime key dynamically and pick first iPhone,
+          # else fallback to first available iPhone from any runtime
+          RUNTIME_ID=$(echo "$RUNTIME_JSON" | jq -r '
+              first(
+                  (.devices[
+                      (.devices | keys[]
+                      | select(test("com\\.apple\\.CoreSimulator\\.SimRuntime\\.iOS"))
+                      | sort
+                      | last)
+                  ] // [])[]?
+                  | select(type == "object" and (.name | test("iPhone")))
+                  | .udid,
+                  (.devices[] | select(type == "array") | .[]?
+                  | select(type == "object" and .isAvailable == true and (.name | test("iPhone")))
+                  | .udid)
+              ) // empty
+          ')
           
-          # if [ -z "$RUNTIME_ID" ]; then
-          #     echo "::error::No operational simulator found."
-          #     exit 1
-          # fi
+          if [ -z "$RUNTIME_ID" ]; then
+              echo "::error::No operational simulator found."
+              exit 1
+          fi
           
-          # DEVICE_NAME=$(echo "$RUNTIME_JSON" | jq -r --arg id "$RUNTIME_ID" '.devices[] | .[] | select(.udid == $id) | .name')
+          DEVICE_NAME=$(echo "$RUNTIME_JSON" | jq -r --arg id "$RUNTIME_ID" '
+              .devices[] | select(type == "array") | .[]?
+              | select(type == "object" and .udid == $id)
+              | .name
+          ')
           
-          # echo ">>> Simulator Details:"
-          # echo "Device Name: $DEVICE_NAME"
-          # echo "UUID: $RUNTIME_ID"
+          echo ">>> Simulator Details:"
+          echo "Device Name: $DEVICE_NAME"
+          echo "UUID: $RUNTIME_ID"
           
-          # xcrun simctl boot "$RUNTIME_ID" || true
-          # xcrun simctl bootstatus "$RUNTIME_ID" >/dev/null 2>&1 || sleep 5
+          xcrun simctl boot "$RUNTIME_ID" || true
+          xcrun simctl bootstatus "$RUNTIME_ID" >/dev/null 2>&1 || sleep 5
           
-          # echo ">>> iOS Simulator is booted and ready."
-          # echo "TARGET_DEVICE_ID=$RUNTIME_ID" >> "$GITHUB_ENV"
+          echo ">>> iOS Simulator is booted and ready."
+          echo "TARGET_DEVICE_ID=$RUNTIME_ID" >> "$GITHUB_ENV"
           
       - name: Run Unified Tests (iOS)
         run: |
