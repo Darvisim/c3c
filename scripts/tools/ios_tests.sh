@@ -263,7 +263,7 @@ run_unit_tests() {
     echo "--- Running Test Suite Runner ---"
     (
         cd "$MY_WORK_DIR"
-        sim_run -O1 "$ROOT_DIR/test/src/test_suite_runner.c3" -- "$C3C_BIN" "$ROOT_DIR/test/test_suite/" --no-terminal
+        sim_run "$ROOT_DIR/test/src/test_suite_runner.c3" -O1 -- "$C3C_BIN" "$ROOT_DIR/test/test_suite/" --no-terminal
     )
 }
 
