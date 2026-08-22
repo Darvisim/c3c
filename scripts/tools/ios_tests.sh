@@ -45,30 +45,19 @@ SIM_TMP="$SIM_DATA_DIR/tmp"
 
 if [[ -n "$DEVICE_ID" && "$TARGET_FLAG" != "ios-aarch64" ]]; then
     mkdir -p "$SIM_TMP"
-    # Create the real workspace inside the simulator's tmp directory
-    REAL_WORK_DIR=$(mktemp -d "$SIM_TMP/c3_ios_ci_tests.XXXXXX")
-    WORKSPACE_NAME=$(basename "$REAL_WORK_DIR")
-    
-    # Create a host-level symlink in /tmp pointing to the simulator's workspace.
-    # This keeps paths identical in both host and simulator namespaces.
-    ln -sfn "$REAL_WORK_DIR" "/tmp/$WORKSPACE_NAME"
-    WORK_DIR="/tmp/$WORKSPACE_NAME"
+    # Create workspace inside simulator's tmp directory
+    WORK_DIR=$(mktemp -d "$SIM_TMP/c3_ios_ci_tests.XXXXXX")
 else
     # Fallback for physical devices/non-simulator
-    REAL_WORK_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t 'c3_ios_ci_tests')
-    WORK_DIR="$REAL_WORK_DIR"
-    WORKSPACE_NAME=""
+    WORK_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t 'c3_ios_ci_tests')
 fi
 
-echo ">>> Setting up workspace in: $WORK_DIR (real: $REAL_WORK_DIR)"
+echo ">>> Setting up workspace in: $WORK_DIR"
 
 cleanup() {
     echo ">>> Cleaning up..."
     cd "$REAL_ROOT_DIR" || cd ..
-    if [[ -n "$WORKSPACE_NAME" ]]; then
-        rm -f "/tmp/$WORKSPACE_NAME"
-    fi
-    rm -rf "$REAL_WORK_DIR"
+    rm -rf "$WORK_DIR"
 }
 trap cleanup EXIT
 
@@ -88,6 +77,16 @@ fi
 # so it becomes a native environment for both simulator and device
 run_c3c() {
     "$C3C_BIN" --target "$TARGET_FLAG" --output-dir "$MY_WORK_DIR" --build-dir "$MY_WORK_DIR" --obj-out "$MY_WORK_DIR" "$@"
+}
+
+# Helper to translate host paths to simulator-internal paths
+to_sim_path() {
+    local host_path="$1"
+    if [[ -n "$DEVICE_ID" && "$TARGET_FLAG" != "ios-aarch64" && "$host_path" == *"/tmp/"* ]]; then
+        echo "/tmp/${host_path#*\/tmp\/}"
+    else
+        echo "$host_path"
+    fi
 }
 
 # Simulates c3c compile-run with correct argument forwarding
@@ -116,9 +115,22 @@ sim_run() {
     
     run_c3c compile "$source_file" "${compile_args[@]}" -o "$target_name"
     if [ -f "$target_path" ]; then
-        # Expose workspace bin/ (which holds our mock 'ls') to the PATH.
-        # This path starting with /tmp/ is valid inside the simulator namespace.
-        PATH="$WORK_DIR/bin:$PATH" xcrun simctl spawn "$DEVICE_ID" "$target_path" "${run_args[@]}"
+        if [[ -n "$DEVICE_ID" && "$TARGET_FLAG" != "ios-aarch64" ]]; then
+            # Translate host paths into simulator-internal paths
+            local sim_cwd=$(to_sim_path "$(pwd)")
+            local sim_bin=$(to_sim_path "$WORK_DIR/bin")
+            local sim_target=$(to_sim_path "$target_path")
+            
+            # Wrap execution in shell to enforce simulator-internal CWD and PATH
+            local cmd="cd '$sim_cwd' && PATH='$sim_bin':\$PATH '$sim_target'"
+            for arg in "${run_args[@]}"; do
+                cmd="$cmd '$arg'"
+            done
+            xcrun simctl spawn "$DEVICE_ID" sh -c "$cmd"
+        else
+            # Native fallback for physical devices
+            "$target_path" "${run_args[@]}"
+        fi
     fi
 }
 
@@ -261,8 +273,12 @@ run_http_server_tests() {
     PORT=$(( 8085 + $RANDOM % 10000 ))
     echo "Starting server on port $PORT..."
     
-    # Point server resources to sandboxed resources copy
-    xcrun simctl spawn "$DEVICE_ID" "$OUTPUT_BIN" -p $PORT -r "$WORK_DIR/resources/examples" &
+    # Point server resources to sandboxed resources copy inside the simulator CWD
+    local sim_work_dir=$(to_sim_path "$WORK_DIR")
+    local sim_output_bin=$(to_sim_path "$OUTPUT_BIN")
+    local cmd="cd '$sim_work_dir/resources' && '$sim_output_bin' -p $PORT -r '$sim_work_dir/resources/examples'"
+    
+    xcrun simctl spawn "$DEVICE_ID" sh -c "$cmd" &
     SERVER_PID=$!
     
     sleep 2
@@ -311,7 +327,8 @@ run_unit_tests() {
     cd "$ROOT_DIR/test"
     run_c3c compile-test unit -O1 --suppress-run -o "unit_test"
     if [ -f "$MY_WORK_DIR/unit_test" ]; then
-        xcrun simctl spawn "$DEVICE_ID" "$MY_WORK_DIR/unit_test"
+        local sim_unit_test=$(to_sim_path "$MY_WORK_DIR/unit_test")
+        xcrun simctl spawn "$DEVICE_ID" "$sim_unit_test"
     fi
 
     echo "--- Running Test Suite Runner inside iOS Simulator Container ---"
@@ -319,8 +336,10 @@ run_unit_tests() {
     
     run_c3c compile "$ROOT_DIR/test/src/test_suite_runner.c3" -o suite_runner
     if [ -f "$MY_WORK_DIR/suite_runner" ]; then
-        # Run suite runner pointing to the sandboxed copy of test suites
-        xcrun simctl spawn "$DEVICE_ID" "$MY_WORK_DIR/suite_runner" "$C3C_BIN" "$WORK_DIR/test/test_suite/" --no-terminal
+        # Run suite runner pointing to the sandboxed copy of test suites inside the simulator
+        local sim_work_dir=$(to_sim_path "$WORK_DIR")
+        local sim_suite_runner=$(to_sim_path "$MY_WORK_DIR/suite_runner")
+        xcrun simctl spawn "$DEVICE_ID" "$sim_suite_runner" "$C3C_BIN" "$sim_work_dir/test/test_suite/" --no-terminal
     fi
 }
 
