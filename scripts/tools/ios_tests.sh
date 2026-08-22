@@ -27,10 +27,10 @@ TARGET_FLAG="$2"
 
 echo ">>> Running iOS Target CI Tests using C3C at: $C3C_BIN"
 
-# check if simulator UDID is captured
+# check if simulator UUID is captured
 DEVICE_ID="${DEVICE_ID}"
 if [[ -z "$DEVICE_ID" && "$TARGET_FLAG" != "ios-aarch64" ]]; then
-    echo "::error::Cannot perform tasks on simulator without UDID"
+    echo "::error::Cannot perform tasks on simulator without UUID"
     exit 1
 fi
 
@@ -45,19 +45,30 @@ SIM_TMP="$SIM_DATA_DIR/tmp"
 
 if [[ -n "$DEVICE_ID" && "$TARGET_FLAG" != "ios-aarch64" ]]; then
     mkdir -p "$SIM_TMP"
-    # Create workspace inside simulator's tmp directory to avoid sandbox/file access issues
-    WORK_DIR=$(mktemp -d "$SIM_TMP/c3_ios_ci_tests.XXXXXX")
+    # Create the real workspace inside the simulator's tmp directory
+    REAL_WORK_DIR=$(mktemp -d "$SIM_TMP/c3_ios_ci_tests.XXXXXX")
+    WORKSPACE_NAME=$(basename "$REAL_WORK_DIR")
+    
+    # Create a host-level symlink in /tmp pointing to the simulator's workspace.
+    # This keeps paths identical in both host and simulator namespaces.
+    ln -sfn "$REAL_WORK_DIR" "/tmp/$WORKSPACE_NAME"
+    WORK_DIR="/tmp/$WORKSPACE_NAME"
 else
     # Fallback for physical devices/non-simulator
-    WORK_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t 'c3_ios_ci_tests')
+    REAL_WORK_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t 'c3_ios_ci_tests')
+    WORK_DIR="$REAL_WORK_DIR"
+    WORKSPACE_NAME=""
 fi
 
-echo ">>> Setting up workspace in: $WORK_DIR"
+echo ">>> Setting up workspace in: $WORK_DIR (real: $REAL_WORK_DIR)"
 
 cleanup() {
     echo ">>> Cleaning up..."
     cd "$REAL_ROOT_DIR" || cd ..
-    rm -rf "$WORK_DIR"
+    if [[ -n "$WORKSPACE_NAME" ]]; then
+        rm -f "/tmp/$WORKSPACE_NAME"
+    fi
+    rm -rf "$REAL_WORK_DIR"
 }
 trap cleanup EXIT
 
@@ -105,7 +116,8 @@ sim_run() {
     
     run_c3c compile "$source_file" "${compile_args[@]}" -o "$target_name"
     if [ -f "$target_path" ]; then
-        # Expose workspace bin/ (which holds our mock 'ls') to the PATH
+        # Expose workspace bin/ (which holds our mock 'ls') to the PATH.
+        # This path starting with /tmp/ is valid inside the simulator namespace.
         PATH="$WORK_DIR/bin:$PATH" xcrun simctl spawn "$DEVICE_ID" "$target_path" "${run_args[@]}"
     fi
 }
