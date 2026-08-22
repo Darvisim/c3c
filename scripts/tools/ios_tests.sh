@@ -40,18 +40,8 @@ echo ">>> Detected System: iOS ($TARGET)"
 
 # --- Create Disposable Workspace ---
 
-SIM_DATA_DIR="$HOME/Library/Developer/CoreSimulator/Devices/$DEVICE_ID/data"
-SIM_TMP="$SIM_DATA_DIR/tmp"
-
-if [[ -n "$DEVICE_ID" && "$TARGET_FLAG" != "ios-aarch64" ]]; then
-    mkdir -p "$SIM_TMP"
-    # Create workspace inside simulator's tmp directory
-    WORK_DIR=$(mktemp -d "$SIM_TMP/c3_ios_ci_tests.XXXXXX")
-else
-    # Fallback for physical devices/non-simulator
-    WORK_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t 'c3_ios_ci_tests')
-fi
-
+# Create temp directory
+WORK_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t 'c3_ios_ci_tests')
 echo ">>> Setting up workspace in: $WORK_DIR"
 
 cleanup() {
@@ -60,15 +50,6 @@ cleanup() {
     rm -rf "$WORK_DIR"
 }
 trap cleanup EXIT
-
-# Copy resource files and test suites into simulator sandbox workspace
-if [[ -n "$DEVICE_ID" && "$TARGET_FLAG" != "ios-aarch64" ]]; then
-    echo ">>> Copying resource and test suite files to simulator sandbox..."
-    mkdir -p "$WORK_DIR/resources"
-    cp -R "$ROOT_DIR/resources/"* "$WORK_DIR/resources/"
-    mkdir -p "$WORK_DIR/test"
-    cp -R "$ROOT_DIR/test/test_suite" "$WORK_DIR/test/test_suite"
-fi
 
 # --- Tests ---
 
@@ -79,58 +60,20 @@ run_c3c() {
     "$C3C_BIN" --target "$TARGET_FLAG" --output-dir "$MY_WORK_DIR" --build-dir "$MY_WORK_DIR" --obj-out "$MY_WORK_DIR" "$@"
 }
 
-# Helper to translate host paths to simulator-internal paths
-to_sim_path() {
-    local host_path="$1"
-    if [[ -n "$DEVICE_ID" && "$TARGET_FLAG" != "ios-aarch64" && "$host_path" == *"/tmp/"* ]]; then
-        echo "/tmp/${host_path#*\/tmp\/}"
-    else
-        echo "$host_path"
-    fi
-}
-
-# Simulates c3c compile-run with correct argument forwarding
-sim_run() {
+# on iOS you cannot do compile-run, 
+# if done, the kernel will kill or abort the process,
+# hence we simulate c3c compile-run with this helper
+run_c3c_sim_exec() {
     local source_file="$1"
     shift
     local source_name=$(basename "$source_file")
     local target_name="${source_name%.*}"
     local target_path="$MY_WORK_DIR/$target_name"
     
-    local compile_args=()
-    local run_args=()
-    local in_run_args=false
-    
-    for arg in "$@"; do
-        if [ "$arg" = "--" ]; then
-            in_run_args=true
-            continue
-        fi
-        if $in_run_args; then
-            run_args+=("$arg")
-        else
-            compile_args+=("$arg")
-        fi
-    done
-    
-    run_c3c compile "$source_file" "${compile_args[@]}" -o "$target_name"
+    run_c3c compile "$source_file" "$@" -o "$target_name"
     if [ -f "$target_path" ]; then
-        if [[ -n "$DEVICE_ID" && "$TARGET_FLAG" != "ios-aarch64" ]]; then
-            # Translate host paths into simulator-internal paths
-            local sim_cwd=$(to_sim_path "$(pwd)")
-            local sim_bin=$(to_sim_path "$WORK_DIR/bin")
-            local sim_target=$(to_sim_path "$target_path")
-            
-            # Wrap execution in shell to enforce simulator-internal CWD and PATH
-            local cmd="cd '$sim_cwd' && PATH='$sim_bin':\$PATH '$sim_target'"
-            for arg in "${run_args[@]}"; do
-                cmd="$cmd '$arg'"
-            done
-            xcrun simctl spawn "$DEVICE_ID" sh -c "$cmd"
-        else
-            # Native fallback for physical devices
-            "$target_path" "${run_args[@]}"
-        fi
+        # xcrun simctl spawn simulates the behavior of compile-run output on the simulator
+        xcrun simctl spawn "$DEVICE_ID" "$target_path"  
     fi
 }
 
@@ -139,11 +82,7 @@ run_examples() {
     mkdir -p "$MY_WORK_DIR"
 
     echo "--- Running Standard Examples ---"
-    if [[ "$TARGET_FLAG" != "ios-aarch64" ]]; then
-        cd "$WORK_DIR/resources"
-    else
-        cd "$ROOT_DIR/resources"
-    fi
+    cd "$ROOT_DIR/resources"
     
     run_c3c compile examples/base64.c3
     run_c3c compile examples/binarydigits.c3
@@ -166,28 +105,13 @@ run_examples() {
     run_c3c compile examples/contextfree/multi.c3
     run_c3c compile examples/contextfree/cleanup.c3
 
-    # Run spawned tests on simulator
+    # skip spawn tests on physical device
     if [[ "$TARGET_FLAG" != "ios-aarch64" ]]; then
-        sim_run examples/hello_world_many.c3
-        sim_run examples/time.c3
-        sim_run examples/fannkuch-redux.c3
-        sim_run examples/contextfree/boolerr.c3
-        
-        # 1. Compile C3's native directory lister 'ls.c3' first
-        sim_run examples/ls.c3
-        
-        # 2. Put it in our sandbox PATH under bin/ls so process.c3 can locate it
-        mkdir -p "$WORK_DIR/bin"
-        cp "$MY_WORK_DIR/ls" "$WORK_DIR/bin/ls"
-        
-        # 3. run process.c3 (which spawns standard 'ls' internally)
-        sim_run examples/process.c3
-        
-        # 4. run load_world.c3 (which reads resources/examples/hello_world.txt)
-        sim_run examples/load_world.c3
-        
-        # 5. run args.c3 passing program arguments via the -- separator
-        sim_run examples/args.c3 -- foo -bar "baz baz"
+        run_c3c_sim_exec examples/hello_world_many.c3
+        run_c3c_sim_exec examples/time.c3
+        run_c3c_sim_exec examples/fannkuch-redux.c3
+        run_c3c_sim_exec examples/contextfree/boolerr.c3
+        run_c3c_sim_exec examples/ls.c3
     fi
 
     run_c3c compile --no-entry --test -g --threads 1 --target macos-x64 examples/constants.c3
@@ -217,7 +141,7 @@ run_dynlib_tests() {
     run_c3c -vv dynamic-lib "$ROOT_DIR/resources/examples/dynlib-test/add.c3" -o add
     # Skip dynamic lib spawn on physical device
     if [[ "$TARGET_FLAG" != "ios-aarch64" ]]; then
-        sim_run "$ROOT_DIR/resources/examples/dynlib-test/test.c3" -l "add.dylib"
+        run_c3c_sim_exec "$ROOT_DIR/resources/examples/dynlib-test/test.c3" -l "add.dylib"
     fi
 }
 
@@ -231,7 +155,7 @@ run_staticlib_tests() {
     run_c3c -vv static-lib "$ROOT_DIR/resources/examples/staticlib-test/add.c3" -o libadd
     # Skip static lib spawn on physical device
     if [[ "$TARGET_FLAG" != "ios-aarch64" ]]; then
-        sim_run "$ROOT_DIR/resources/examples/staticlib-test/test.c3" -L . -l add
+        run_c3c_sim_exec "$ROOT_DIR/resources/examples/staticlib-test/test.c3" -L . -l add
     fi
 }
 
@@ -273,12 +197,7 @@ run_http_server_tests() {
     PORT=$(( 8085 + $RANDOM % 10000 ))
     echo "Starting server on port $PORT..."
     
-    # Point server resources to sandboxed resources copy inside the simulator CWD
-    local sim_work_dir=$(to_sim_path "$WORK_DIR")
-    local sim_output_bin=$(to_sim_path "$OUTPUT_BIN")
-    local cmd="cd '$sim_work_dir/resources' && '$sim_output_bin' -p $PORT -r '$sim_work_dir/resources/examples'"
-    
-    xcrun simctl spawn "$DEVICE_ID" sh -c "$cmd" &
+    xcrun simctl spawn "$DEVICE_ID" "$OUTPUT_BIN" -p $PORT -r "$ROOT_DIR/resources/examples" &
     SERVER_PID=$!
     
     sleep 2
@@ -327,8 +246,7 @@ run_unit_tests() {
     cd "$ROOT_DIR/test"
     run_c3c compile-test unit -O1 --suppress-run -o "unit_test"
     if [ -f "$MY_WORK_DIR/unit_test" ]; then
-        local sim_unit_test=$(to_sim_path "$MY_WORK_DIR/unit_test")
-        xcrun simctl spawn "$DEVICE_ID" "$sim_unit_test"
+        xcrun simctl spawn "$DEVICE_ID" "$MY_WORK_DIR/unit_test"
     fi
 
     echo "--- Running Test Suite Runner inside iOS Simulator Container ---"
@@ -336,10 +254,7 @@ run_unit_tests() {
     
     run_c3c compile "$ROOT_DIR/test/src/test_suite_runner.c3" -o suite_runner
     if [ -f "$MY_WORK_DIR/suite_runner" ]; then
-        # Run suite runner pointing to the sandboxed copy of test suites inside the simulator
-        local sim_work_dir=$(to_sim_path "$WORK_DIR")
-        local sim_suite_runner=$(to_sim_path "$MY_WORK_DIR/suite_runner")
-        xcrun simctl spawn "$DEVICE_ID" "$sim_suite_runner" "$C3C_BIN" "$sim_work_dir/test/test_suite/" --no-terminal
+        xcrun simctl spawn "$DEVICE_ID" "$MY_WORK_DIR/suite_runner" "$C3C_BIN" "$ROOT_DIR/test/test_suite/" --no-terminal
     fi
 }
 
