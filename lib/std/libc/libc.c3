@@ -184,7 +184,7 @@ extern fn ZString strtok(ZString str, ZString delim);
 extern fn CLong strtol(char* str, char** endptr, CInt base);
 extern fn CULong strtoul(char* str, char** endptr, CInt base);
 extern fn usz strxfrm(char* dest, ZString src, usz n);
-extern fn CInt system(ZString str);
+extern fn CInt system(ZString str) @feat(!IOS); // system is blocked on iOS
 extern fn ZString tempnam(ZString dir, ZString prefix) @cname(env::WIN32 ??? "_tempnam" : "tempnam") @nodiscard;
 extern fn Time_t timegm(Tm* timeptr) @feat(!WIN32) @feat(!NETBSD);
 extern fn ZString tmpnam(char *buffer);
