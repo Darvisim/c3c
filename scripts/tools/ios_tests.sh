@@ -255,7 +255,7 @@ run_unit_tests() {
     fi
     
     cd "$ROOT_DIR/test"
-    run_c3c compile-test unit -O1 -D SLOW_TESTS -D RUN_PROCESS_TESTS  --suppress-run -o "unit_test"
+    run_c3c compile-test unit -O1 --suppress-run -o "unit_test"
     if [ -f "$MY_WORK_DIR/unit_test" ]; then
         xcrun simctl spawn "$DEVICE_ID" "$MY_WORK_DIR/unit_test"
     fi
