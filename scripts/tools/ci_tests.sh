@@ -383,7 +383,7 @@ run_http_server_tests() {
     }
 
     if [[ "$OS_MODE" == "ios" ]]; then
-        tail -f /dev/null | xcrun simctl spawn $UDID "$OUTPUT_BIN" -p $PORT -r "$ROOT_DIR/resources/examples" > "$MY_WORK_DIR/server.log" 2>&1 &
+        xcrun simctl spawn $UDID "$OUTPUT_BIN" -p $PORT -r "$ROOT_DIR/resources/examples" > "$MY_WORK_DIR/server.log" 2>&1 &
         SERVER_PID=$!
     else
         "$OUTPUT_BIN" -p $PORT -r "$ROOT_DIR/resources/examples" > "$MY_WORK_DIR/server.log" 2>&1 &
