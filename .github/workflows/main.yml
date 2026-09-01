@@ -589,6 +589,50 @@ jobs:
           name: c3-macos-Debug
           path: c3-macos-Debug.zip
 
+  build-mac-x64:
+    name: macOS (x64)
+    needs: changes
+    if: needs.changes.outputs.src == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: macos-26-intel
+    steps:
+      - uses: actions/checkout@v7
+      - name: CMake Build (Release)
+        run: |
+          cmake -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DC3_FETCH_LLVM=ON
+          cmake --build build-release
+
+      - name: Bundle & Upload (Mac Release)
+        run: bash ./scripts/tools/package_build.sh "./build-release/c3c" "c3-macos-x64-Release" "zip"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: c3-macos-x64-Release
+          path: c3-macos-x64-Release.zip
+
+      - name: CMake Build (Debug)
+        run: |
+          cmake -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DC3_FETCH_LLVM=ON
+          cmake --build build-debug
+
+      - name: Cache FreeBSD Sysroot
+        uses: actions/cache@v6
+        with:
+          path: .cache
+          key: ${{ runner.os }}-x64-freebsd-sysroot-15.0
+      - name: Run Unified Tests
+        run: ./scripts/tools/ci_tests.sh "./build-debug/c3c"
+
+      - name: Build Lib (Mac Debug)
+        run: |
+          cd resources/testproject
+          ../../build-debug/c3c build hello_world_lib -vv --trust=full
+
+      - name: Bundle & Upload (Mac Debug)
+        run: bash ./scripts/tools/package_build.sh "./build-debug/c3c" "c3-macos-x64-Debug" "zip"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: c3-macos-x64-Debug
+          path: c3-macos-x64-Debug.zip
+
   build-openbsd:
     name: OpenBSD (x64) ${{ matrix.version }}
     needs: changes
@@ -1045,7 +1089,7 @@ jobs:
 
   release:
     runs-on: ubuntu-slim
-    needs: [build-msvc, build-msvc-arm64, build-linux, build-mac, build-linux-alpine, build-openbsd, build-netbsd, build-android, build-linux-musl-static]
+    needs: [build-msvc, build-msvc-arm64, build-linux, build-mac, build-mac-x64, build-linux-alpine, build-openbsd, build-netbsd, build-android, build-linux-musl-static]
     if: github.ref == 'refs/heads/master' || endsWith(github.ref, '.x')
     permissions:
       contents: write
@@ -1060,11 +1104,11 @@ jobs:
       - name: Prepare Assets
         run: |
           for config in Release Debug; do
-            for platform in windows windows-aarch64 macos linux linux-musl linux-static openbsd netbsd android-aarch64 android-x86_64 windows-setup windows-setup-aarch64; do
+            for platform in windows windows-aarch64 macos macos-x64 linux linux-musl linux-static openbsd netbsd android-aarch64 android-x86_64 windows-setup windows-setup-aarch64; do
               if [ "$platform" = "windows-setup" ] || [ "$platform" = "windows-setup-aarch64" ]; then
                 ext="exe"
               # Windows and macOS produce zip, others tar.gz
-              elif [ "$platform" = "windows" ] || [ "$platform" = "windows-aarch64" ] || [ "$platform" = "macos" ]; then
+              elif [ "$platform" = "windows" ] || [ "$platform" = "windows-aarch64" ] || [ "$platform" = "macos" ] || [ "$platform" = "macos-x64" ]; then
                 ext="zip"
               else
                 ext="tar.gz"
