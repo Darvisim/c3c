@@ -1026,10 +1026,12 @@ jobs:
           cmake --build build-debug
 
       - name: Setup and Boot iOS Simulator
+        id: simulator
         uses: futureware-tech/simulator-action@v5
         with:
           os: 'iOS'
           os_version: ">=14.0"
+      - run: export UDID="${{ steps.simulator.outputs.udid }}"
 
       - name: Run Unified Tests (iOS)
         run: |
