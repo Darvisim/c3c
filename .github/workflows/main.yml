@@ -1044,9 +1044,9 @@ jobs:
               launchctl disable "gui/501/$daemon" 2>/dev/null || true
               launchctl disable "user/501/$daemon" 2>/dev/null || true
               launchctl disable "system/$daemon" 2>/dev/null || true
-            " &
+            " 2>/dev/null &
           done
-          sleep 1.5
+          sleep 0.5
           echo "Purging guest processes..."
           xcrun simctl shutdown "$UDID"
           sleep 1
