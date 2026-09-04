@@ -1046,6 +1046,7 @@ jobs:
               launchctl disable "system/$daemon" 2>/dev/null || true
             " &
           done
+          sleep 1.5
           echo "Purging guest processes..."
           xcrun simctl shutdown "$UDID"
           sleep 1
