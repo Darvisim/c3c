@@ -1039,7 +1039,6 @@ jobs:
           DAEMONS=$(xcrun simctl spawn "$UDID" launchctl list | grep -E "$SERVICES" | awk '{print $3}')
           echo "Disabling non-essential services..."
           for daemon in $DAEMONS; do
-            echo "Disabling: $daemon"
             (
               xcrun simctl spawn "$UDID" launchctl disable "gui/501/$daemon" 2>/dev/null || true
               xcrun simctl spawn "$UDID" launchctl disable "user/501/$daemon" 2>/dev/null || true
@@ -1050,7 +1049,6 @@ jobs:
           echo "Restarting simulator..."
           xcrun simctl shutdown "$UDID"
           xcrun simctl boot "$UDID"
-          defaults write com.apple.CoreSimulator.CoreSimulatorService LoggingLevel 0
 
       - name: Run Unified Tests (iOS)
         run: |
