@@ -63,8 +63,7 @@ ROOT_DIR="$REAL_ROOT_DIR"
 
 # Helper to run c3c with the correct workspace isolation
 run_c3c() {
-    TARGET_ARGS=""
-    if [[ "$OS_MODE" == "ios" ]]; then TARGET_ARGS="--target ios-aarch64-sim"; fi
+    TARGET_ARGS=$([[ "$OS_MODE" == "ios" ]] && "--target ios-aarch64-sim" || "")
     "$C3C_BIN" $TARGET_ARGS --output-dir "$MY_WORK_DIR" --build-dir "$MY_WORK_DIR" --obj-out "$MY_WORK_DIR" "$@"
 }
 
@@ -383,7 +382,7 @@ run_http_server_tests() {
     }
 
     if [[ "$OS_MODE" == "ios" ]]; then
-        xcrun simctl spawn $UDID "$OUTPUT_BIN" -p $PORT -r "$ROOT_DIR/resources/examples" > "$MY_WORK_DIR/server.log" 2>&1 &
+        tail -f /dev/null | xcrun simctl spawn $UDID "$OUTPUT_BIN" -p $PORT -r "$ROOT_DIR/resources/examples" > "$MY_WORK_DIR/server.log" 2>&1 &
         SERVER_PID=$!
     else
         "$OUTPUT_BIN" -p $PORT -r "$ROOT_DIR/resources/examples" > "$MY_WORK_DIR/server.log" 2>&1 &
