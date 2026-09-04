@@ -1040,16 +1040,14 @@ jobs:
           DAEMONS=$(xcrun simctl spawn "$UDID" launchctl list | grep -E "$SERVICES" | awk '{print $3}')
           echo "Disabling all non-essential service daemons found..."
           for daemon in $DAEMONS; do
-            xcrun simctl spawn "$UDID" sh -c "
-              launchctl disable "gui/501/$daemon" 2>/dev/null || true
-              launchctl disable "user/501/$daemon" 2>/dev/null || true
-              launchctl disable "system/$daemon" 2>/dev/null || true
-            " 2>/dev/null &
+            (
+              xcrun simctl spawn "$UDID" launchctl disable "gui/501/$daemon" 2>/dev/null || true
+              xcrun simctl spawn "$UDID" launchctl disable "user/501/$daemon" 2>/dev/null || true
+              xcrun simctl spawn "$UDID" launchctl disable "system/$daemon" 2>/dev/null || true
+            ) 2>/dev/null || true &
           done
-          sleep 0.5
           echo "Purging guest processes..."
           xcrun simctl shutdown "$UDID"
-          sleep 1
           echo "Rebooting simulator..."
           xcrun simctl boot "$UDID"
 
