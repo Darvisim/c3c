@@ -63,7 +63,7 @@ ROOT_DIR="$REAL_ROOT_DIR"
 
 # Helper to run c3c with the correct workspace isolation
 run_c3c() {
-    TARGET_ARGS=$([[ "$OS_MODE" == "ios" ]] && "--target ios-aarch64-sim" || "")
+    TARGET_ARGS=$([[ "$OS_MODE" == "ios" ]] && echo "--target ios-aarch64-sim" || echo "")
     "$C3C_BIN" $TARGET_ARGS --output-dir "$MY_WORK_DIR" --build-dir "$MY_WORK_DIR" --obj-out "$MY_WORK_DIR" "$@"
 }
 
