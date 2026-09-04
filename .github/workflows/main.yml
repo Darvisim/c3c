@@ -1031,10 +1031,10 @@ jobs:
         with:
           os: 'iOS'
           os_version: ">=14.0"
+      - run: echo "UDID=${{ steps.simulator.outputs.udid }}" >> "$GITHUB_ENV"
       
       - name: Disable Non-Essential Daemons
         run: |
-          echo "UDID=${{ steps.simulator.outputs.udid }}" >> "$GITHUB_ENV"
           DAEMONS=$(xcrun simctl spawn "$UDID" launchctl list | grep -E "spotlight|siri|assistant|poster|health|cloud|analytics|photo|analysis" | awk '{print $3}')
           for daemon in $DAEMONS; do
             xcrun simctl spawn "$UDID" launchctl disable "system/$daemon"
