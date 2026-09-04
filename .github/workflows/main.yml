@@ -1037,8 +1037,12 @@ jobs:
         run: |
           DAEMONS=$(xcrun simctl spawn "$UDID" launchctl list | grep -E "spotlight|siri|assistant|poster|health|cloud|analytics|photo|analysis" | awk '{print $3}')
           for daemon in $DAEMONS; do
-            xcrun simctl spawn "$UDID" launchctl disable "system/$daemon"
+            echo "Disabling: $daemon"
+            xcrun simctl spawn "$UDID" launchctl disable "gui/501/$daemon" 2>/dev/null || true
+            xcrun simctl spawn "$UDID" launchctl disable "user/501/$daemon" 2>/dev/null || true
+            xcrun simctl spawn "$UDID" launchctl disable "system/$daemon" 2>/dev/null || true
           done
+          echo "Restarting simulator..."
           xcrun simctl shutdown "$UDID"
           xcrun simctl boot "$UDID"
 
