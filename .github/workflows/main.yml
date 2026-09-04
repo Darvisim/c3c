@@ -1026,10 +1026,36 @@ jobs:
           cmake --build build-debug
 
       - name: Setup and Boot iOS Simulator
+        id: simulator
         uses: futureware-tech/simulator-action@v5
         with:
           os: 'iOS'
           os_version: ">=14.0"
+      - run: echo "UDID=${{ steps.simulator.outputs.udid }}" >> "$GITHUB_ENV"
+
+      - name: Disable Non-Essential Daemons
+        run: |
+          SERVICES="spotlight|siri|assistant|poster|health|cloud|analytics|photo|analysis|telephony|commcenter|airplay|mediaremote|suggestd|proactive|mobileassetd|passd|safebrowsing"
+          
+          echo "Finding non-essential service daemons..."
+          DAEMONS=$(xcrun simctl spawn "$UDID" launchctl list | grep -E "$SERVICES" | awk '{print $3}')
+          
+          echo "Disabling all non-essential service daemons found..."
+          for daemon in $DAEMONS; do
+            (
+              xcrun simctl spawn "$UDID" launchctl disable "gui/501/$daemon" 2>/dev/null || true
+              xcrun simctl spawn "$UDID" launchctl disable "user/501/$daemon" 2>/dev/null || true
+              xcrun simctl spawn "$UDID" launchctl disable "system/$daemon" 2>/dev/null || true
+            ) &
+          done
+          
+          echo "Purging guest processes..."
+          xcrun simctl shutdown "$UDID"
+          
+          sleep 2
+          
+          echo "Rebooting simulator..."
+          xcrun simctl boot "$UDID"
 
       - name: Run Unified Tests (iOS)
         run: |
