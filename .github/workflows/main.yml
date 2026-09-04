@@ -1036,8 +1036,9 @@ jobs:
       - name: Disable Non-Essential Daemons
         run: |
           SERVICES="spotlight|siri|assistant|poster|health|cloud|analytics|photo|analysis|telephony|commcenter|airplay|mediaremote|suggestd|proactive|mobileassetd|passd|safebrowsing"
+          echo "Finding non-essential services..."
           DAEMONS=$(xcrun simctl spawn "$UDID" launchctl list | grep -E "$SERVICES" | awk '{print $3}')
-          echo "Disabling non-essential services..."
+          echo "Disabling non-essential daemons..."
           for daemon in $DAEMONS; do
             (
               xcrun simctl spawn "$UDID" launchctl disable "gui/501/$daemon" 2>/dev/null || true
@@ -1045,9 +1046,10 @@ jobs:
               xcrun simctl spawn "$UDID" launchctl disable "system/$daemon" 2>/dev/null || true
             ) &
           done
-          wait
-          echo "Restarting simulator..."
+          echo "Purging guest processes..."
           xcrun simctl shutdown "$UDID"
+          sleep 2
+          echo "Rebooting simulator..."
           xcrun simctl boot "$UDID"
 
       - name: Run Unified Tests (iOS)
