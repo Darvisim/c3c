@@ -1043,21 +1043,14 @@ jobs:
           echo "Finding non-essential service daemons..."
           DAEMONS=$(xcrun simctl spawn "$UDID" launchctl list | grep -E "$SERVICES" | awk '{print $3}')
           echo "Disabling all non-essential service daemons found..."
-          PIPE=$(mktemp -u)
-          mkfifo "$PIPE"
-          exec 3<>"$PIPE"
-          rm "$PIPE"
           for daemon in $DAEMONS; do
-            read -u 3
             (
               xcrun simctl spawn "$UDID" launchctl disable "gui/501/$daemon"
               xcrun simctl spawn "$UDID" launchctl disable "user/501/$daemon"
               xcrun simctl spawn "$UDID" launchctl disable "system/$daemon"
-              echo >&3
+              sleep 0.05
             ) 2>/dev/null &
           done
-          wait
-          exec 3>&-
           echo "Purging guest processes..."
           xcrun simctl shutdown "$UDID"
           sleep 2
