@@ -1035,11 +1035,14 @@ jobs:
       
       - name: Disable Non-Essential Daemons
         run: |
-          SERVICES="spotlight|siri|assistant|poster|health|cloud|analytics|\
-           photo|analysis|telephony|commcenter|airplay|mediaremote|suggestd|\
-           proactive|mobileassetd|passd|safebrowsing|gamecenter|gamed|news|\
-           stock|location|weather|identity|auth|account|printing|printd|\
-           appstore|appstored|homed|maps"
+          SERVICES="spotlight|siri|assistant|poster|health|cloud|\
+           analytics|photo|analysis|telephony|commcenter|airplay|\
+           mediaremote|suggestd|proactive|mobileassetd|passd|\
+           safebrowsing|gamecenter|gamed|news|stock|location|\
+           weather|identity|auth|account|printing|printd|appstore|\
+           appstored|homed|maps|diagnostic|remoted|report|storekit|\
+           commerce|sharing|pip|haptics|corehaptics"
+
           echo "Finding non-essential service daemons..."
           DAEMONS=$(xcrun simctl spawn "$UDID" launchctl list | grep -E "$SERVICES" | awk '{print $3}')
           echo "Disabling all non-essential service daemons found..."
@@ -1053,6 +1056,7 @@ jobs:
           done
           sleep 1
           echo "Total optimized services disabled: $(xcrun simctl spawn "$UDID" launchctl list | grep -E "$SERVICES" | wc -l | xargs)"
+          echo "Current Simulator RAM: $(vmmap -summary $(pgrep launchd_sim) | awk '/DIRTY/ {print $3}')"
 
       - name: Run Unified Tests (iOS)
         run: |
