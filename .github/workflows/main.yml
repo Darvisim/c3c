@@ -1042,7 +1042,10 @@ jobs:
            weather|identity|auth|account|printing|printd|appstore|\
            appstored|homed|maps|diagnostic|remoted|report|storekit|\
            commerce|sharing|pip|haptics|corehaptics|imav|imtrans|\
-           sms|proofreader|predictive|notification|bulletin|useractivity"
+           sms|proofreader|predictive|notification|bulletin|useractivity|\
+           translation|biometric|passkey|speech|tts|mailagent|\
+           quicklook|ql|logd|diagnosticd|syslog|demo|retail|\
+           remotemanagement|rmd|feedback|fba"
 
           echo "Finding non-essential service daemons..."
           DAEMONS=$(xcrun simctl spawn "$UDID" launchctl list | grep -E "$SERVICES" | awk '{print $3}')
