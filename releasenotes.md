@@ -27,6 +27,8 @@
 - `--keep-obj` added, to prevent object files from being deleted after building/linking.
 - Slice equality for flat types is now lowered to `memcmp`, avoiding scalar loops. #3491
 - Add `--warn-unusedlocal` and `--warn-unusedparam` to detect unused parameters and locals. #3485
+- Improve the error message for build options which use `=`.
+- Add control registers to x86 inline assembly
 
 ### Stdlib changes
 - `CachedInStream` and `CachedOutStream` added.
@@ -62,6 +64,9 @@
 - `String.escape` would not correctly handle UTF16 pairs.
 - Heap buffer corruption when reversing vectors larger than 128 elements due to an undersized allocation.
 - `$$mod` on unsigned integers emitted signed division instead of unsigned remainder.
+- Improved codegen for casting an optional vector to an array.
+- Overload for `^1`, e.g. `foo[^1] = 2` did not work correctly. #3496
+- Correctly use defined C compiler in all cases. #3495
 
 ## 0.8.3 Change list
 
