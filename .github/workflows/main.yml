@@ -1056,7 +1056,8 @@ jobs:
           sleep 2
           echo "Rebooting simulator..."
           xcrun simctl boot "$UDID"
-          echo "Total optimized services disabled: $(xcrun simctl spawn "$UDID" launchctl print-disabled system | grep -E "$SERVICES" | wc -l | xargs)"
+          echo "Total optimized services disabled: $(xcrun simctl spawn "$UDID" launchctl print-disabled gui/501 | grep -E "$SERVICES" | wc -l | xargs)"
+
 
       - name: Run Unified Tests (iOS)
         run: |
