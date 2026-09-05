@@ -1045,19 +1045,14 @@ jobs:
           echo "Disabling all non-essential service daemons found..."
           for daemon in $DAEMONS; do
             (
-              xcrun simctl spawn "$UDID" launchctl disable "gui/501/$daemon"
-              xcrun simctl spawn "$UDID" launchctl disable "user/501/$daemon"
-              xcrun simctl spawn "$UDID" launchctl disable "system/$daemon"
+              xcrun simctl spawn "$UDID" launchctl bootout "gui/501/$daemon"
+              xcrun simctl spawn "$UDID" launchctl bootout "user/501/$daemon"
+              xcrun simctl spawn "$UDID" launchctl bootout "system/$daemon"
               sleep 0.05
             ) 2>/dev/null &
           done
-          echo "Purging guest processes..."
-          xcrun simctl shutdown "$UDID"
-          sleep 2
-          echo "Rebooting simulator..."
-          xcrun simctl boot "$UDID"
-          echo "Total optimized services disabled: $(xcrun simctl spawn "$UDID" launchctl print-disabled gui/501 | grep -E "$SERVICES" | wc -l | xargs)"
-
+          sleep 1
+          echo "Total optimized services disabled: $(xcrun simctl spawn "$UDID" launchctl list | grep -E "$SERVICES" | wc -l | xargs)"
 
       - name: Run Unified Tests (iOS)
         run: |
