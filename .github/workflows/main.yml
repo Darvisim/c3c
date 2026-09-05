@@ -1035,16 +1035,20 @@ jobs:
       
       - name: Disable Non-Essential Daemons
         run: |
-          SERVICES="spotlight|siri|assistant|poster|health|cloud|analytics|photo|analysis|telephony|commcenter|airplay|mediaremote|suggestd|proactive|mobileassetd|passd|safebrowsing"
+          SERVICES="spotlight|siri|assistant|poster|health|cloud|\
+           analytics|photo|analysis|telephony|commcenter|airplay|\
+           mediaremote|suggestd|proactive|mobileassetd|passd|\
+           safebrowsing|gamecenter|gamed|news|stock|location|\
+           weather|identity|auth|account"
           echo "Finding non-essential service daemons..."
           DAEMONS=$(xcrun simctl spawn "$UDID" launchctl list | grep -E "$SERVICES" | awk '{print $3}')
           echo "Disabling all non-essential service daemons found..."
           for daemon in $DAEMONS; do
             (
-              xcrun simctl spawn "$UDID" launchctl disable "gui/501/$daemon" 2>/dev/null || true
-              xcrun simctl spawn "$UDID" launchctl disable "user/501/$daemon" 2>/dev/null || true
-              xcrun simctl spawn "$UDID" launchctl disable "system/$daemon" 2>/dev/null || true
-            ) &
+              xcrun simctl spawn "$UDID" launchctl disable "gui/501/$daemon"
+              xcrun simctl spawn "$UDID" launchctl disable "user/501/$daemon"
+              xcrun simctl spawn "$UDID" launchctl disable "system/$daemon"
+            ) 2>/dev/null &
           done
           echo "Purging guest processes..."
           xcrun simctl shutdown "$UDID"
