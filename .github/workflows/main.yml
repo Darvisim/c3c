@@ -1041,7 +1041,8 @@ jobs:
            safebrowsing|gamecenter|gamed|news|stock|location|\
            weather|identity|auth|account|printing|printd|appstore|\
            appstored|homed|maps|diagnostic|remoted|report|storekit|\
-           commerce|sharing|pip|haptics|corehaptics"
+           commerce|sharing|pip|haptics|corehaptics|imav|imtrans|\
+           sms|proofreader|predictive|notification|bulletin|useractivity"
 
           echo "Finding non-essential service daemons..."
           DAEMONS=$(xcrun simctl spawn "$UDID" launchctl list | grep -E "$SERVICES" | awk '{print $3}')
@@ -1056,7 +1057,8 @@ jobs:
           done
           sleep 1
           echo "Total optimized services disabled: $(xcrun simctl spawn "$UDID" launchctl list | grep -E "$SERVICES" | wc -l | xargs)"
-          echo "Current Simulator RAM: $(vmmap -summary $(pgrep launchd_sim) | awk '/DIRTY/ {print $3}')"
+          echo "Current Simulator RAM: $(ps -o rss= -p $(pgrep launchd_sim | head -n 1) | awk '{print int($1/1024)"MB"}')"
+
 
       - name: Run Unified Tests (iOS)
         run: |
