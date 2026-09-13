@@ -1031,6 +1031,8 @@ jobs:
           os: 'iOS'
           os_version: ">=14.0"
 
+      - run: xcrun simctl bootstatus booted -b 2>/dev/null || true
+
       - name: Run Unified Tests (iOS)
         run: |
           chmod +x ./scripts/tools/ci_tests.sh
