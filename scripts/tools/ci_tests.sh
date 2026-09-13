@@ -85,7 +85,7 @@ sim_run() {
     done
 
     run_c3c compile "$source_file" "${compile_args[@]}" -o "$target_name"
-    xcrun simctl spawn $UDID "$MY_WORK_DIR/$target_name" "$@" 2>/dev/null || true
+    time xcrun simctl spawn $UDID "$MY_WORK_DIR/$target_name" "$@" 2>/dev/null || true
 }
 
 run_examples() {
@@ -236,13 +236,13 @@ run_staticlib_tests() {
         elif [[ "$SYSTEM_NAME" == "Linux" ]]; then
              cc "$ROOT_DIR/resources/examples/staticlib-test/test.c" -L. -ladd -ldl -lm -lpthread -o a.out
         elif [[ "$OS_MODE" == "ios" ]]; then
-            cc "$ROOT_DIR/resources/examples/staticlib-test/test.c" -sdk iphonesimulator -L. -ladd -o a.out
+            xcrun -sdk iphonesimulator clang "$ROOT_DIR/resources/examples/staticlib-test/test.c" -L. -ladd -o a.out
         else
              # Mac / NetBSD
              cc "$ROOT_DIR/resources/examples/staticlib-test/test.c" -L. -ladd -o a.out
         fi
         if [[ "$OS_MODE" == "ios" ]]; then
-            xcrun simctl spawn $UDID ./a.out
+            time xcrun simctl spawn $UDID ./a.out
             sim_run "$ROOT_DIR/resources/examples/staticlib-test/test.c3" -L . -l add
         else 
             ./a.out
@@ -270,7 +270,7 @@ run_testproject() {
 
     if [[ "$OS_MODE" == "ios" ]]; then
         run_c3c build -vv $ARGS
-        xcrun simctl spawn $UDID "$MY_WORK_DIR/hello_world" 2>/dev/null || true
+        time xcrun simctl spawn $UDID "$MY_WORK_DIR/hello_world" 2>/dev/null || true
     else
         run_c3c run -vv $ARGS
     fi
@@ -378,12 +378,12 @@ run_http_server_tests() {
             kill $SERVER_PID 2>/dev/null || true
         fi
         if [[ "$OS_MODE" == "ios" ]]; then
-            xcrun simctl spawn $UDID pkill -f "$OUTPUT_BIN" 2>/dev/null || true
+            time xcrun simctl spawn $UDID pkill -f "$OUTPUT_BIN" 2>/dev/null || true
         fi
     }
 
     if [[ "$OS_MODE" == "ios" ]]; then
-        tail -f /dev/null | xcrun simctl spawn $UDID "$OUTPUT_BIN" -p $PORT -r "$ROOT_DIR/resources/examples" > "$MY_WORK_DIR/server.log" 2>&1 &
+        tail -f /dev/null | time xcrun simctl spawn $UDID "$OUTPUT_BIN" -p $PORT -r "$ROOT_DIR/resources/examples" > "$MY_WORK_DIR/server.log" 2>&1 &
         SERVER_PID=$!
     else
         "$OUTPUT_BIN" -p $PORT -r "$ROOT_DIR/resources/examples" > "$MY_WORK_DIR/server.log" 2>&1 &
@@ -466,7 +466,7 @@ run_unit_tests() {
 
     run_c3c compile-test unit $UNIT_TEST_ARGS
     if [[ "$OS_MODE" == "ios" ]]; then
-        xcrun simctl spawn $UDID "$MY_WORK_DIR/testrun" 2>/dev/null || true
+        time xcrun simctl spawn $UDID "$MY_WORK_DIR/testrun" 2>/dev/null || true
     fi
 
     echo "--- Running Test Suite Runner ---"
