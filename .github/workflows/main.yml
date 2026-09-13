@@ -1034,8 +1034,10 @@ jobs:
       - run: echo "UDID=${{ steps.simulator.outputs.udid }}" >> $GITHUB_ENV
           
       - name: Wait for Simulator bootup
-        run: xcrun simctl bootstatus $UDID -b
-
+        run: |
+          xcrun simctl bootstatus $UDID -b
+          time xcrun simctl spawn "$UDID" /usr/bin/true
+          
       - name: Run Unified Tests (iOS)
         run: |
           chmod +x ./scripts/tools/ci_tests.sh
