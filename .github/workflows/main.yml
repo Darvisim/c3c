@@ -1037,8 +1037,13 @@ jobs:
         run: xcrun simctl bootstatus $UDID -b
 
       - run: |
-         time /usr/bin/true
-         time xcrun simctl spawn booted /usr/bin/true
+         xcrun simctl log stream booted --predicate 'process == "launchd" or process == "CoreSimulator"' > sim_log_stream.txt &
+          LOG_PID=$!
+         sleep 2
+         SIMCTL_LOG_LEVEL=debug xcrun simctl spawn booted /usr/bin/true || true
+         xcrun simctl spawn booted launchenv DYLD_PRINT_STATISTICS=1 /usr/bin/true || true
+         kill $LOG_PID
+         cat sim_log_stream.txt | tail -n 50
 
       - name: Run Unified Tests (iOS)
         run: |
