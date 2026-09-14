@@ -1035,16 +1035,14 @@ jobs:
       - run: echo "UDID=${{ steps.simulator.outputs.udid }}" >> $GITHUB_ENV
 
       - run: |
-          for i in {1..90}; do
-            if xcrun simctl spawn "$UDID" defaults read com.apple.CoreSimulator.CoreSimulatorService >/dev/null 2>&1; then
-              echo "Simulator is fully responsive after $i attempts!"
+          for i in {1..30}; do
+            if xcrun simctl spawn "$UDID" defaults read com.apple.springboard >/dev/null 2>&1; then
+              echo "Simulator SpringBoard is fully responsive after $((i * 2))s!"
               break
             fi
-            
             if [ $((i % 5)) -eq 0 ]; then
-              echo "Still stabilizing... ($((i * 2))s elapsed)"
+              echo "Waiting for SpringBoard... ($((i * 2))s elapsed)"
             fi
-            
             sleep 2
           done
           time xcrun simctl spawn "$UDID" defaults domains > /dev/null
