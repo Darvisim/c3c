@@ -1037,7 +1037,7 @@ jobs:
       - run: |
           DOMAINS=$(xcrun simctl spawn "$UDID" defaults domains 2>/dev/null | tr ',' ' ' | tr -d '\r\n')
           for DOMAIN in "$DOMAINS"; do
-            xcrun simctl spawn "$UDID" defaults "$DOMAIN" >/dev/null 2>&1 || true
+            xcrun simctl spawn "$UDID" defaults read "$DOMAIN" >/dev/null 2>&1 || true
             sleep 0.1
           done
           time xcrun simctl spawn "$UDID" defaults domains > /dev/null
