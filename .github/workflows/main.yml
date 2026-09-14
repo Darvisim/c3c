@@ -1037,19 +1037,24 @@ jobs:
         run: xcrun simctl bootstatus $UDID -b
 
       - run: |
-         /usr/bin/log stream --predicate "process == \"launchd\" and backtrace contains \"$UDID\"" > sim_log_stream.txt &
+          SIM_BINARY=$(find "$(xcrun --sdk iphonesimulator --show-sdk-platform-path)" -name "pwd" -perm +111 -type f | head -n 1)
+          if [ -z "$SIM_BINARY" ]; then
+            SIM_BINARY="/Library/Developer/CoreSimulator/Volumes/iOS_23E254a/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 26.4.simruntime/Contents/Resources/RuntimeRoot/bin/pwd"
+          fi
+          echo "Using compatible iOS simulator binary: $SIM_BINARY"
+          /usr/bin/log stream --predicate "process == \"launchd\" and backtrace contains \"$UDID\"" > sim_log_stream.txt &
           LOG_PID=$!
-         sleep 2
-         SIMCTL_LOG_LEVEL=debug xcrun simctl spawn booted /usr/bin/true || true
-         xcrun simctl spawn booted launchenv DYLD_PRINT_STATISTICS=1 /usr/bin/true || true
-         if kill -0 $LOG_PID 2>/dev/null; then
-            kill $LOG_PID
-         fi
-         if [ -f sim_log_stream.txt ]; then
-            cat sim_log_stream.txt | tail -n 50
-         else
-            echo "No log stream file generated."
-         fi
+          sleep 2
+          SIMCTL_LOG_LEVEL=debug xcrun simctl spawn booted "$SIM_BINARY" || true
+          xcrun simctl spawn booted launchenv DYLD_PRINT_STATISTICS=1 "$SIM_BINARY" || true
+          if kill -0 $LOG_PID 2>/dev/null; then
+             kill $LOG_PID
+          fi
+          if [ -f sim_log_stream.txt ]; then
+             cat sim_log_stream.txt | tail -n 50
+          else
+             echo "No log stream file generated."
+          fi
 
       - name: Run Unified Tests (iOS)
         run: |
