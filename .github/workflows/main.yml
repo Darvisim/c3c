@@ -1035,14 +1035,19 @@ jobs:
       - run: echo "UDID=${{ steps.simulator.outputs.udid }}" >> $GITHUB_ENV
 
       - run: |
-          for i in {1..30}; do
+          for i in {1..90}; do
             if xcrun simctl spawn "$UDID" defaults read com.apple.CoreSimulator.CoreSimulatorService >/dev/null 2>&1; then
-              echo "Simulator is fully responsive!"
+              echo "Simulator is fully responsive after $i attempts!"
               break
             fi
-            echo "Still stabilizing... (waiting 2s)"
+            
+            if [ $((i % 5)) -eq 0 ]; then
+              echo "Still stabilizing... ($((i * 2))s elapsed)"
+            fi
+            
             sleep 2
           done
+          time xcrun simctl spawn "$UDID" defaults domains > /dev/null
 
       - name: Run Unified Tests (iOS)
         run: |
