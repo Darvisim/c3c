@@ -1025,6 +1025,8 @@ jobs:
             -DC3_FETCH_LLVM=ON
           cmake --build build-debug
 
+      - run: xcodebuild -version
+
       - name: Setup and Boot iOS Simulator
         id: simulator
         uses: futureware-tech/simulator-action@v5
@@ -1036,7 +1038,7 @@ jobs:
 
       - name: Stabilize Simulator Background Architecture
         run: |
-          for i in {1..90}; do
+          for i in {1..30}; do
             xcrun simctl spawn "$UDID" defaults domains >/dev/null 2>&1 || true
             sleep 2
           done
