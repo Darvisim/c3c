@@ -1036,7 +1036,7 @@ jobs:
 
       - name: Stabilize Simulator Background Architecture
         run: |
-          for i in {1..30}; do
+          for i in {1..90}; do
             xcrun simctl spawn "$UDID" defaults domains >/dev/null 2>&1 || true
             sleep 2
           done
