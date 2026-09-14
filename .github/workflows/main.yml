@@ -1037,8 +1037,8 @@ jobs:
         run: xcrun simctl bootstatus $UDID -b
 
       - run: |
-         time true
-         time xcrun simctl spawn booted true
+         time /usr/bin/true
+         time xcrun simctl spawn booted /usr/bin/true
 
       - name: Run Unified Tests (iOS)
         run: |
