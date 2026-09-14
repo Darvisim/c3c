@@ -1035,10 +1035,9 @@ jobs:
       - run: echo "UDID=${{ steps.simulator.outputs.udid }}" >> $GITHUB_ENV
 
       - run: |
-          DOMAINS=$(xcrun simctl spawn "$UDID" defaults domains 2>/dev/null | tr ',' ' ' | tr -d '\r\n')
-          for DOMAIN in "$DOMAINS"; do
-            xcrun simctl spawn "$UDID" defaults read "$DOMAIN" >/dev/null 2>&1 || true
-            sleep 0.1
+          for i in {1..30}; do
+            xcrun simctl spawn "$UDID" defaults domains >/dev/null 2>&1 || true
+            sleep 2
           done
           time xcrun simctl spawn "$UDID" defaults domains > /dev/null
 
