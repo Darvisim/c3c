@@ -1034,11 +1034,13 @@ jobs:
           wait_for_boot: true 
       - run: echo "UDID=${{ steps.simulator.outputs.udid }}" >> $GITHUB_ENV
 
-      - run: |
+      - name: Stabilize Simulator Background Architecture
+        run: |
           for i in {1..30}; do
             xcrun simctl spawn "$UDID" defaults domains >/dev/null 2>&1 || true
             sleep 2
           done
+          echo "Finished stabilizing simulator!"
           time xcrun simctl spawn "$UDID" defaults domains > /dev/null
 
       - name: Run Unified Tests (iOS)
