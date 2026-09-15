@@ -1029,7 +1029,7 @@ jobs:
 
       - name: Setup and Boot iOS Simulator
         id: simulator
-        uses: futureware-tech/simulator-action@v5
+        uses: futureware-tech/simulator-action@main
         with:
           os: 'iOS'
           os_version: ">=14.0"
