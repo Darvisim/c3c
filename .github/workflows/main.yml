@@ -1034,7 +1034,7 @@ jobs:
           os: 'iOS'
           os_version: ">=14.0"
           wait_for_boot: true
-          settle_timeout_seconds: 120
+          settle_timeout_seconds: 360
       - run: echo "UDID=${{ steps.simulator.outputs.udid }}" >> $GITHUB_ENV
 
       - name: Run Unified Tests (iOS)
