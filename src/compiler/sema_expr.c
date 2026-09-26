@@ -1033,7 +1033,8 @@ static inline bool sema_cast_ident_rvalue(SemaContext *context, Expr *expr)
 	{
 		case VARDECL_CONST:
 			if (decl->is_extern) return true;
-			if (type_is_aggregate(decl->type)) return true;
+			// Only fold aggregates if they are untyped and local
+			if ((decl->var.type_info || !decl->var.is_static) && type_is_aggregate(decl->type)) return true;
 			expr_replace(expr, copy_expr_single(decl->var.init_expr));
 			if (!sema_analyse_expr_rvalue(context, expr)) return false;
 			if (!sema_cast_const(expr) && !expr_is_runtime_const(expr))
@@ -4444,7 +4445,7 @@ DEFAULT:
 				if (failed_ref) goto VALID_FAIL_POISON;
 				RETURN_SEMA_ERROR(subscripted, "Cannot index '%s' from the end, since there is no 'len' overload.", type_to_error_string(subscripted->type));
 			}
-			if (!sema_analyse_expr_rvalue(context, current_expr)) return false;
+			if (!type_is_pointer_type(current_expr->type)) expr_insert_addr(current_expr);
 			Decl *temp = decl_new_generated_var(current_expr->type, VARDECL_PARAM, current_expr->loc);
 			Expr *decl = expr_generate_decl(temp, expr_copy(current_expr));
 			expr_rewrite_two(current_expr, decl, expr_variable(temp));

@@ -278,6 +278,7 @@ typedef struct BuildOptions_
 	bool docgen_append;
 	bool fetch_accept_license;
 	bool msvc_show_versions;
+	bool msvc_fetch_headers;
 	ImplicitFloat implicit_float;
 	const char *msvc_version_override;
 	const char *msvc_sdk_version_override;
@@ -290,6 +291,7 @@ typedef struct BuildOptions_
 	const char *benchfn;
 	const char *testfn;
 	const char *cc;
+	const char *cflags;
 	const char *build_dir;
 	const char *output_dir;
 	const char *llvm_out;

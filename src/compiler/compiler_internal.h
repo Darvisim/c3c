@@ -2422,6 +2422,7 @@ void cast_no_check(Expr *expr, Type *to_type, bool add_optional);
 
 bool cast_to_index_len(SemaContext *context, Expr *index, bool is_len);
 
+const char *c_codegen(void *context);
 const char *llvm_codegen(void *context);
 const char *tilde_codegen(void *context);
 void **c_gen(Module** modules, int module_count);
@@ -2855,6 +2856,7 @@ INLINE bool type_is_union_or_strukt(Type *type);
 INLINE bool type_flat_is_vector(Type *type);
 INLINE bool type_flat_is_vector_bitstruct(Type *type);
 INLINE AlignSize type_min_alignment(AlignSize a, AlignSize b);
+INLINE AlignSize type_min_alignment_size(ByteSize a, AlignSize b);
 INLINE AlignSize type_max_alignment(AlignSize a, AlignSize b);
 INLINE BitSize type_bit_size(Type *type);
 INLINE Type *type_vector_type(Type *type);
@@ -4211,11 +4213,24 @@ INLINE bool type_is_promotable_float(Type *type)
 
 /**
  * Minimum alignment, values are either offsets or alignments.
- * @return
+ * @return the alignment
  */
 INLINE AlignSize type_min_alignment(AlignSize a, AlignSize b)
 {
+	assert(a >= 0 && b >= 0);
 	return (a | b) & (1 + ~(a | b));
+}
+
+/**
+ * Minimum alignment, values are either offsets or alignments.
+ * Safe for sizes of a that exceed AlignSize.
+ *
+ * @return the alignment
+ */
+INLINE AlignSize type_min_alignment_size(ByteSize a, AlignSize b)
+{
+	if (a > ALIGN_SIZE_MAX) a = ALIGN_SIZE_MAX;
+	return type_min_alignment((AlignSize)a, b);
 }
 
 /**
@@ -4884,7 +4899,7 @@ INLINE ResolvedAttrData *decl_create_resolved_attributes(Decl *decl)
 	return decl->attrs_resolved = CALLOCS(ResolvedAttrData);
 }
 
-const char *default_c_compiler(void);
+const char *find_c_compiler(void);
 
 void print_build_env(void);
 void print_asm(PlatformTarget *target);
