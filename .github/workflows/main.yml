@@ -556,12 +556,12 @@ jobs:
 
       - name: Install dependencies
         run: |
-          apk update
-          apk add \
-          build-essential bash cmake ninja-build python3 linux-headers-generic \
-          musl-tools musl-dev \
-          zlib1g-dev libzstd-dev libcurl4-openssl-dev libssl-dev libbrotli-dev \
-          libnghttp2-dev libpsl-dev libidn2-dev libunistring-dev libc-ares-dev
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential bash cmake ninja-build python3 linux-headers-generic \
+            musl-tools musl-dev \
+            zlib1g-dev libzstd-dev libcurl4-openssl-dev libssl-dev libbrotli-dev \
+            libnghttp2-dev libpsl-dev libidn2-dev libunistring-dev libc-ares-dev
 
       - name: CMake Build (static musl Release)
         run: |
@@ -576,7 +576,7 @@ jobs:
           cmake --build build-release
 
       - name: Bundle (Release)
-        run: bash ./scripts/tools/package_build.sh "./build-release/c3c" "c3-linux-static-Release" "tar"
+        run: bash ./scripts/tools/package_build.sh "./build-release/c3c" "c3-linux-aarch64-Release" "tar"
       - uses: actions/upload-artifact@v7
         with:
           name: c3-linux-aarch64-Release
