@@ -551,30 +551,23 @@ jobs:
     needs: changes
     if: needs.changes.outputs.src == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04-arm
-    container:
-      image: alpine:3.24
     steps:
-      - name: Prepare Git
-        run: |
-          apk add --no-cache git
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
-
       - uses: actions/checkout@v7
 
       - name: Install dependencies
         run: |
           apk update
           apk add \
-            build-base bash cmake ninja python3 linux-headers \
-            zlib-dev zlib-static zstd-dev zstd-static curl-dev curl-static \
-            openssl-libs-static brotli-static nghttp2-static libpsl-static \
-            libidn2-static libunistring-static nghttp3-static c-ares-dev \
-            curl-dev openssl-dev brotli-dev libpsl-dev libidn2-dev \
-            libunistring-dev nghttp2-dev nghttp3-dev c-ares-dev
+          build-essential bash cmake ninja-build python3 linux-headers-generic \
+          musl-tools musl-dev \
+          zlib1g-dev libzstd-dev libcurl4-openssl-dev libssl-dev libbrotli-dev \
+          libnghttp2-dev libpsl-dev libidn2-dev libunistring-dev libc-ares-dev
 
       - name: CMake Build (static musl Release)
         run: |
           cmake -B build-release -G Ninja \
+            -DCMAKE_C_COMPILER=musl-gcc \
+            -DCMAKE_CXX_COMPILER=musl-gcc \
             -DCMAKE_BUILD_TYPE=Release \
             -DC3_FETCH_LLVM=ON \
             -DC3_LINK_DYNAMIC=OFF \
@@ -592,7 +585,9 @@ jobs:
       - name: CMake Build (static musl Debug)
         run: |
           cmake -B build-debug -G Ninja \
-            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_C_COMPILER=musl-gcc \
+            -DCMAKE_CXX_COMPILER=musl-gcc \
+            -DCMAKE_BUILD_TYPE=Release \
             -DC3_FETCH_LLVM=ON \
             -DC3_LINK_DYNAMIC=OFF \
             -DBUILD_SHARED_LIBS=OFF \
