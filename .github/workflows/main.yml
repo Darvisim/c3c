@@ -546,6 +546,75 @@ jobs:
           name: c3-linux-musl-Debug
           path: c3-linux-musl-Debug.tar.gz
 
+  build-linux-aarch64:
+    name: Linux (aarch64) musl Static
+    needs: changes
+    if: needs.changes.outputs.src == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04-arm
+    container:
+      image: alpine:3.24
+    steps:
+      - name: Prepare Git
+        run: |
+          apk add --no-cache git
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - uses: actions/checkout@v7
+
+      - name: Install dependencies
+        run: |
+          apk update
+          apk add \
+            build-base bash cmake ninja python3 linux-headers \
+            zlib-dev zlib-static zstd-dev zstd-static curl-dev curl-static \
+            openssl-libs-static brotli-static nghttp2-static libpsl-static \
+            libidn2-static libunistring-static nghttp3-static c-ares-dev \
+            curl-dev openssl-dev brotli-dev libpsl-dev libidn2-dev \
+            libunistring-dev nghttp2-dev nghttp3-dev c-ares-dev
+
+      - name: CMake Build (static musl Release)
+        run: |
+          cmake -B build-release -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DC3_FETCH_LLVM=ON \
+            -DC3_LINK_DYNAMIC=OFF \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DCMAKE_EXE_LINKER_FLAGS="-static -static-libstdc++ -static-libgcc"
+          cmake --build build-release
+
+      - name: Bundle (Release)
+        run: bash ./scripts/tools/package_build.sh "./build-release/c3c" "c3-linux-static-Release" "tar"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: c3-linux-aarch64-Release
+          path: c3-linux-aarch64-Release.tar.gz
+
+      - name: CMake Build (static musl Debug)
+        run: |
+          cmake -B build-debug -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DC3_FETCH_LLVM=ON \
+            -DC3_LINK_DYNAMIC=OFF \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DCMAKE_EXE_LINKER_FLAGS="-static -static-libstdc++ -static-libgcc"
+          cmake --build build-debug
+
+      - name: Verify Static
+        run: |
+          ldd build-debug/c3c || true
+          file build-debug/c3c
+          build-debug/c3c --version
+
+      - name: Run Unified Tests
+        run: ./scripts/tools/ci_tests.sh "./build-debug/c3c"
+
+      - name: Bundle (Debug)
+        run: bash ./scripts/tools/package_build.sh "./build-debug/c3c" "c3-linux-aarch64-Debug" "tar"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: c3-linux-aarch64-Debug
+          path: c3-linux-aarch64-Debug.tar.gz
+          
   build-mac:
     name: macOS (aarch64)
     needs: changes
@@ -1044,7 +1113,7 @@ jobs:
 
   release:
     runs-on: ubuntu-slim
-    needs: [build-msvc, build-msvc-arm64, build-linux, build-mac, build-linux-alpine, build-openbsd, build-netbsd, build-android, build-linux-musl-static]
+    needs: [build-msvc, build-msvc-arm64, build-linux, build-linux-aarch64, build-mac, build-linux-alpine, build-openbsd, build-netbsd, build-android, build-linux-musl-static]
     if: github.ref == 'refs/heads/master' || endsWith(github.ref, '.x')
     permissions:
       contents: write
@@ -1059,7 +1128,7 @@ jobs:
       - name: Prepare Assets
         run: |
           for config in Release Debug; do
-            for platform in windows windows-aarch64 macos linux linux-musl linux-static openbsd netbsd android-aarch64 android-x86_64 windows-setup windows-setup-aarch64; do
+            for platform in windows windows-aarch64 macos linux linux-musl linux-static linux-aarch64 openbsd netbsd android-aarch64 android-x86_64 windows-setup windows-setup-aarch64; do
               if [ "$platform" = "windows-setup" ] || [ "$platform" = "windows-setup-aarch64" ]; then
                 ext="exe"
               # Windows and macOS produce zip, others tar.gz
