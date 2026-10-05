@@ -1013,7 +1013,7 @@ jobs:
     name: iOS (aarch64)
     # needs: changes
     # if: needs.changes.outputs.src == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-    runs-on: macos-latest
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v7
       
@@ -1030,7 +1030,7 @@ jobs:
           os: 'iOS'
           os_version: ">=18.0"
           wait_for_boot: true
-          settle_timeout_seconds: 1024
+          settle_timeout_seconds: 360
 
       - name: Run Unified Tests (iOS)
         run: |
