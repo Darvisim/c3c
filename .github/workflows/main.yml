@@ -1021,10 +1021,17 @@ jobs:
         run: |
           cmake -B build-debug -G Ninja \
             -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_EXE_LINKER_FLAGS="-Wl,-w" \
             -DC3_FETCH_LLVM=ON
           cmake --build build-debug
 
-      - name: Setup and Boot iOS Simulator
+      - name: Compile and Inspect Device Binary
+        run: |
+          ./build-debug/c3c compile resources/examples/hello_world_many.c3 -vv --target ios-aarch64 -o helloworld
+          echo "--- Binary Details ---"
+          file helloworld && echo "---" && otool -hv helloworld
+
+      - name: Setup iOS Simulator
         uses: futureware-tech/simulator-action@v6
         with:
           os: 'iOS'
@@ -1036,13 +1043,6 @@ jobs:
         run: |
           chmod +x ./scripts/tools/ci_tests.sh
           ./scripts/tools/ci_tests.sh ./build-debug/c3c "ios"
-
-      - name: Compile and Inspect Device Binary
-        if: always()
-        run: |
-          ./build-debug/c3c compile resources/examples/hello_world_many.c3 -vv --target ios-aarch64 -o helloworld
-          echo "--- Binary Details ---"
-          file helloworld && echo "---" && otool -hv helloworld
 
   # release:
   #   runs-on: ubuntu-slim
