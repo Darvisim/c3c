@@ -913,6 +913,11 @@ jobs:
       # LANG: en_US.UTF-8
       # TZ: UTC
     steps:
+      - uses: actions/checkout@v7
+
+      - name: fix permissions after checkout
+        run: chown -R 1000:1000 .
+        
       - name: Initialize Termux Environment Action
         uses: ./.github/actions
         with:
@@ -966,11 +971,6 @@ jobs:
         with:
           path: /data/data/com.termux/cache/apt/archives/
           key: termux-cache-${{ matrix.architecture }}-${{ steps.date.outputs.date }}
-
-      - uses: actions/checkout@v7
-
-      - name: fix permissions after checkout
-        run: chown -R 1000:1000 .
 
       - name: setup
         run: |
