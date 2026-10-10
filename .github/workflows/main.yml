@@ -916,7 +916,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: fix permissions after checkout
-        run: chown -R 1000:1000 .
+        run: sudo chown -R 1000:1000 .
         
       - name: Initialize Termux Environment Action
         uses: ./.github/actions
