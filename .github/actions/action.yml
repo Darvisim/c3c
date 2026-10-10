@@ -6,7 +6,25 @@ inputs:
     required: true
 
 runs:
-  using: 'docker'
-  image: 'Dockerfile'
-  args:
-    - ${{ inputs.architecture }}
+  using: 'composite'
+  steps:
+    - name: Build Custom Termux Environment Image
+      shell: bash
+      run: |
+        docker build \
+          --build-arg ARCH=${{ inputs.architecture }} \
+          -t termux-runner:${{ inputs.architecture }} \
+          -f ${{ github.action_path }}/Dockerfile \
+          ${{ github.action_path }}
+
+    - name: Instantiate Runtime Environment Container
+      shell: bash
+      run: |
+        docker run -d \
+          --name termux_container_${{ inputs.architecture }} \
+          -v ${{ github.workspace }}:${{ github.workspace }} \
+          -w ${{ github.workspace }} \
+          termux-runner:${{ inputs.architecture }} \
+          tail -f /dev/null
+
+          
