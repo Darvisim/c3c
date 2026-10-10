@@ -1,0 +1,12 @@
+name: 'Termux Native Container Action'
+description: 'Runs software builds directly inside a non-volume-reliant Termux workspace'
+inputs:
+  architecture:
+    description: 'Target system architecture (aarch64 or x86_64)'
+    required: true
+
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  args:
+    - ${{ inputs.architecture }}
