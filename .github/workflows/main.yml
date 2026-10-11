@@ -72,22 +72,11 @@ jobs:
         with:
           arch: x64
 
-      - name: CMake Build (Release)
+      - name: CMake Build (Release & Debug)
         run: |
           cmake -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DC3_FETCH_LLVM=ON
           cmake --build build-release --config Release
-
-      - name: Bundle (Windows Release)
-        shell: bash
-        run: ./scripts/tools/package_build.sh "./build-release/c3c.exe" "c3-windows-Release" "zip"
-
-      - uses: actions/upload-artifact@v7
-        with:
-          name: c3-windows-Release
-          path: c3-windows-Release.zip
-
-      - name: CMake Build (Debug)
-        run: |
+          
           cmake -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DC3_FETCH_LLVM=ON
           cmake --build build-debug --config Debug
 
@@ -106,10 +95,17 @@ jobs:
         shell: bash
         run: ./scripts/tools/ci_tests.sh "./build-debug/c3c.exe"
 
-      - name: Bundle (Windows Debug)
+      - name: Bundle (Release & Debug)
         shell: bash
-        run: ./scripts/tools/package_build.sh "./build-debug/c3c.exe" "c3-windows-Debug" "zip"
-
+        run: |
+          ./scripts/tools/package_build.sh "./build-release/c3c.exe" "c3-windows-Release" "zip"
+          ./scripts/tools/package_build.sh "./build-debug/c3c.exe" "c3-windows-Debug" "zip"
+      
+      - uses: actions/upload-artifact@v7
+        with:
+          name: c3-windows-Release
+          path: c3-windows-Release.zip
+          
       - uses: actions/upload-artifact@v7
         with:
           name: c3-windows-Debug
@@ -174,22 +170,11 @@ jobs:
         with:
           arch: arm64
 
-      - name: CMake Build (Release)
+      - name: CMake Build (Release & Debug)
         run: |
           cmake -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DC3_FETCH_LLVM=ON
           cmake --build build-release --config Release
 
-      - name: Bundle (Windows Release)
-        shell: bash
-        run: ./scripts/tools/package_build.sh "./build-release/c3c.exe" "c3-windows-aarch64-Release" "zip"
-
-      - uses: actions/upload-artifact@v7
-        with:
-          name: c3-windows-aarch64-Release
-          path: c3-windows-aarch64-Release.zip
-
-      - name: CMake Build (Debug)
-        run: |
           cmake -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DC3_FETCH_LLVM=ON
           cmake --build build-debug --config Debug
 
@@ -208,9 +193,16 @@ jobs:
         shell: bash
         run: ./scripts/tools/ci_tests.sh "./build-debug/c3c.exe"
 
-      - name: Bundle (Windows Debug)
+      - name: Bundle (Release & Debug)
         shell: bash
-        run: ./scripts/tools/package_build.sh "./build-debug/c3c.exe" "c3-windows-aarch64-Debug" "zip"
+        run: |
+          ./scripts/tools/package_build.sh "./build-release/c3c.exe" "c3-windows-aarch64-Release" "zip"
+          ./scripts/tools/package_build.sh "./build-debug/c3c.exe" "c3-windows-aarch64-Debug" "zip"
+          
+      - uses: actions/upload-artifact@v7
+        with:
+          name: c3-windows-aarch64-Release
+          path: c3-windows-aarch64-Release.zip
 
       - uses: actions/upload-artifact@v7
         with:
@@ -289,11 +281,13 @@ jobs:
         run: |
           cmake -B build -G Ninja -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Debug -DCMAKE_LINKER=lld -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld" -DC3_LINK_DYNAMIC=OFF -DLLVM_DIR=${{ matrix.prefix }}/lib/cmake/llvm -DC3_LLD_DIR=${{ matrix.prefix }}/lib/
           cmake --build build
+          
       - name: Cache FreeBSD Sysroot
         uses: actions/cache@v6
         with:
           path: .cache
           key: ${{ runner.os }}-${{ matrix.arch }}-freebsd-sysroot-15.0
+          
       - name: Run Unified Tests
         run: ./scripts/tools/ci_tests.sh "./build/c3c"
 
@@ -308,6 +302,7 @@ jobs:
       - name: Get current date context
         id: date
         run: echo "date=$(date +'${{ env.CACHE_INVALIDATION_SEED }}')" >> $GITHUB_OUTPUT
+        
       - name: Cache APT archives
         uses: actions/cache@v6
         with:
@@ -319,15 +314,14 @@ jobs:
           for i in 1 2 3; do sudo apt-get install -y -o dir::cache::archives="$(pwd)/apt-cache" --fix-missing zlib1g zlib1g-dev python3 ninja-build curl libcurl4-openssl-dev libx11-dev libxrandr-dev libxinerama-dev libxi-dev libxxf86vm-dev libxcursor-dev && break || sleep 2; done
           sudo chown -R $USER:$USER apt-cache
 
-      - name: CMake Build (Release)
+      - name: CMake Build (Release & Debug)
         run: |
           cmake -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DC3_FETCH_LLVM=ON
           cmake --build build-release
 
-      - name: CMake Build (Debug)
-        run: |
           cmake -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DC3_FETCH_LLVM=ON
           cmake --build build-debug
+          
 
   test-emscripten-32bit:
     name: Emscripten & QEMU
@@ -398,7 +392,7 @@ jobs:
             curl-dev openssl-dev brotli-dev libpsl-dev libidn2-dev \
             libunistring-dev nghttp2-dev nghttp3-dev c-ares-dev
 
-      - name: CMake Build (static musl Release)
+      - name: CMake Build (Release & Debug)
         run: |
           cmake -B build-release -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
@@ -409,15 +403,6 @@ jobs:
             -DCMAKE_EXE_LINKER_FLAGS="-static -static-libstdc++ -static-libgcc"
           cmake --build build-release
 
-      - name: Bundle (Release)
-        run: bash ./scripts/tools/package_build.sh "./build-release/c3c" "c3-linux-static-Release" "tar"
-      - uses: actions/upload-artifact@v7
-        with:
-          name: c3-linux-static-Release
-          path: c3-linux-static-Release.tar.gz
-
-      - name: CMake Build (static musl Debug)
-        run: |
           cmake -B build-debug -G Ninja \
             -DCMAKE_BUILD_TYPE=Debug \
             -DC3_FETCH_LLVM=ON \
@@ -436,8 +421,16 @@ jobs:
       - name: Run Unified Tests
         run: ./scripts/tools/ci_tests.sh "./build-debug/c3c"
 
-      - name: Bundle (Debug)
-        run: bash ./scripts/tools/package_build.sh "./build-debug/c3c" "c3-linux-static-Debug" "tar"
+      - name: Bundle (Release & Debug)
+        run: |
+          bash ./scripts/tools/package_build.sh "./build-release/c3c" "c3-linux-static-Release" "tar"
+          bash ./scripts/tools/package_build.sh "./build-debug/c3c" "c3-linux-static-Debug" "tar"
+          
+      - uses: actions/upload-artifact@v7
+        with:
+          name: c3-linux-static-Release
+          path: c3-linux-static-Release.tar.gz
+
       - uses: actions/upload-artifact@v7
         with:
           name: c3-linux-static-Debug
@@ -491,7 +484,7 @@ jobs:
               lld${V}-libs && break || sleep 2; \
           done
 
-      - name: CMake Build (Release)
+      - name: CMake Build (Release & Debug)
         run: |
           cmake -B build-release -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
@@ -500,14 +493,13 @@ jobs:
             -DC3_LINK_DYNAMIC=ON
           cmake --build build-release
 
-      - name: CMake Build (Debug)
-        run: |
           cmake -B build-debug -G Ninja \
             -DCMAKE_BUILD_TYPE=Debug \
             -DC3_FETCH_LLVM=OFF \
             -DLLVM_ENABLE_LIBXML2=OFF \
             -DC3_LINK_DYNAMIC=ON
           cmake --build build-debug
+        
 
   build-mac:
     name: macOS (aarch64)
@@ -516,20 +508,11 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
-      - name: CMake Build (Release)
+      - name: CMake Build (Release & Debug)
         run: |
           cmake -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DC3_FETCH_LLVM=ON
           cmake --build build-release
 
-      - name: Bundle & Upload (Mac Release)
-        run: bash ./scripts/tools/package_build.sh "./build-release/c3c" "c3-macos-Release" "zip"
-      - uses: actions/upload-artifact@v7
-        with:
-          name: c3-macos-Release
-          path: c3-macos-Release.zip
-
-      - name: CMake Build (Debug)
-        run: |
           cmake -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DC3_FETCH_LLVM=ON
           cmake --build build-debug
 
@@ -538,6 +521,7 @@ jobs:
         with:
           path: .cache
           key: ${{ runner.os }}-freebsd-sysroot-15.0
+          
       - name: Run Unified Tests
         run: ./scripts/tools/ci_tests.sh "./build-debug/c3c"
 
@@ -546,8 +530,16 @@ jobs:
           cd resources/testproject
           ../../build-debug/c3c build hello_world_lib -vv --trust=full
 
-      - name: Bundle & Upload (Mac Debug)
-        run: bash ./scripts/tools/package_build.sh "./build-debug/c3c" "c3-macos-Debug" "zip"
+      - name: Bundle (Release & Upload)
+        run: |
+          bash ./scripts/tools/package_build.sh "./build-release/c3c" "c3-macos-Release" "zip"
+          bash ./scripts/tools/package_build.sh "./build-debug/c3c" "c3-macos-Debug" "zip"
+          
+      - uses: actions/upload-artifact@v7
+        with:
+          name: c3-macos-Release
+          path: c3-macos-Release.zip
+
       - uses: actions/upload-artifact@v7
         with:
           name: c3-macos-Debug
@@ -588,20 +580,16 @@ jobs:
             sudo pkg_add ninja cmake llvm%${{ env.LLVM_RELEASE_VERSION_OPENBSD }} bash && break || sleep 5
           done
 
-      - name: Build (Release)
+      - name: Build (Release & Debug)
         shell: cpa.sh {0}
         run: |
           export MALLOC_OPTIONS=j
           cmake -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release
           cmake --build build-release
 
-      - name: Build (Debug)
-        shell: cpa.sh {0}
-        run: |
-          export MALLOC_OPTIONS=j
           cmake -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug
           cmake --build build-debug
-
+      
       - name: Run Tests
         shell: cpa.sh {0}
         run: |
@@ -687,12 +675,6 @@ jobs:
           cmake -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release
           cmake --build build-release
 
-      - name: Build (Debug)
-        shell: cpa.sh {0}
-        run: |
-          export PATH="/usr/pkg/sbin:/usr/pkg/bin:$PATH"
-          export CC=clang
-          export CXX=clang++
           cmake -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug
           cmake --build build-debug
 
@@ -838,9 +820,11 @@ jobs:
     - uses: cachix/install-nix-action@v31
       with:
         github_access_token: ${{ secrets.GITHUB_TOKEN }}
+        
     - name: Update flake
       if: matrix.nixpkgs == 'Latest'
       run: nix flake update
+      
     - name: CMake build and run Unified Tests
       run: |
         CHECK_NAME=".#c3c-checks"
@@ -893,6 +877,7 @@ jobs:
     
           echo "All mirrors failed"
           exit 1
+          
       - name: prepare termux
         run: |
           ln -sf ${PREFIX}/etc/termux/mirrors/default ${PREFIX}/etc/termux/chosen_mirrors
@@ -937,34 +922,28 @@ jobs:
             /entrypoint.sh pkg install -y llvm binutils libgc build-essential cmake git libedit zlib clang make mlir llvm-tools libpolly python libllvm-static && break || sleep 10; \
           done
 
-      - name: build (Release)
+      - name: Build CMake (Release & Debug)
         run: |
           cmake -B build-release -DCMAKE_BUILD_TYPE=Release
           cmake --build build-release
 
-      - name: Bundle Release
-        run: |
-          chmod +x ./scripts/tools/package_build.sh
-          bash ./scripts/tools/package_build.sh "./build-release/c3c" "c3-android-${{matrix.architecture}}-Release" "tar"
-
-      - name: upload artifacts (Release)
-        uses: actions/upload-artifact@v7
-        with:
-          name: c3-android-${{matrix.architecture}}-Release
-          path: c3-android-${{matrix.architecture}}-Release.tar.gz
-
-      - name: build (Debug)
-        run: |
           cmake -B build-debug -DCMAKE_BUILD_TYPE=Debug
           cmake --build build-debug
 
       - name: Run Unified Tests
         run: bash ./scripts/tools/ci_tests.sh "./build-debug/c3c" "android"
 
-      - name: Bundle Debug
+      - name: Bundle (Release & Debug)
         run: |
           chmod +x ./scripts/tools/package_build.sh
+          bash ./scripts/tools/package_build.sh "./build-release/c3c" "c3-android-${{matrix.architecture}}-Release" "tar"
           bash ./scripts/tools/package_build.sh "./build-debug/c3c" "c3-android-${{matrix.architecture}}-Debug" "tar"
+
+      - name: upload artifacts (Release)
+        uses: actions/upload-artifact@v7
+        with:
+          name: c3-android-${{matrix.architecture}}-Release
+          path: c3-android-${{matrix.architecture}}-Release.tar.gz
 
       - name: upload artifacts (Debug)
         uses: actions/upload-artifact@v7
