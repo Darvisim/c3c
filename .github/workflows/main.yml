@@ -885,7 +885,7 @@ jobs:
           do
             echo "Trying mirror: $m"
             printf "deb %s stable main\n" "$m" > "${PREFIX}/etc/apt/sources.list"
-            if /entrypoint.sh pkg update -y; then
+            if /entrypoint.sh pkg update -y --fix-missing; then
               echo "Selected mirror: $m"
               exit 0
             fi
@@ -898,9 +898,11 @@ jobs:
           ln -sf ${PREFIX}/etc/termux/mirrors/default ${PREFIX}/etc/termux/chosen_mirrors
           # Ensure root can execute Termux binaries (the new image has them as 700)
           chmod -R 755 ${PREFIX}/bin || true
-          for i in 1 2; do /entrypoint.sh pkg update && break || sleep 5; done
           /entrypoint.sh bash -c "yes | pkg upgrade -y"
-          for i in 1 2; do /entrypoint.sh pkg install -y nodejs-lts tar git && break || sleep 5; done
+          for i in 1 2; do
+            /entrypoint.sh pkg update --fix-missing && \
+            /entrypoint.sh pkg install -y nodejs-lts tar git && break || sleep 5;
+          done
           # Fix permissions again for newly installed packages and add compatibility symlinks
           chmod -R 755 ${PREFIX}/bin
           mkdir -p /usr/bin /bin || true
@@ -932,8 +934,9 @@ jobs:
 
       - name: setup
         run: |
+          /entrypoint.sh pkg upgrade -y
           for i in 1 2; do \
-            /entrypoint.sh pkg update -y && \
+            /entrypoint.sh pkg update -y --fix-missing && \
             /entrypoint.sh pkg install -y llvm binutils libgc build-essential cmake git libedit zlib clang make mlir llvm-tools libpolly python libllvm-static && break || sleep 10; \
           done
 
