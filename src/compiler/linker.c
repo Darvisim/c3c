@@ -813,6 +813,7 @@ static void linker_setup_bsd(const char ***args_ref, Linker linker_type, bool is
 		if (compiler.linking.link_math) linking_add_link(&compiler.linking, "m");
 		linking_add_link(&compiler.linking, "pthread");
 		linking_add_link(&compiler.linking, "execinfo");
+		if (compiler.platform.os == OS_TYPE_OPENBSD) add_plain_arg("-Wl,-znobtcfi");
 		if (compiler.build.debug_info == DEBUG_INFO_FULL) add_plain_arg("-rdynamic");
 		return;
 	}
