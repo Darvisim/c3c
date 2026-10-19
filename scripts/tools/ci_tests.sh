@@ -92,7 +92,7 @@ sim_run() {
     done
 
     run_c3c compile "$source_file" "${compile_args[@]}" -o "$target_name"
-    xcrun simctl spawn booted "$MY_WORK_DIR/$target_name" "$@"
+    xcrun simctl spawn booted "$WORK_DIR/$target_name" "$@"
 }
 
 run_examples() {
@@ -289,7 +289,7 @@ run_testproject() {
 
     if [[ "$OS_MODE" == "ios" ]]; then
         run_c3c build -vv $ARGS
-        xcrun simctl spawn booted "$MY_WORK_DIR/hello_world"
+        xcrun simctl spawn booted "$WORK_DIR/hello_world"
     else
         run_c3c run -vv $ARGS
     fi
@@ -397,7 +397,7 @@ run_http_server_tests() {
             kill $SERVER_PID 2>/dev/null || true
         fi
         if [[ "$OS_MODE" == "ios" ]]; then
-            xcrun simctl spawn booted pkill -f "$OUTPUT_BIN"
+            pkill -f "$OUTPUT_BIN"
         fi
     }
 
@@ -486,7 +486,7 @@ run_unit_tests() {
 
     run_c3c compile-test unit $UNIT_TEST_ARGS
     if [[ "$OS_MODE" == "ios" ]]; then
-        xcrun simctl spawn booted "$MY_WORK_DIR/testrun"
+        xcrun simctl spawn booted "$WORK_DIR/testrun"
     fi
 
     RUNNER_ARGS=("--no-terminal")
