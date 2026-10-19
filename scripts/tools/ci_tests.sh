@@ -130,6 +130,7 @@ run_examples() {
         sim_run examples/time.c3
         sim_run examples/fannkuch-redux.c3
         sim_run examples/contextfree/boolerr.c3
+        sim_run compile-run examples/load_world.c3
         sim_run examples/ls.c3
         sim_run examples/args.c3 -- foo -bar "baz baz"
     else 
@@ -200,21 +201,31 @@ run_dynlib_tests() {
     # Regression: two independently built C3 dynamic libraries loaded into one
     # (non-C3) host via dlopen. Each carries its own runtime, so the second's
     # startup must initialise only its own image -- this used to crash on macOS.
-    if [[ "$OS_MODE" == "mac" || "$OS_MODE" == "linux" ]]; then
+    if [[ "$OS_MODE" == "mac" || "$OS_MODE" == "linux" || "$OS_MODE" == "ios" ]]; then
         run_c3c -vv dynamic-lib "$ROOT_DIR/resources/examples/dynlib-test/add2.c3" -o add2
         if [[ "$OS_MODE" == "mac" ]]; then
             cc "$ROOT_DIR/resources/examples/dynlib-test/test_multi.c" -o multi
+        elif [[ "$OS_MODE" == "ios" ]]; then
+            xcrun -sdk iphonesimulator clang "$ROOT_DIR/resources/examples/dynlib-test/test_multi.c" -o multi
         else
             cc "$ROOT_DIR/resources/examples/dynlib-test/test_multi.c" -ldl -o multi
         fi
-        ./multi
+        if [[ "$OS_MODE" == "ios" ]]; then
+            xcrun simctl spawn booted ./multi
+        else
+            ./multi
+        fi
     fi
 
-    if [[ "$OS_MODE" == "mac" ]]; then
+    if [[ "$OS_MODE" == "mac" || "$OS_MODE" == "ios" ]]; then
         local DL_DIR="$ROOT_DIR/resources/examples/dynlib-test"
         run_c3c -vv dynamic-lib "$DL_DIR/linked_a.c3" "$DL_DIR/linked_foo.c3" -o linked_a
         run_c3c -vv dynamic-lib "$DL_DIR/linked_b.c3" "$DL_DIR/linked_foo.c3" -o linked_b
-        run_c3c -vv compile-run "$DL_DIR/linked_main.c3" "$DL_DIR/linked_foo.c3" -l linked_a.dylib -l linked_b.dylib
+        if [[ "$OS_MODE" == "ios" ]]; then
+          sim_run "$DL_DIR/linked_main.c3" "$DL_DIR/linked_foo.c3" -vv -l linked_a.dylib -l linked_b.dylib
+        else
+          run_c3c -vv compile-run "$DL_DIR/linked_main.c3" "$DL_DIR/linked_foo.c3" -l linked_a.dylib -l linked_b.dylib
+        fi
     fi
 
     if [[ "$OS_MODE" == "windows" ]]; then
@@ -471,10 +482,11 @@ run_unit_tests() {
 
     UNIT_TEST_ARGS="-O1"
     if [[ "$OS_MODE" != "bsd" ]]; then
+        UNIT_TEST_ARGS="$UNIT_TEST_ARGS -D SLOW_TESTS"
         if [[ "$OS_MODE" == "ios" ]]; then
-            UNIT_TEST_ARGS="$UNIT_TEST_ARGS -D SLOW_TESTS --suppress-run"
+            UNIT_TEST_ARGS="$UNIT_TEST_ARGS --suppress-run"
         else
-            UNIT_TEST_ARGS="$UNIT_TEST_ARGS -D SLOW_TESTS -D RUN_PROCESS_TESTS"
+            UNIT_TEST_ARGS="$UNIT_TEST_ARGS -D RUN_PROCESS_TESTS"
         fi
     fi
 
