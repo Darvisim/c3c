@@ -998,6 +998,7 @@ jobs:
         run: |
           ROOT=$(xcrun simctl getenv booted SIMULATOR_SHARED_RESOURCES_DIRECTORY)
           cp -R . "$ROOT"
+          cd "$ROOT"
           ls
           # chmod +x ./scripts/tools/ci_tests.sh
           # ./scripts/tools/ci_tests.sh ./build-debug/c3c "ios"
