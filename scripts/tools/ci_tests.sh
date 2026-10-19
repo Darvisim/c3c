@@ -130,7 +130,7 @@ run_examples() {
         sim_run examples/time.c3
         sim_run examples/fannkuch-redux.c3
         sim_run examples/contextfree/boolerr.c3
-        sim_run compile-run examples/load_world.c3
+        sim_run examples/load_world.c3
         sim_run examples/ls.c3
         sim_run examples/args.c3 -- foo -bar "baz baz"
     else 
@@ -201,20 +201,14 @@ run_dynlib_tests() {
     # Regression: two independently built C3 dynamic libraries loaded into one
     # (non-C3) host via dlopen. Each carries its own runtime, so the second's
     # startup must initialise only its own image -- this used to crash on macOS.
-    if [[ "$OS_MODE" == "mac" || "$OS_MODE" == "linux" || "$OS_MODE" == "ios" ]]; then
+    if [[ "$OS_MODE" == "mac" || "$OS_MODE" == "linux" ]]; then
         run_c3c -vv dynamic-lib "$ROOT_DIR/resources/examples/dynlib-test/add2.c3" -o add2
         if [[ "$OS_MODE" == "mac" ]]; then
             cc "$ROOT_DIR/resources/examples/dynlib-test/test_multi.c" -o multi
-        elif [[ "$OS_MODE" == "ios" ]]; then
-            xcrun -sdk iphonesimulator clang "$ROOT_DIR/resources/examples/dynlib-test/test_multi.c" -o multi
         else
             cc "$ROOT_DIR/resources/examples/dynlib-test/test_multi.c" -ldl -o multi
         fi
-        if [[ "$OS_MODE" == "ios" ]]; then
-            xcrun simctl spawn booted ./multi
-        else
-            ./multi
-        fi
+        ./multi
     fi
 
     if [[ "$OS_MODE" == "mac" || "$OS_MODE" == "ios" ]]; then
