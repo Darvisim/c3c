@@ -66,10 +66,10 @@ ROOT_DIR="$REAL_ROOT_DIR"
 # Helper to run c3c with the correct workspace isolation
 run_c3c() {
     COMPILER_ARGS=""
-    [[ "$OS_MODE" == "ios" ]] && COMPILER_ARGS+="--target ios-aarch64-sim"
     if [[ -n "$C3_BACKEND" && "$C3_BACKEND" != "llvm" ]]; then
         COMPILER_ARGS+="--backend=$C3_BACKEND"
     fi
+    [[ "$OS_MODE" == "ios" ]] && COMPILER_ARGS+=" --target ios-aarch64-sim"
     "$C3C_BIN" $COMPILER_ARGS --output-dir "$MY_WORK_DIR" --build-dir "$MY_WORK_DIR" --obj-out "$MY_WORK_DIR" "$@"
 }
 
@@ -279,10 +279,10 @@ run_testproject() {
     ARGS="--trust=full"
 
     if [[ "$OS_MODE" == "linux" || "$OS_MODE" == "mac" || "$OS_MODE" == "ios" ]]; then
-        ARGS+="--linker=builtin"
+        ARGS+=" --linker=builtin"
 
         if [ -f "/etc/alpine-release" ]; then
-            ARGS+="--linux-libc=musl"
+            ARGS+=" --linux-libc=musl"
         fi
     fi
 
@@ -473,11 +473,11 @@ run_unit_tests() {
 
     UNIT_TEST_ARGS="-O1"
     if [[ "$OS_MODE" != "bsd" ]]; then
-        UNIT_TEST_ARGS+="-D SLOW_TESTS"
+        UNIT_TEST_ARGS+=" -D SLOW_TESTS"
         if [[ "$OS_MODE" == "ios" ]]; then
-            UNIT_TEST_ARGS+="--suppress-run"
+            UNIT_TEST_ARGS+=" --suppress-run"
         else
-            UNIT_TEST_ARGS+="-D RUN_PROCESS_TESTS"
+            UNIT_TEST_ARGS+=" -D RUN_PROCESS_TESTS"
         fi
     fi
 
