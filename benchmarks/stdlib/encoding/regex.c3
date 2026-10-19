@@ -1,4 +1,4 @@
-module regex_benchmarks;
+module regex_benchmarks @feat(POSIX);
 import std;
 import std::encoding::experimental::regex @public;
 
@@ -153,7 +153,7 @@ fn String repeat_str(String s, sz count)
 // =========================================================================
 // ======================================================================================
 // =======================================================================================
-module regex_benchmarks @benchmark;
+module regex_benchmarks @benchmark @feat(POSIX);
 
 import std::encoding::experimental::regex @public;
 
