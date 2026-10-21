@@ -4,7 +4,6 @@ on:
   push:
     branches: [ master, dev, ci_testing, experiments, '*.*.x' ]
     paths-ignore:
-      - '**.md'
       - 'LICENSE'
       - '.gitignore'
       - 'resources/docs.html'
@@ -25,25 +24,25 @@ jobs:
 
   # Gate job: checks only the files changed in the LATEST push (not the whole
   # PR diff). This prevents CI from re-running when only docs/notes are updated.
-  changes:
-    runs-on: ubuntu-24.04
-    outputs:
-      src: ${{ steps.filter.outputs.src }}
-    steps:
-      - uses: actions/checkout@v7
-      - uses: dorny/paths-filter@v4
-        id: filter
-        with:
-          token: ''
-          base: ${{ github.event.before }}
-          predicate-quantifier: 'some-with-excludes'
-          filters: |
-            src:
-              - '**'
-              - '!**.md'
-              - '!LICENSE'
-              - '!.gitignore'
-              - '!resources/docs.html'
+  # changes:
+  #   runs-on: ubuntu-24.04
+  #   outputs:
+  #     src: ${{ steps.filter.outputs.src }}
+  #   steps:
+  #     - uses: actions/checkout@v7
+  #     - uses: dorny/paths-filter@v4
+  #       id: filter
+  #       with:
+  #         token: ''
+  #         base: ${{ github.event.before }}
+  #         predicate-quantifier: 'some-with-excludes'
+  #         filters: |
+  #           src:
+  #             - '**'
+  #             - '!**.md'
+  #             - '!LICENSE'
+  #             - '!.gitignore'
+  #             - '!resources/docs.html'
 
   # build-msvc:
   #   name: Windows (x64) MSVC
@@ -234,6 +233,7 @@ jobs:
   #           7z x EnVar-Plugin.zip -o"C:\Program Files (x86)\NSIS" -y
   #         fi
   #         curl -sSfL -o MANUAL.md https://c3-lang.org/all.md
+  #         curl -sSfL -o c3fmt.exe https://github.com/lmichaudel/c3fmt/releases/latest/download/c3fmt-windows-aarch64.exe
   #         export PATH="/c/Program Files (x86)/NSIS/Bin:/c/Program Files (x86)/NSIS:$PATH"
   #         MSYS_NO_PATHCONV=1 makensis /DINSTALLER_NAME="c3-windows-setup-aarch64-Release.exe" /DBUILD_DIR=build-release resources/nsis/installer.nsi
   #         MSYS_NO_PATHCONV=1 makensis /DINSTALLER_NAME="c3-windows-setup-aarch64-Debug.exe" /DBUILD_DIR=build-debug resources/nsis/installer.nsi
@@ -299,7 +299,7 @@ jobs:
 
 
   # build-linux:
-  #   name: Linux (x64) Ubuntu
+  #   name: Linux (x64) Ubuntu (Compile Check)
   #   needs: changes
   #   if: needs.changes.outputs.src == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
   #   runs-on: ubuntu-24.04
@@ -316,7 +316,7 @@ jobs:
   #     - run: |
   #         mkdir -p apt-cache/partial
   #         for i in 1 2 3; do sudo apt-get update && break || sleep 2; done
-  #         for i in 1 2 3; do sudo apt-get install -y -o dir::cache::archives="$(pwd)/apt-cache" --fix-missing zlib1g zlib1g-dev python3 ninja-build curl libcurl4-openssl-dev opensbi qemu-system-misc u-boot-qemu gcc-riscv64-unknown-elf libx11-dev libxrandr-dev libxinerama-dev libxi-dev libxxf86vm-dev libxcursor-dev && break || sleep 2; done
+  #         for i in 1 2 3; do sudo apt-get install -y -o dir::cache::archives="$(pwd)/apt-cache" --fix-missing zlib1g zlib1g-dev python3 ninja-build curl libcurl4-openssl-dev libx11-dev libxrandr-dev libxinerama-dev libxi-dev libxxf86vm-dev libxcursor-dev && break || sleep 2; done
   #         sudo chown -R $USER:$USER apt-cache
 
   #     - name: CMake Build (Release)
@@ -324,43 +324,14 @@ jobs:
   #         cmake -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DC3_FETCH_LLVM=ON
   #         cmake --build build-release
 
-  #     - name: Bundle & Upload (Linux Release)
-  #       run: |
-  #         bash ./scripts/tools/package_build.sh "./build-release/c3c" "c3-linux-Release" "tar"
-  #     - uses: actions/upload-artifact@v7
-  #       with:
-  #         name: c3-linux-Release
-  #         path: c3-linux-Release.tar.gz
-
   #     - name: CMake Build (Debug)
   #       run: |
   #         cmake -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DC3_FETCH_LLVM=ON
   #         cmake --build build-debug
 
-  #     - name: Cache FreeBSD Sysroot
-  #       uses: actions/cache@v6
-  #       with:
-  #         path: .cache
-  #         key: ${{ runner.os }}-freebsd-sysroot-15.0
-  #     - name: Run Unified Tests
-  #       run: ./scripts/tools/ci_tests.sh "./build-debug/c3c"
-
-  #     - name: Embedded/QEMU Tests
-  #       run: |
-  #         cd resources/examples/embedded/riscv-qemu
-  #         make C3C_PATH=../../../../build-debug/ run
-
-  #     - name: Bundle & Upload (Linux Debug)
-  #       run: |
-  #         bash ./scripts/tools/package_build.sh "./build-debug/c3c" "c3-linux-Debug" "tar"
-  #     - uses: actions/upload-artifact@v7
-  #       with:
-  #         name: c3-linux-Debug
-  #         path: c3-linux-Debug.tar.gz
-
   # test-emscripten-32bit:
-  #   name: Emscripten
-  #   needs: build-linux
+  #   name: Emscripten & QEMU
+  #   needs: build-linux-musl-static
   #   runs-on: ubuntu-24.04
   #   strategy:
   #     fail-fast: false
@@ -371,13 +342,12 @@ jobs:
 
   #     - uses: actions/download-artifact@v8
   #       with:
-  #         name: c3-linux-${{matrix.build_type}}
+  #         name: c3-linux-static-${{matrix.build_type}}
   #         path: bin
 
   #     - name: Extract C3
   #       run: |
-  #         tar -xzf bin/c3-linux-${{matrix.build_type}}.tar.gz -C bin
-  #         # The package_build.sh creates a 'c3' directory inside the tar
+  #         tar -xzf bin/c3-linux-static-${{matrix.build_type}}.tar.gz -C bin
   #         chmod +x bin/c3/c3c
 
   #     - name: Setup Emscripten
@@ -391,6 +361,16 @@ jobs:
 
   #     - name: Run Emscripten Tests
   #       run: ./scripts/tools/emscripten_tests.sh "./bin/c3/c3c"
+
+  #     - name: Install QEMU RISC-V dependencies
+  #       run: |
+  #         sudo apt-get update
+  #         sudo apt-get install -y opensbi qemu-system-misc u-boot-qemu gcc-riscv64-unknown-elf
+
+  #     - name: Embedded/QEMU Tests
+  #       run: |
+  #         cd resources/examples/embedded/riscv-qemu
+  #         make C3C_PATH=../../../../bin/c3/ run
 
   # build-linux-musl-static:
   #   name: Linux (x64) musl Static
@@ -425,6 +405,7 @@ jobs:
   #           -DC3_FETCH_LLVM=ON \
   #           -DC3_LINK_DYNAMIC=OFF \
   #           -DBUILD_SHARED_LIBS=OFF \
+  #           -DC3_USE_MIMALLOC=ON \
   #           -DCMAKE_EXE_LINKER_FLAGS="-static -static-libstdc++ -static-libgcc"
   #         cmake --build build-release
 
@@ -442,6 +423,7 @@ jobs:
   #           -DC3_FETCH_LLVM=ON \
   #           -DC3_LINK_DYNAMIC=OFF \
   #           -DBUILD_SHARED_LIBS=OFF \
+  #           -DC3_USE_MIMALLOC=ON \
   #           -DCMAKE_EXE_LINKER_FLAGS="-static -static-libstdc++ -static-libgcc"
   #         cmake --build build-debug
 
@@ -462,7 +444,7 @@ jobs:
   #         path: c3-linux-static-Debug.tar.gz
 
   # build-linux-alpine:
-  #   name: Linux (x64) Alpine Dynamic
+  #   name: Linux (x64) Alpine Dynamic (Compile Check)
   #   needs: changes
   #   if: needs.changes.outputs.src == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
   #   runs-on: ubuntu-24.04
@@ -480,7 +462,6 @@ jobs:
   #       id: date
   #       run: echo "date=$(date +'${{ env.CACHE_INVALIDATION_SEED }}')" >> $GITHUB_OUTPUT
 
-  #     #https://wiki.alpinelinux.org/wiki/Local_APK_cache
   #     - name: Prepare real apk cache directory + symlink
   #       run: |
   #         mkdir -p /var/cache/apk
@@ -519,13 +500,6 @@ jobs:
   #           -DC3_LINK_DYNAMIC=ON
   #         cmake --build build-release
 
-  #     - name: Bundle & Upload (Alpine Release)
-  #       run: bash ./scripts/tools/package_build.sh "./build-release/c3c" "c3-linux-musl-Release" "tar"
-  #     - uses: actions/upload-artifact@v7
-  #       with:
-  #         name: c3-linux-musl-Release
-  #         path: c3-linux-musl-Release.tar.gz
-
   #     - name: CMake Build (Debug)
   #       run: |
   #         cmake -B build-debug -G Ninja \
@@ -534,16 +508,6 @@ jobs:
   #           -DLLVM_ENABLE_LIBXML2=OFF \
   #           -DC3_LINK_DYNAMIC=ON
   #         cmake --build build-debug
-
-  #     - name: Run Unified Tests
-  #       run: ./scripts/tools/ci_tests.sh "./build-debug/c3c"
-
-  #     - name: Bundle & Upload (Alpine Debug)
-  #       run: bash ./scripts/tools/package_build.sh "./build-debug/c3c" "c3-linux-musl-Debug" "tar"
-  #     - uses: actions/upload-artifact@v7
-  #       with:
-  #         name: c3-linux-musl-Debug
-  #         path: c3-linux-musl-Debug.tar.gz
 
   # build-mac:
   #   name: macOS (aarch64)
@@ -641,8 +605,6 @@ jobs:
   #     - name: Run Tests
   #       shell: cpa.sh {0}
   #       run: |
-  #         export MALLOC_OPTIONS=j
-  #         ulimit -d $(ulimit -Hd) || true
   #         ./scripts/tools/ci_tests.sh build-debug/c3c
 
   #     - name: Package
@@ -1012,8 +974,8 @@ jobs:
 
   test-ios:
     name: iOS (aarch64)
-    needs: changes
-    if: needs.changes.outputs.src == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    # needs: changes
+    # if: needs.changes.outputs.src == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
@@ -1028,25 +990,17 @@ jobs:
       - run: xcodebuild -version
 
       - name: Setup and Boot iOS Simulator
-        id: simulator
-        uses: futureware-tech/simulator-action@v5
+        uses: futureware-tech/simulator-action@v6
         with:
           os: 'iOS'
-          os_version: ">=14.0"
-          wait_for_boot: true 
-      - run: echo "UDID=${{ steps.simulator.outputs.udid }}" >> $GITHUB_ENV
-
-      # - name: Stabilize Simulator Background Architecture
-      #   run: |
-      #     for i in {1..30}; do
-      #       xcrun simctl spawn "$UDID" defaults domains >/dev/null 2>&1 || true
-      #       sleep 2
-      #     done
-      #     echo "Finished stabilizing simulator!"
-      #     time xcrun simctl spawn "$UDID" defaults domains > /dev/null
+          os_version: ">=18.0"
+          wait_for_boot: true
 
       - name: Run Unified Tests (iOS)
         run: |
+          ROOT=$(xcrun simctl getenv booted SIMULATOR_SHARED_RESOURCES_DIRECTORY)
+          cp -R . "$ROOT"
+          cd "$ROOT"
           chmod +x ./scripts/tools/ci_tests.sh
           ./scripts/tools/ci_tests.sh ./build-debug/c3c "ios"
 
@@ -1074,10 +1028,9 @@ jobs:
   #     - name: Prepare Assets
   #       run: |
   #         for config in Release Debug; do
-  #           for platform in windows windows-aarch64 macos linux linux-musl linux-static openbsd netbsd android-aarch64 android-x86_64 windows-setup windows-setup-aarch64; do
+  #           for platform in windows windows-aarch64 macos linux-static openbsd netbsd android-aarch64 android-x86_64 windows-setup windows-setup-aarch64; do
   #             if [ "$platform" = "windows-setup" ] || [ "$platform" = "windows-setup-aarch64" ]; then
   #               ext="exe"
-  #             # Windows and macOS produce zip, others tar.gz
   #             elif [ "$platform" = "windows" ] || [ "$platform" = "windows-aarch64" ] || [ "$platform" = "macos" ]; then
   #               ext="zip"
   #             else
@@ -1091,6 +1044,13 @@ jobs:
 
   #             mv "$src" "$dst" || true
   #           done
+
+  #           # Alias c3-linux-static to c3-linux for backward compatibility
+  #           if [ "$config" = "Release" ]; then
+  #             cp c3-linux-static.tar.gz c3-linux.tar.gz
+  #           else
+  #             cp c3-linux-static-debug.tar.gz c3-linux-debug.tar.gz
+  #           fi
   #         done
 
   #     - name: Set Release Names

@@ -52,8 +52,8 @@ extern jmp_buf on_err_jump;
 extern bool debug_log;
 
 extern uintptr_t arena_zero;
-struct ScratchBuf { char str[MAX_STRING_BUFFER]; uint32_t len; };
-extern struct ScratchBuf scratch_buffer;
+struct ScratchBuf { char str[MAX_STRING_BUFFER]; int len; };
+extern struct ScratchBuf *sb_current;
 
 
 typedef struct Task_
@@ -135,6 +135,8 @@ void free_arena(void);
 void print_arena_status(void);
 void run_arena_allocator_tests(void);
 void taskqueue_run(int threads, Task **task_list);
+void lock_acquire(void);
+void lock_release(void);
 int cpus(void);
 const char *date_get(void);
 const char *time_get(void);
@@ -142,6 +144,7 @@ const char *time_get(void);
 const char *str_remove_suffix(const char *name, const char *suffix);
 bool str_has_suffix(const char *name, const char *suffix);
 bool str_start_with(const char *name, const char *prefix);
+bool str_contains(const char *haystack, const char *needle);
 char *str_trim(char *str);
 const char *str_trim_start(const char *str);
 void str_trim_end(char *str);
@@ -172,10 +175,13 @@ static inline bool slice_strcmp(StringSlice slice, const char *other);
 static inline StringSlice slice_from_string(const char *data);
 void slice_trim(StringSlice *slice);
 
+void scratch_buffer_push(void);
+void scratch_buffer_pop(void);
 void scratch_buffer_clear(void);
 void scratch_buffer_delete(size_t len);
 void scratch_buffer_append(const char *string);
 void scratch_buffer_append_len(const char *string, size_t len);
+void scratch_buffer_append_slice(StringSlice slice);
 bool scratch_buffer_may_append(size_t len);
 void scratch_buffer_append_char(char c);
 void scratch_buffer_append_in_quote(const char *string);
@@ -189,6 +195,10 @@ UNUSED void scratch_buffer_append_unsigned_int(uint64_t i);
 void scratch_buffer_printf(const char *format, ...);
 char *scratch_buffer_to_string(void);
 char *scratch_buffer_copy(void);
+char *scratch_buffer_end_ptr(void);
+int scratch_buffer_len(void);
+const char *scratch_buffer_ptr(void);
+void scratch_buffer_set_len(int len);
 
 static inline bool is_power_of_two(uint64_t x);
 static inline uint32_t next_highest_power_of_2(uint32_t v);
@@ -799,3 +809,14 @@ const char *zip_dir_iterator(FILE *zip, ZipDirIterator *iterator);
 const char *zip_dir_iterator_next(ZipDirIterator *iterator, ZipFile *file);
 const char *zip_file_read(FILE *zip, ZipFile *file, void **buffer_ptr);
 const char *zip_file_write(FILE *zip, ZipFile *file, const char *dir, bool overwrite);
+
+typedef struct
+{
+	const char *name;
+	// Read the contents from this file, otherwise use 'data' and 'size'.
+	const char *file_path;
+	const char *data;
+	size_t size;
+} ZipEntry;
+
+const char *zip_create(const char *zip_path, const ZipEntry *entries, size_t count);

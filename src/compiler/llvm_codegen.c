@@ -174,6 +174,16 @@ static LLVMValueRef llvm_emit_macho_xtor(GenContext *c, LLVMValueRef *list, cons
 
 void llvm_emit_constructors_and_destructors(GenContext *c)
 {
+	int no_strips = vec_size(c->no_strip);
+	if (no_strips > 0)
+	{
+		LLVMValueRef array = LLVMConstArray(c->ptr_type, c->no_strip, no_strips);
+		LLVMValueRef global_used = LLVMAddGlobal(c->module, LLVMTypeOf(array), "llvm.used");
+		LLVMSetLinkage(global_used, LLVMAppendingLinkage);
+		LLVMSetInitializer(global_used, array);
+		LLVMSetNoSanitizeAddress(global_used);
+	}
+
 	if (compiler.platform.object_format == OBJ_FORMAT_MACHO)
 	{
 
@@ -221,13 +231,24 @@ EMIT_CTORS:
  * In this case we want this: { i32 0, i32 2, [8 x i32] zeroinitializer }
  * If it's just a single element we don't use [1 x i32] but just i32 0. If it's
  * an array then this is modifying the original type.
+ *
+ * @return true if we modified the original type
  */
-static LLVMValueRef llvm_emit_const_array_padding(LLVMTypeRef element_type, IndexDiff diff, bool *modified)
+static bool llvm_emit_const_array_padding(LLVMValueRef** components_ref, LLVMTypeRef element_type, bool is_vec, IndexDiff diff)
 {
-	if (diff == 1) return llvm_get_zero_raw(element_type);
-	*modified = true;
-	return llvm_get_zero_raw(LLVMArrayType(element_type, (unsigned)diff));
+	if (diff < 1) return false;
+	if (is_vec || diff == 1)
+	{
+		for (int i = 0; i < diff; i++)
+		{
+			vec_add(*components_ref, llvm_get_zero_raw(element_type));
+		}
+		return false;
+	}
+	vec_add(*components_ref, llvm_get_zero_raw(LLVMArrayType(element_type, (unsigned)diff)));
+	return true;
 }
+
 
 LLVMValueRef llvm_emit_const_initializer(GenContext *c, ConstInitializer *const_init, bool in_aggregate)
 {
@@ -244,7 +265,7 @@ LLVMValueRef llvm_emit_const_initializer(GenContext *c, ConstInitializer *const_
 		{
 			ASSERT(type->type_kind != TYPE_SLICE);
 			bool was_modified = false;
-			Type *element_type = type->array.base;
+			Type *element_type = lowered_array_element_type(type);
 			LLVMTypeRef element_type_llvm = llvm_get_type(c, element_type);
 			ConstInitializer **elements = const_init->init_array_full;
 			ASSERT(type_is_arraylike(type));
@@ -272,7 +293,7 @@ LLVMValueRef llvm_emit_const_initializer(GenContext *c, ConstInitializer *const_
 		{
 			ASSERT(type->type_kind != TYPE_SLICE);
 			bool was_modified = false;
-			Type *element_type = type->array.base;
+			Type *element_type = lowered_array_element_type(type);
 			LLVMTypeRef element_type_llvm = llvm_get_type(c, element_type);
 			AlignSize expected_align = llvm_abi_alignment(c, element_type_llvm);
 			ConstInitializer **elements = const_init->init_array.elements;
@@ -294,20 +315,7 @@ LLVMValueRef llvm_emit_const_initializer(GenContext *c, ConstInitializer *const_
 				}
 				alignment = expected_align;
 				// Add zeroes
-				if (diff > 0)
-				{
-					if (is_vec)
-					{
-						for (int i = 0; i < diff; i++)
-						{
-							vec_add(parts, llvm_get_zero_raw(element_type_llvm));
-						}
-					}
-					else
-					{
-						vec_add(parts, llvm_emit_const_array_padding(element_type_llvm, diff, &was_modified));
-					}
-				}
+				was_modified |= llvm_emit_const_array_padding(&parts, element_type_llvm, is_vec, diff);
 				LLVMValueRef value = llvm_emit_const_initializer(c, element->init_array_value.element, true);
 				if (LLVMTypeOf(value) != element_type_llvm) was_modified = true;
 				vec_add(parts, value);
@@ -315,15 +323,13 @@ LLVMValueRef llvm_emit_const_initializer(GenContext *c, ConstInitializer *const_
 			}
 
 			IndexDiff end_diff = (IndexDiff)((ArrayIndex)type->array.len - current_index);
-			if (end_diff > 0)
-			{
-				vec_add(parts, llvm_emit_const_array_padding(element_type_llvm, end_diff, &was_modified));
-			}
+			was_modified |= llvm_emit_const_array_padding(&parts, element_type_llvm, is_vec, end_diff);
+
 			if (was_modified)
 			{
 				return llvm_get_unnamed_struct(c, parts, pack);
 			}
-			if (type_flat_is_vector(type))
+			if (is_vec)
 			{
 				return LLVMConstVector(parts, vec_size(parts));
 			}
@@ -389,9 +395,10 @@ LLVMValueRef llvm_emit_const_initializer(GenContext *c, ConstInitializer *const_
 					vec_add(entries, llvm_emit_const_padding(c, member->padding));
 				}
 				LLVMValueRef element = llvm_emit_const_initializer(c, const_init->init_struct[i], true);
+				Type *member_type = lowered_member_type(member);
 				LLVMTypeRef element_type = LLVMTypeOf(element);
 				//ASSERT(LLVMIsConstant(element));
-				if (llvm_get_type(c, member->type) != element_type)
+				if (llvm_get_type(c, member_type) != element_type)
 				{
 					was_modified = true;
 				}
@@ -428,7 +435,17 @@ LLVMValueRef llvm_emit_const_initializer(GenContext *c, ConstInitializer *const_
 		{
 			BEValue value;
 			llvm_emit_expr_global_value(c, &value, const_init->init_value);
-			return llvm_load_value_store(c, &value);
+			LLVMValueRef val = llvm_load_value_store(c, &value);
+
+			// In some cases we will get a vector here, even if we didn't want it.
+			// So convert it.
+			LLVMTypeRef element_type = LLVMTypeOf(val);
+			if (LLVMGetTypeKind(element_type) == LLVMVectorTypeKind && !type_is_vec(type))
+			{
+				llvm_emit_vec_to_array(c, &value, type);
+				val = llvm_load_value_store(c, &value);
+			}
+			return val;
 		}
 	}
 	UNREACHABLE
@@ -495,7 +512,7 @@ static void llvm_set_external_reference(LLVMValueRef ref, bool is_weak)
 	LLVMSetVisibility(ref, LLVMDefaultVisibility);
 }
 
-void llvm_set_decl_linkage(GenContext *c, Decl *decl)
+void llvm_set_decl_linkage(GenContext *c, Decl *decl, bool store_nostrip)
 {
 	bool is_var = decl->decl_kind == DECL_VAR;
 	bool is_weak = decl->is_weak_link;
@@ -505,6 +522,13 @@ void llvm_set_decl_linkage(GenContext *c, Decl *decl)
 	bool is_static = is_var && decl->var.is_static;
 	// Static variables in a different modules should be copied to the current module.
 	bool same_module = is_static || decl->unit->module == c->code_module;
+
+	if (same_module && decl->no_strip && store_nostrip)
+	{
+		vec_add(c->no_strip, ref);
+		if (opt_ref) vec_add(c->no_strip, opt_ref);
+	}
+
 	if (decl->is_extern || !same_module)
 	{
 		llvm_set_external_reference(ref, should_weaken);
@@ -544,6 +568,18 @@ void llvm_set_internal_linkage(LLVMValueRef alloc)
 	LLVMSetVisibility(alloc, LLVMDefaultVisibility);
 }
 
+Expr *llvm_fold_init_expr(Expr *expr)
+{
+	while (expr && expr->expr_kind == EXPR_IDENTIFIER)
+	{
+		Decl *inner_decl = decl_flatten(expr->ident_expr);
+		if (inner_decl->decl_kind != DECL_VAR) break;
+		if (inner_decl->var.kind != VARDECL_CONST) break;
+		expr = inner_decl->var.init_expr;
+	}
+	return expr;
+}
+
 void llvm_set_private_declaration(LLVMValueRef alloc)
 {
 	LLVMSetLinkage(alloc, LLVMPrivateLinkage);
@@ -564,15 +600,8 @@ void llvm_emit_global_variable_init(GenContext *c, Decl *decl)
 
 	Type *var_type = type_lowering(decl->type);
 
-	Expr *init_expr = decl->var.init_expr;
-	// Fold "source" of the init.
-	while (init_expr && init_expr->expr_kind == EXPR_IDENTIFIER)
-	{
-		Decl *inner_decl = decl_flatten(init_expr->ident_expr);
-		if (inner_decl->decl_kind != DECL_VAR) break;
-		if (inner_decl->var.kind != VARDECL_CONST) break;
-		init_expr = inner_decl->var.init_expr;
-	}
+	Expr *init_expr = llvm_fold_init_expr(decl->var.init_expr);
+
 	if (init_expr && init_expr->expr_kind != EXPR_OPTIONAL)
 	{
 		if (expr_is_const_initializer(init_expr))
@@ -666,7 +695,7 @@ void llvm_emit_global_variable_init(GenContext *c, Decl *decl)
 		LLVMDeleteGlobal(old);
 	}
 
-	llvm_set_decl_linkage(c, decl);
+	llvm_set_decl_linkage(c, decl, true);
 
 }
 static void gencontext_verify_ir(GenContext *context)
@@ -1055,7 +1084,7 @@ static void llvm_emit_type_decls(GenContext *context, Decl *decl)
 		case DECL_UNION:
 		case DECL_ENUM:
 		case DECL_BITSTRUCT:
-		case DECL_CONSTDEF:
+		case DECL_CONSTSET:
 			llvm_get_typeid(context, decl->type);
 			break;
 	}
@@ -1177,7 +1206,7 @@ void llvm_add_global_decl(GenContext *c, Decl *decl)
 		scratch_buffer_append(".f");
 		decl->var.optional_ref = llvm_add_global_raw(c, scratch_buffer_to_string(), fault, 0);
 	}
-	llvm_set_decl_linkage(c, decl);
+	llvm_set_decl_linkage(c, decl, !same_module);
 	llvm_set_global_tls(decl);
 }
 
@@ -1352,6 +1381,10 @@ void llvm_append_function_attributes(GenContext *c, Decl *decl)
 	{
 		llvm_attribute_add(c, function, attribute_id.noreturn, -1);
 	}
+	if (compiler.build.arch_os_target == OPENBSD_X64)
+	{
+		llvm_attribute_add_string(c, function, "no-jump-tables", "true", -1);
+	}
 	if (decl->is_export && arch_is_wasm(compiler.platform.arch))
 	{
 		if (c->code_module == decl->unit->module)
@@ -1478,7 +1511,7 @@ LLVMValueRef llvm_get_ref(GenContext *c, Decl *decl)
 				backend_ref = decl->backend_ref = LLVMAddFunction(c->module, name, type);
 			}
 			llvm_append_function_attributes(c, decl);
-			llvm_set_decl_linkage(c, decl);
+			llvm_set_decl_linkage(c, decl, true);
 			return backend_ref;
 		case DECL_ALIAS:
 			return llvm_get_ref(c, decl->define_decl.alias);
@@ -1490,7 +1523,7 @@ LLVMValueRef llvm_get_ref(GenContext *c, Decl *decl)
 		case DECL_CT_ASSERT:
 		case DECL_TYPEDEF:
 		case DECL_ENUM:
-		case DECL_CONSTDEF:
+		case DECL_CONSTSET:
 		case DECL_ENUM_CONSTANT:
 		case DECL_IMPORT:
 		case DECL_ALIAS_PATH:

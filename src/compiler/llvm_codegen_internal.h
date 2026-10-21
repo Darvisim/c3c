@@ -8,7 +8,6 @@
 #include <llvm-c/Core.h>
 #include <llvm-c/Analysis.h>
 #include <llvm-c/Target.h>
-#include <llvm-c/Analysis.h>
 #include <llvm-c/DebugInfo.h>
 #include "dwarf.h"
 #include "c3_llvm.h"
@@ -91,6 +90,7 @@ typedef struct GenContext_
 	LLVMContextRef context;
 	LLVMValueRef *constructors;
 	LLVMValueRef *destructors;
+	LLVMValueRef *no_strip;
 	ReusableConstant *reusable_constants;
 	const char *ir_filename;
 	const char *object_filename;
@@ -391,7 +391,7 @@ void llvm_set_selector_linkage(GenContext *c, LLVMValueRef selector);
 void llvm_set_linkonce(GenContext *c, LLVMValueRef global);
 void llvm_set_comdat(GenContext *c, LLVMValueRef global);
 void llvm_set_private_declaration(LLVMValueRef alloc);
-void llvm_set_decl_linkage(GenContext *c, Decl *decl);
+void llvm_set_decl_linkage(GenContext *c, Decl *decl, bool store_nostrip);
 void llvm_set_weak(GenContext *c, LLVMValueRef global);
 
 void llvm_set_internal_linkage(LLVMValueRef alloc);
@@ -571,6 +571,7 @@ INLINE void llvm_emit_exprid(GenContext *c, BEValue *value, ExprId expr);
 INLINE void llvm_emit_statement_chain(GenContext *c, AstId current);
 void llvm_emit_initialize_reference_temporary_const(GenContext *c, BEValue *ref, ConstInitializer *initializer);
 INLINE bool llvm_emit_rvalue_id_in_block(GenContext *c, BEValue *value, ExprId expr_id) { return llvm_emit_rvalue_in_block(c, value, exprptr(expr_id)); }
+Expr *llvm_fold_init_expr(Expr *expr);
 
 LLVMValueRef llvm_get_ref(GenContext *c, Decl *decl);
 LLVMValueRef llvm_emit_call_intrinsic(GenContext *c, unsigned intrinsic, LLVMTypeRef *types, int type_count, LLVMValueRef *values, int arg_count);

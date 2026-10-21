@@ -33,7 +33,7 @@ RETRY:
 			type = type->pointer;
 			goto RETRY;
 		case TYPE_TYPEDEF:
-		case TYPE_CONSTDEF:
+		case TYPE_CONSTSET:
 		case TYPE_ENUM:
 		case TYPE_FUNC_RAW:
 		case TYPE_STRUCT:
@@ -550,6 +550,8 @@ void sema_trace_liveness(void)
 	{
 		sema_trace_decl_liveness(compiler.context.main);
 	}
+	sema_trace_decl_liveness(compiler.context.panic_var);
+	sema_trace_decl_liveness(compiler.context.panicf);
 	bool keep_tests = compiler.build.build_test;
 	bool keep_benchmarks = compiler.build.build_benchmark;
 	FOREACH(Decl *, function, compiler.context.method_extension_list)
@@ -572,7 +574,9 @@ void sema_trace_liveness(void)
 				    function->func_decl.attr_init ||
 				    (function->func_decl.attr_test) ||
 				    (function->func_decl.attr_benchmark))
+				{
 					sema_trace_decl_liveness(function);
+				}
 			}
 			FOREACH(Decl *, method, unit->methods)
 			{
@@ -639,7 +643,7 @@ RETRY:
 		case DECL_TYPEDEF:
 			sema_trace_type_liveness(decl->distinct->type);
 			FALLTHROUGH;
-		case DECL_CONSTDEF:
+		case DECL_CONSTSET:
 		case DECL_BITSTRUCT:
 		case DECL_INTERFACE:
 		case DECL_UNION:

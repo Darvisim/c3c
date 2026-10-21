@@ -1247,11 +1247,9 @@ static inline bool sema_analyse_cond(SemaContext *context, Expr *expr, CondType 
 	{
 		if (type_is_void(type_no_optional(last->type)) && cast_to_bool)
 		{
-			SEMA_ERROR(last, "Use '@ok(<expr>)' or '@catch(<expr>)' to explicitly convert a 'void!' to a boolean.");
-			return false;
+			RETURN_SEMA_ERROR(last, "Use '@ok(<expr>)' or '@catch(<expr>)' to explicitly convert a 'void!' to a boolean.");
 		}
-		SEMA_ERROR(last, "The expression may not be an optional, but was %s.", type_quoted_error_string(last->type));
-		return false;
+		RETURN_SEMA_ERROR(last, "The expression may not be an optional, but was %s.", type_quoted_error_string(last->type));
 	}
 	// 3b. Cast to bool if that is needed
 	if (cast_to_bool)
@@ -1481,7 +1479,7 @@ static inline bool sema_analyse_for_stmt(SemaContext *context, Ast *statement)
 				}
 			}
 			SCOPE_END;
-			// Rewrite do { } while(true) to while(true) { }
+			// Rewrite do { } while(true) to while (true) { }
 			if (is_infinite)
 			{
 				ASSERT(!statement->for_stmt.cond);
@@ -2010,7 +2008,6 @@ static inline bool sema_analyse_if_stmt(SemaContext *context, Ast *statement)
 	bool reverse = false;
 	SCOPE_OUTER_START(statement->loc)
 	{
-
 		success = sema_analyse_cond(context, cond, COND_TYPE_UNWRAP_BOOL, &result);
 		if (success && cond->expr_kind == EXPR_COND)
 		{
@@ -2719,7 +2716,7 @@ static inline bool sema_analyse_ct_switch_stmt(SemaContext *context, Ast *statem
 			is_type = true;
 			FALLTHROUGH;
 		case TYPE_ENUM:
-		case TYPE_CONSTDEF:
+		case TYPE_CONSTSET:
 		case ALL_INTS:
 		case ALL_FLOATS:
 		case TYPE_BOOL:
@@ -3325,7 +3322,6 @@ static inline bool sema_analyse_statement_inner(SemaContext *context, Ast *state
 	UNREACHABLE
 }
 
-
 bool sema_analyse_statement(SemaContext *context, Ast *statement)
 {
 	if (context->active_scope.is_poisoned) return false;
@@ -3352,8 +3348,6 @@ bool sema_analyse_statement(SemaContext *context, Ast *statement)
 	}
 	return true;
 }
-
-
 
 static bool sema_analyse_ensure(SemaContext *context, Expr *directive)
 {

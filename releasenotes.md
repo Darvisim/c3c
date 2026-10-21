@@ -1,5 +1,76 @@
 # C3C Release Notes
 
+## 0.8.6 Change list
+
+### Changes / improvements
+- `@asmname` allows defining external names like `@cname` but without normal name mangling.
+- Improved GfxKey mappings.
+- Add the `source-lib` target type (and `c3c source-lib` command) to pack the C3 sources, C sources and headers of a project into a `.c3l` library.
+- `.c3l` manifests without `targets` now work for all platforms, and may contain `version`, `authors` and `langrev`.
+
+### Fixes
+- Compressed `.c3l` libraries were not unpacked again when only files other than `manifest.json` had changed.
+- Fixed regression for MacOS loading multiple C3 dylibs. `@finalizer` now correctly works in descending order.
+- Fix miscompilation for OpenBSD on later processors. #3563
+- Polling a GfxEvent for a window and having events on other windows would silently discard the last event.
+- Setting no-border state during fullscreen on Win32 would not work properly.
+- X11 window destruction order was incorrect.
+- Win32 did not support sharing of OpenGL contexts.
+- Win32 OpenGL pixel format selection ignored several hints.
+- Added `FAILED_TO_CREATE_WGL_CONTEXT` for Win32 WGL format fails.
+- Win32 handle would leak on drag-and-drop when dnd was disabled.
+- X11 mode change did not change the stored mode.
+- X11 window name is now kept when recreating a window for opengl init.
+- Doc viewer collision between modules and declarations sharing the same path. #3572
+- Fixes to transparent mouse pointer.
+- Compiler crashes when using a value derived from a const as an initializer elsewhere. #3574
+- Improve OpenGL-handling of vsync.
+- Regression for emscripten, accidentally retainin unused panic functions. #3575.
+- Compiler hangs on c3c project fetch #3562
+
+### Stdlib changes
+- Added termios support for OpenBSD.
+- Add `file::open_fd` to open files directly from file descriptors.
+
+## 0.8.5 Change list
+
+### Changes / improvements
+- Fetching MSVC also optionally fetches C/C++ headers for cross-compilation
+- Experimental C backend.
+- Allow the `@section` attribute on local static variables.
+- Make `$feat` accept the same syntax as `@feat`.
+- Add `--function-sections` and `--data-sections` (`function-sections` / `data-sections` in project.json) to place each function or global variable in its own section, so the linker can discard unused ones #3051.
+- Removed experimental support for `cenum`, `faultset` and `distinct` alternative names.
+- Docs now use the `constset`, `attrmacro` and `excuse`.
+- The static Linux binary now uses mimalloc for faster codegen and is aliased to `c3-linux.tar.gz`.
+
+### Fixes
+- Regression for `vec.pow(x)`.
+- Macros with "const" declarations were compile time folded despite needing the declaration.
+- Vectors created through casts in globals would miscompile, e.g. `Foo global = { .v = (int[<3>])8 }`.
+- Support $$bswap for all power of two integers, including single bytes (in which case it is a no-op).
+- Fix source locations for byte literal values continued on a new line.
+- Faulty selection of subscript operator overload when calling method #3499
+- Retain `@nostrip` on optimized code even if no use is found, static variables may now also have nostrip. #3500
+
+- `!=` overloads on structs behaved as `==` #3547.
+- Multi-dimensional array comparisons on types with `==` overloaded would not compare.
+- Lazy resolution of function pointer types could cause a segfault when unifying ternary types. #3552
+- `@swap` now works with non-pure arguments.
+- Incorrect lowering of vectors when created from designated initializers with zeroes at the end.
+### Stdlib changes
+- Added `std::gfx` module.
+- Added `IntRect`, `IntVec2`, `IntVec3` and `IntVec4` types.
+- Updated organization of the MacOS / Darwin bindings, reorganized by framework, added many functions and split into std::os::darwin and std::os::macos, with among other things easy ObjC dispatch.
+- Updated win32 bindings with many functions, reorganized by header.
+- Cross-platform dylib handling with `DylibHandle`, `os::dlopen`, `os::dlsym` and related functions in `std::os`.
+- Added `Duration.to_sec`
+- Updated posix libc with `shm_open`, `shm_unlink`, `truncate` and `ftruncate`.
+- Add `NonNull` and `Nullable` types for members with mandatory null checks.
+- Cap durations and time to long::max/long::min with saturating maths.
+- Added `time::FOREVER_PAST`, `Time::diff_years`, `Time::diff_months`, `time::day`, `time::week`, `time::month`, `time::year`.
+- Added `double.is_inf`, `float.is_inf`.
+
 ## 0.8.4 Change list
 
 ### Changes / improvements

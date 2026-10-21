@@ -43,6 +43,11 @@ fi
 echo ">>> Running CI Tests using C3C at: $C3C_BIN"
 echo ">>> OS Mode: $OS_MODE (Detected System: $SYSTEM_NAME)"
 
+C3_BACKEND="${C3_BACKEND:-llvm}"
+if [[ "$C3_BACKEND" == "c" ]]; then
+    export CC="${CC:-clang}"
+fi
+
 # --- Create Disposable Workspace ---
 
 # Create temp directory
@@ -63,8 +68,12 @@ ROOT_DIR="$REAL_ROOT_DIR"
 
 # Helper to run c3c with the correct workspace isolation
 run_c3c() {
-    TARGET_ARGS=$([[ "$OS_MODE" == "ios" ]] && echo "--target ios-aarch64-sim" || echo "")
-    "$C3C_BIN" $TARGET_ARGS --output-dir "$MY_WORK_DIR" --build-dir "$MY_WORK_DIR" --obj-out "$MY_WORK_DIR" "$@"
+    COMPILER_ARGS=""
+    if [[ -n "$C3_BACKEND" && "$C3_BACKEND" != "llvm" ]]; then
+        COMPILER_ARGS+="--backend=$C3_BACKEND"
+    fi
+    [[ "$OS_MODE" == "ios" ]] && COMPILER_ARGS+=" --target ios-aarch64-sim"
+    "$C3C_BIN" $COMPILER_ARGS --output-dir "$MY_WORK_DIR" --build-dir "$MY_WORK_DIR" --obj-out "$MY_WORK_DIR" "$@"
 }
 
 # Helper for ios to simulate compile-run
@@ -123,6 +132,7 @@ run_examples() {
         sim_run examples/time.c3
         sim_run examples/fannkuch-redux.c3
         sim_run examples/contextfree/boolerr.c3
+        # sim_run examples/load_world.c3
         sim_run examples/ls.c3
         sim_run examples/args.c3 -- foo -bar "baz baz"
     else 
@@ -203,6 +213,17 @@ run_dynlib_tests() {
         ./multi
     fi
 
+    if [[ "$OS_MODE" == "mac" || "$OS_MODE" == "ios" ]]; then
+        local DL_DIR="$ROOT_DIR/resources/examples/dynlib-test"
+        run_c3c -vv dynamic-lib "$DL_DIR/linked_a.c3" "$DL_DIR/linked_foo.c3" -o linked_a
+        run_c3c -vv dynamic-lib "$DL_DIR/linked_b.c3" "$DL_DIR/linked_foo.c3" -o linked_b
+        if [[ "$OS_MODE" == "ios" ]]; then
+          sim_run "$DL_DIR/linked_main.c3" "$DL_DIR/linked_foo.c3" -vv -l linked_a.dylib -l linked_b.dylib
+        else
+          run_c3c -vv compile-run "$DL_DIR/linked_main.c3" "$DL_DIR/linked_foo.c3" -l linked_a.dylib -l linked_b.dylib
+        fi
+    fi
+
     if [[ "$OS_MODE" == "windows" ]]; then
         run_c3c -vv compile-run "$ROOT_DIR/resources/examples/dynlib-test/test.c3" -l "add.lib"
     elif [[ "$OS_MODE" == "mac" ]]; then
@@ -251,6 +272,27 @@ run_staticlib_tests() {
     fi
 }
 
+run_sourcelib_tests() {
+    local MY_WORK_DIR="$WORK_DIR/sourcelib"
+    mkdir -p "$MY_WORK_DIR"
+
+    echo "--- Running Source Lib Tests ---"
+    cd "$ROOT_DIR/resources/examples/sourcelib-test"
+
+    # Build the library from a project target, first compressed, then as a directory replacing the file.
+    for flags in "" "--no-compress"; do
+        run_c3c build sourcelib $flags
+        if [[ "$OS_MODE" == "ios" ]]; then
+            sim_run "$ROOT_DIR/resources/examples/sourcelib-test/test.c3" --libdir "$MY_WORK_DIR" --lib sourcelib
+        else
+            run_c3c compile-run "$ROOT_DIR/resources/examples/sourcelib-test/test.c3" --libdir "$MY_WORK_DIR" --lib sourcelib
+        fi
+    done
+
+    # Build the library without a project.
+    run_c3c source-lib src/sourcelib.c3 src/extra/double.c3 -o standalone
+}
+
 run_testproject() {
     local MY_WORK_DIR="$WORK_DIR/testproject"
     mkdir -p "$MY_WORK_DIR"
@@ -261,10 +303,10 @@ run_testproject() {
     ARGS="--trust=full"
 
     if [[ "$OS_MODE" == "linux" || "$OS_MODE" == "mac" || "$OS_MODE" == "ios" ]]; then
-        ARGS="$ARGS --linker=builtin"
+        ARGS+=" --linker=builtin"
 
         if [ -f "/etc/alpine-release" ]; then
-            ARGS="$ARGS --linux-libc=musl"
+            ARGS+=" --linux-libc=musl"
         fi
     fi
 
@@ -366,9 +408,7 @@ run_http_server_tests() {
     run_c3c compile -O1 http_server.c3
 
     OUTPUT_BIN="$MY_WORK_DIR/http_server"
-    if [[ "$OS_MODE" == "windows" ]]; then
-        OUTPUT_BIN="$MY_WORK_DIR/http_server.exe"
-    fi
+    [[ "$OS_MODE" == "windows" ]] && OUTPUT_BIN+=".exe"
 
     PORT=$(( 8085 + $RANDOM % 10000 ))
     echo "Starting server on port $PORT..."
@@ -457,25 +497,36 @@ run_unit_tests() {
 
     UNIT_TEST_ARGS="-O1"
     if [[ "$OS_MODE" != "bsd" ]]; then
+        UNIT_TEST_ARGS+=" -D SLOW_TESTS"
         if [[ "$OS_MODE" == "ios" ]]; then
-            UNIT_TEST_ARGS="$UNIT_TEST_ARGS -D SLOW_TESTS --suppress-run"
+            UNIT_TEST_ARGS+=" --suppress-run"
         else
-            UNIT_TEST_ARGS="$UNIT_TEST_ARGS -D SLOW_TESTS -D RUN_PROCESS_TESTS"
+            UNIT_TEST_ARGS+=" -D RUN_PROCESS_TESTS"
         fi
     fi
 
     run_c3c compile-test unit $UNIT_TEST_ARGS
     if [[ "$OS_MODE" == "ios" ]]; then
-        time xcrun simctl spawn $UDID "$MY_WORK_DIR/testrun" 2>/dev/null || true
+        xcrun simctl spawn $UDID "$MY_WORK_DIR/testrun" 2>/dev/null || true
+    fi
+
+    RUNNER_ARGS=("--no-terminal")
+    if [[ -n "$C3_BACKEND" && "$C3_BACKEND" != "llvm" ]]; then
+        RUNNER_ARGS+=("--backend=$C3_BACKEND")
+    fi
+
+    RUNNER_ARGS=("--no-terminal")
+    if [[ -n "$C3_BACKEND" && "$C3_BACKEND" != "llvm" ]]; then
+        RUNNER_ARGS+=("--backend=$C3_BACKEND")
     fi
 
     echo "--- Running Test Suite Runner ---"
     (
         cd "$MY_WORK_DIR"
         if [[ "$OS_MODE" == "ios" ]]; then
-            sim_run "$ROOT_DIR/test/src/test_suite_runner.c3" -O1 -- "$C3C_BIN" "$ROOT_DIR/test/test_suite/" --no-terminal
+            sim_run "$ROOT_DIR/test/src/test_suite_runner.c3" -O1 -- "$C3C_BIN" "$ROOT_DIR/test/test_suite/" "${RUNNER_ARGS[@]}"
         else
-            run_c3c compile-run -O1 "$ROOT_DIR/test/src/test_suite_runner.c3" -- "$C3C_BIN" "$ROOT_DIR/test/test_suite/" --no-terminal
+            run_c3c compile-run -O1 "$ROOT_DIR/test/src/test_suite_runner.c3" -- "$C3C_BIN" "$ROOT_DIR/test/test_suite/" "${RUNNER_ARGS[@]}"
         fi
     )
 }
@@ -524,6 +575,7 @@ run_parallel cli run_cli_tests
 run_parallel dynlib run_dynlib_tests
 run_parallel staticlib run_staticlib_tests
 run_parallel testproject run_testproject
+run_parallel sourcelib run_sourcelib_tests
 run_parallel wasm run_wasm_compile
 run_parallel bsd_cross run_bsd_cross_compile
 run_parallel http run_http_server_tests

@@ -257,7 +257,7 @@ static void register_generic_decls(CompilationUnit *unit, Decl **decls)
 			case DECL_ALIAS:
 			case DECL_ATTRIBUTE:
 			case DECL_BITSTRUCT:
-			case DECL_CONSTDEF:
+			case DECL_CONSTSET:
 			case DECL_TYPEDEF:
 			case DECL_ENUM:
 			case DECL_INTERFACE:
@@ -308,7 +308,7 @@ static void analyze_generics(Module *module)
 	FOREACH(CompilationUnit *, unit, module->units)
 	{
 		bool remove = false;
-		if (unit->feat_attributes && sema_remove_due_to_conditionals(unit->feat_attributes) != BOOL_FALSE)
+		if (unit->feat_attributes && sema_retain_conditional_feat(unit->feat_attributes) != BOOL_TRUE)
 		{
 			remove = true;
 		}
@@ -388,7 +388,6 @@ static void assign_panicfn(void)
 		error_exit("Expected panic function to have the signature fn void(String, String, String, int).");
 	}
 	compiler.context.panic_var = decl;
-	decl->no_strip = true;
 
 	if (no_stdlib()) return;
 
@@ -403,8 +402,6 @@ static void assign_panicfn(void)
 		compiler.context.panicf = NULL;
 		return;
 	}
-
-	panicf_decl->no_strip = true;
 
 	Type *panicf_fn_type = panicf_decl->type->canonical;
 	if (panicf_decl->decl_kind != DECL_FUNC)

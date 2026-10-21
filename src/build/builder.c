@@ -117,6 +117,7 @@ bool command_accepts_files(CompilerCommand command)
 		case COMMAND_COMPILE_RUN:
 		case COMMAND_DYNAMIC_LIB:
 		case COMMAND_STATIC_LIB:
+		case COMMAND_SOURCE_LIB:
 		case COMMAND_COMPILE_BENCHMARK:
 		case COMMAND_COMPILE_TEST:
 		case COMMAND_UNIT_TEST:
@@ -133,6 +134,9 @@ bool command_accepts_files(CompilerCommand command)
 		case COMMAND_BENCHMARK:
 		case COMMAND_TEST:
 		case COMMAND_VENDOR_FETCH:
+		case COMMAND_FETCH:
+		case COMMAND_FETCH_INFO:
+		case COMMAND_FETCH_LIST:
 		case COMMAND_PROJECT:
 		case COMMAND_FETCH_SDK:
 			return false;
@@ -155,6 +159,7 @@ bool command_passes_args(CompilerCommand command)
 		case COMMAND_COMPILE_ONLY:
 		case COMMAND_DYNAMIC_LIB:
 		case COMMAND_STATIC_LIB:
+		case COMMAND_SOURCE_LIB:
 		case COMMAND_COMPILE_BENCHMARK:
 		case COMMAND_COMPILE_TEST:
 		case COMMAND_UNIT_TEST:
@@ -166,6 +171,9 @@ bool command_passes_args(CompilerCommand command)
 		case COMMAND_DIST:
 		case COMMAND_PRINT_SYNTAX:
 		case COMMAND_VENDOR_FETCH:
+		case COMMAND_FETCH:
+		case COMMAND_FETCH_INFO:
+		case COMMAND_FETCH_LIST:
 		case COMMAND_PROJECT:
 		case COMMAND_FETCH_SDK:
 			return false;
@@ -374,6 +382,8 @@ static void update_build_target_from_options(BuildTarget *target, BuildOptions *
 					error_exit("The '%s' target is a test target and not compatible with the benchmark command.", target->name);
 				case TARGET_TYPE_PREPARE:
 					error_exit("The '%s' target is a prepare target and not compatible with the benchmark command.", target->name);
+				case TARGET_TYPE_SOURCE_LIB:
+					error_exit("The '%s' target is a source library target and not compatible with the benchmark command.", target->name);
 			}
 BENCHMARK:
 		case COMMAND_COMPILE_BENCHMARK:
@@ -410,6 +420,8 @@ BENCHMARK:
 					error_exit("The '%s' target is a benchmark target and not compatible with the test command.", target->name);
 				case TARGET_TYPE_PREPARE:
 					error_exit("The '%s' target is a prepare target and not compatible with the test command.", target->name);
+				case TARGET_TYPE_SOURCE_LIB:
+					error_exit("The '%s' target is a source library target and not compatible with the test command.", target->name);
 			}
 		case COMMAND_COMPILE_TEST:
 TEST:
@@ -452,6 +464,7 @@ TEST:
 					break;
 				case TARGET_TYPE_STATIC_LIB:
 				case TARGET_TYPE_DYNAMIC_LIB:
+				case TARGET_TYPE_SOURCE_LIB:
 					error_exit("'%s' is a library target and cannot be run.", target->name);
 				case TARGET_TYPE_OBJECT_FILES:
 					error_exit("'%s' is an object file target and cannot be run.", target->name);
@@ -479,6 +492,9 @@ TEST:
 		case COMMAND_STATIC_LIB:
 			target->type = TARGET_TYPE_STATIC_LIB;
 			break;
+		case COMMAND_SOURCE_LIB:
+			target->type = TARGET_TYPE_SOURCE_LIB;
+			break;
 		case COMMAND_BUILD:
 		case COMMAND_DIST:
 BUILD:
@@ -503,6 +519,9 @@ BUILD:
 		case COMMAND_PRINT_SYNTAX:
 		case COMMAND_PROJECT:
 		case COMMAND_FETCH_SDK:
+		case COMMAND_FETCH:
+		case COMMAND_FETCH_INFO:
+		case COMMAND_FETCH_LIST:
 		case COMMAND_DOCGEN:
 			target->run_after_compile = false;
 			break;
@@ -553,12 +572,15 @@ BUILD:
 	target->read_stdin = options->read_stdin;
 
 	if (options->cc) target->cc = options->cc;
+	if (options->cflags) target->cflags = options->cflags;
 	set_if_updated(target->optlevel, options->optlevel);
 	set_if_updated(target->optsize, options->optsize);
 	set_if_updated(target->optsetting, options->optsetting);
 	set_if_updated(target->single_module, options->single_module);
 	set_if_updated(target->unroll_loops, options->unroll_loops);
 	set_if_updated(target->merge_functions, options->merge_functions);
+	set_if_updated(target->data_sections, options->data_sections);
+	set_if_updated(target->function_sections, options->function_sections);
 	set_if_updated(target->loop_vectorization, options->loop_vectorization);
 	set_if_updated(target->slp_vectorization, options->slp_vectorization);
 	set_if_updated(target->validation_level, options->validation_level);
@@ -589,6 +611,7 @@ BUILD:
 	set_if_updated(target->stack_protector, options->stack_protector);
 
 	OVERRIDE_IF_SET(output_dir);
+	OVERRIDE_IF_SET(no_compress);
 	OVERRIDE_IF_SET(panicfn);
 	OVERRIDE_IF_SET(testfn);
 	OVERRIDE_IF_SET(benchfn);
@@ -884,6 +907,17 @@ BUILD:
 	if (options->no_obj)
 	{
 		target->emit_object_files = false;
+	}
+	if (target->backend == BACKEND_C)
+	{
+		if (target->emit_llvm)
+		{
+			error_exit("'--emit-llvm' is not supported with the C backend.");
+		}
+		if (target->emit_asm)
+		{
+			error_exit("'--emit-asm' is not supported with the C backend.");
+		}
 	}
 	if (options->output_name && target->emit_object_files
 		&& target->single_module != SINGLE_MODULE_ON && target->type == TARGET_TYPE_OBJECT_FILES)

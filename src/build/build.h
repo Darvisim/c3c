@@ -17,6 +17,7 @@
 #define DEFAULT_SWITCHRANGE_MAX_SIZE (256)
 #define DEFAULT_SWITCH_JUMP_MAX_SIZE (0x3FFF)
 #define DEFAULT_PATH "."
+#define DEFAULT_FETCH_URL "http://localhost:8080"
 #define DEFAULT_STACK_PROBE_SIZE (0x1000)
 
 typedef enum
@@ -32,10 +33,14 @@ typedef enum
 	COMMAND_COMPILE_RUN,
 	COMMAND_STATIC_LIB,
 	COMMAND_DYNAMIC_LIB,
+	COMMAND_SOURCE_LIB,
 	COMMAND_RUN,
 	COMMAND_CLEAN_RUN,
 	COMMAND_CLEAN,
 	COMMAND_VENDOR_FETCH,
+	COMMAND_FETCH,
+	COMMAND_FETCH_LIST,
+	COMMAND_FETCH_INFO,
 	COMMAND_DIST,
 	COMMAND_BENCHMARK,
 	COMMAND_TEST,
@@ -90,6 +95,7 @@ typedef enum
 	TARGET_TYPE_BENCHMARK,
 	TARGET_TYPE_TEST,
 	TARGET_TYPE_PREPARE,
+	TARGET_TYPE_SOURCE_LIB,
 } TargetType;
 
 typedef struct
@@ -132,7 +138,7 @@ static const char *project_view_flags[PROJECT_VIEW_TYPE_MAX + 1] = {
 	[PROJECT_VIEW_TYPE_TARGETS] = "targets",
 };
 
-static const char *targets[7] = {
+static const char *targets[8] = {
 	[TARGET_TYPE_EXECUTABLE] = "executable",
 	[TARGET_TYPE_STATIC_LIB] = "static-lib",
 	[TARGET_TYPE_DYNAMIC_LIB] = "dynamic-lib",
@@ -140,16 +146,17 @@ static const char *targets[7] = {
 	[TARGET_TYPE_TEST] = "test",
 	[TARGET_TYPE_OBJECT_FILES] = "object-files",
 	[TARGET_TYPE_PREPARE] = "prepare",
+	[TARGET_TYPE_SOURCE_LIB] = "source-lib",
 };
-static const char *target_desc[7] = {
+static const char *target_desc[8] = {
 	[TARGET_TYPE_EXECUTABLE] = "Executable",
 	[TARGET_TYPE_STATIC_LIB] = "Static library",
 	[TARGET_TYPE_DYNAMIC_LIB] = "Dynamic library",
 	[TARGET_TYPE_BENCHMARK] = "benchmark suite",
 	[TARGET_TYPE_TEST] = "test suite",
 	[TARGET_TYPE_OBJECT_FILES] = "object files",
-	[TARGET_TYPE_PREPARE] = "prepare"
-
+	[TARGET_TYPE_PREPARE] = "prepare",
+	[TARGET_TYPE_SOURCE_LIB] = "Source library",
 };
 
 
@@ -201,6 +208,10 @@ typedef struct BuildOptions_
 	const char *bsd_sysroot;
 	int build_threads;
 	const char *echo_prefix;
+	const char *search_name;
+	const char *search_tag;
+	const char *fetch_url;
+	const char **vendor_libraries_to_fetch;
 	const char **libraries_to_fetch;
 	const char **files;
 	const char *test_filter;
@@ -258,6 +269,8 @@ typedef struct BuildOptions_
 	SingleModule single_module;
 	UnrollLoops unroll_loops;
 	MergeFunctions merge_functions;
+	SectionsSetting function_sections;
+	SectionsSetting data_sections;
 	AutoVectorization loop_vectorization;
 	AutoVectorization slp_vectorization;
 	bool emit_llvm;
@@ -269,6 +282,7 @@ typedef struct BuildOptions_
 	bool no_obj;
 	bool keep_object_files;
 	bool no_headers;
+	bool no_compress;
 	bool read_stdin;
 	bool print_output;
 	bool print_input;
@@ -278,6 +292,7 @@ typedef struct BuildOptions_
 	bool docgen_append;
 	bool fetch_accept_license;
 	bool msvc_show_versions;
+	bool msvc_fetch_headers;
 	ImplicitFloat implicit_float;
 	const char *msvc_version_override;
 	const char *msvc_sdk_version_override;
@@ -290,6 +305,7 @@ typedef struct BuildOptions_
 	const char *benchfn;
 	const char *testfn;
 	const char *cc;
+	const char *cflags;
 	const char *build_dir;
 	const char *output_dir;
 	const char *llvm_out;
@@ -425,6 +441,7 @@ typedef struct
 	bool docgen_json_out;
 	bool docgen_append;
 	bool output_headers;
+	bool no_compress;
 	bool output_ast;
 	bool lex_only;
 	bool parse_only;
@@ -461,6 +478,8 @@ typedef struct
 	ShowBacktrace show_backtrace;
 	StripUnused strip_unused;
 	DebugInfo debug_info;
+	SectionsSetting function_sections;
+	SectionsSetting data_sections;
 	MergeFunctions merge_functions;
 	UnrollLoops unroll_loops;
 	AutoVectorization loop_vectorization;
@@ -588,6 +607,8 @@ static BuildTarget default_build_target = {
 		.merge_functions = MERGE_FUNCTIONS_NOT_SET,
 		.slp_vectorization = VECTORIZATION_NOT_SET,
 		.loop_vectorization = VECTORIZATION_NOT_SET,
+		.function_sections = SECTIONS_SETTING_NOT_SET,
+		.data_sections = SECTIONS_SETTING_NOT_SET,
 		.strip_unused = STRIP_UNUSED_NOT_SET,
 		.symtab_size = DEFAULT_SYMTAB_SIZE,
 		.reloc_model = RELOC_DEFAULT,
@@ -647,6 +668,7 @@ const char *check_dir(const char *path);
 void create_project(BuildOptions *build_options);
 void create_library(BuildOptions *build_options);
 void resolve_libraries(BuildTarget *build_target);
+void build_source_library(BuildTarget *target);
 void view_project(BuildOptions *build_options);
 void add_target_project(BuildOptions *build_options);
 void fetch_project(BuildOptions* options);
