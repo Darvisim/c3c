@@ -493,11 +493,11 @@ run_unit_tests() {
 
     UNIT_TEST_ARGS=("-O1")
     if [[ "$OS_MODE" != "bsd" ]]; then
-        UNIT_TEST_ARGS+=("-D SLOW_TESTS")
+        UNIT_TEST_ARGS+=("-D" "SLOW_TESTS")
         if [[ "$OS_MODE" == "ios" ]]; then
             UNIT_TEST_ARGS+=("--suppress-run")
         else
-            UNIT_TEST_ARGS+=("-D RUN_PROCESS_TESTS")
+            UNIT_TEST_ARGS+=("-D" "RUN_PROCESS_TESTS")
         fi
     fi
 
