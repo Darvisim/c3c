@@ -49,7 +49,7 @@ in llvmPackages.stdenv.mkDerivation (_:
 
     # Remove '--linker=builtin' from run_testproject so it uses the working system linker.
     substituteInPlace scripts/tools/ci_tests.sh \
-      --replace-fail 'ARGS+=("--linker=builtin")' ''
+      --replace-fail 'ARGS+=("--linker=builtin")' '# ARGS+=("--linker=builtin")'
   '';
 
   cmakeBuildType = if debug then "Debug" else "Release";
