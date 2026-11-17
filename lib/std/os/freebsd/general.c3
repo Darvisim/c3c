@@ -1,4 +1,5 @@
 module std::os::freebsd @feat(FREEBSD);
+import libc, std::os, std::collections::list;
 
 // Top-level identifiers <sys/sysctl.h>
 
