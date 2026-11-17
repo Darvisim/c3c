@@ -87,7 +87,12 @@ fn void*[] capture_current(void*[] buffer)
 	if (!buffer.len) return buffer[:0];
 	$switch:
 		$case env::POSIX:
-			CInt len = posix::backtrace(buffer.ptr, buffer.len);
+			$if env::BSD_FAMILY:
+				usz len;
+			$else:
+				CInt len;
+			$endif
+			len = posix::backtrace(buffer.ptr, buffer.len);
 			return buffer[:len];
 		$case env::WIN32:
 			Win32_WORD len = win32::rtlCaptureStackBackTrace(0, (usz)buffer.len, buffer.ptr, null);
@@ -103,8 +108,9 @@ alias symbolize_backtrace @feat(LINUX)  	= linux::symbolize_backtrace;
 alias symbolize_backtrace @feat(WIN32)  	= win32::symbolize_backtrace;
 alias symbolize_backtrace @feat(DARWIN) 	= darwin::symbolize_backtrace;
 alias symbolize_backtrace @feat(OPENBSD)	= openbsd::symbolize_backtrace;
+alias symbolize_backtrace @feat(FREEBSD)	= freebsd::symbolize_backtrace;
 
-fn BacktraceList? symbolize_backtrace(Allocator allocator, void*[] backtrace) @feat(!LINUX & !WIN32 & !DARWIN & !OPENBSD)
+fn BacktraceList? symbolize_backtrace(Allocator allocator, void*[] backtrace) @feat(!LINUX & !WIN32 & !DARWIN & !OPENBSD & !FREEBSD)
 {
 	return {};
 }
