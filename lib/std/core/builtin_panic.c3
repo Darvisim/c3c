@@ -214,7 +214,7 @@ macro void unsupported(String string = "Unsupported function invoked") @builtin 
 	$$unreachable();
 }
 
-module std::core::builtin @feat(LINUX, ANDROID, DARWIN) @feat(SAFE_MODE) @feat(DEBUG_SYMBOLS);
+module std::core::builtin @feat(LINUX, ANDROID, DARWIN, FREEBSD) @feat(SAFE_MODE) @feat(DEBUG_SYMBOLS);
 import libc, std::io, std::os::posix;
 
 fn void sig_panic(String message)
