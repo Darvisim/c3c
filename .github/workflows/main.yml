@@ -14,8 +14,7 @@ on:
 env:
   LLVM_RELEASE_VERSION: 22.x
   LLVM_RELEASE_VERSION_LINUX_MUSL: 22
-  LLVM_RELEASE_VERSION_OPENBSD: 21
-  LLVM_RELEASE_VERSION_NETBSD: 21
+  LLVM_RELEASE_VERSION_BSD: 21
   LLVM_DEV_VERSION: 22
   # CACHE_INVALIDATION_SEED: '%Y-%m-%d' # Daily
   CACHE_INVALIDATION_SEED: '%G-%V-1'   # Weekly
@@ -616,7 +615,7 @@ jobs:
             fi
           done
           for i in 1 2 3; do
-            sudo pkg_add ninja cmake llvm%${{ env.LLVM_RELEASE_VERSION_OPENBSD }} bash && break || sleep 5
+            sudo pkg_add ninja cmake llvm%${{ env.LLVM_RELEASE_VERSION_BSD }} bash && break || sleep 5
           done
 
       - name: Build (Release)
@@ -703,9 +702,9 @@ jobs:
           for i in 1 2 3; do
             sudo pkgin -y update && \
             sudo pkgin -y install cmake gcc14 ninja-build bash \
-              "llvm>=${{ env.LLVM_RELEASE_VERSION_NETBSD }}" \
-              "clang>=${{ env.LLVM_RELEASE_VERSION_NETBSD }}" \
-              "lld>=${{ env.LLVM_RELEASE_VERSION_NETBSD }}" && break || sleep 5
+              "llvm>=${{ env.LLVM_RELEASE_VERSION_BSD }}" \
+              "clang>=${{ env.LLVM_RELEASE_VERSION_BSD }}" \
+              "lld>=${{ env.LLVM_RELEASE_VERSION_BSD }}" && break || sleep 5
           done
 
       - name: Build (Release)
@@ -751,6 +750,67 @@ jobs:
         with:
           name: c3-netbsd-Debug
           path: c3-netbsd-Debug.tar.gz
+
+  build-freebsd:
+    name: FreeBSD (x64) ${{ matrix.version }}
+    needs: changes
+    if: needs.changes.outputs.src == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ['15.1']
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup FreeBSD VM
+        uses: cross-platform-actions/action@master
+        with:
+          operating_system: freebsd
+          version: ${{ matrix.version }}
+          cpu_count: 4
+          memory: 6G
+
+      - name: Install Dependencies
+        shell: cpa.sh {0}
+        run: |
+          for i in 1 2 3; do
+            pkg install -y ninja cmake llvm${{ env.LLVM_RELEASE_VERSION_BSD }} bash && break || sleep 5
+          done
+
+      - name: Build (Release)
+        shell: cpa.sh {0}
+        run: |
+          cmake -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-release
+
+      - name: Build (Debug)
+        shell: cpa.sh {0}
+        run: |
+          cmake -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug
+          cmake --build build-debug
+
+      - name: Run Tests
+        shell: cpa.sh {0}
+        run: ./scripts/tools/ci_tests.sh build-debug/c3c
+
+      - name: Package
+        shell: cpa.sh {0}
+        run: |
+          ./scripts/tools/package_build.sh "./build-release/c3c" "c3-freebsd-Release" "tar"
+          ./scripts/tools/package_build.sh "./build-debug/c3c" "c3-freebsd-Debug" "tar"
+
+      - name: Upload Artifacts (Release)
+        uses: actions/upload-artifact@v7
+        with:
+          name: c3-freebsd-Release
+          path: c3-freebsd-Release.tar.gz
+
+      - name: Upload Artifacts (Debug)
+        uses: actions/upload-artifact@v7
+        with:
+          name: c3-freebsd-Debug
+          path: c3-freebsd-Debug.tar.gz        
 
   build-with-docker:
     name: LLVM ${{ matrix.llvm_version }} Compatibility
@@ -1038,7 +1098,7 @@ jobs:
 
   release:
     runs-on: ubuntu-slim
-    needs: [build-msvc, build-msvc-arm64, build-linux, build-mac, build-linux-alpine, build-openbsd, build-netbsd, build-android, build-linux-musl-static]
+    needs: [build-msvc, build-msvc-arm64, build-linux, build-mac, build-linux-alpine, build-openbsd, build-netbsd, build-freebsd, build-android, build-linux-musl-static]
     if: github.ref == 'refs/heads/master' || endsWith(github.ref, '.x')
     permissions:
       contents: write
