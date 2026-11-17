@@ -57,7 +57,7 @@ fn int panic_print_backtrace_count(BacktraceList backtrace, int backtraces_to_ig
 	return backtraces_to_ignore;
 }
 
-fn bool print_backtrace(String message, int backtraces_to_ignore, void *added_backtrace = null) @feat(LINUX, DARWIN, OPENBSD, WIN32) => @stack_mem(0x1100; Allocator smem)
+fn bool print_backtrace(String message, int backtraces_to_ignore, void *added_backtrace = null) @feat(LINUX, DARWIN, OPENBSD, FREEBSD, WIN32) => @stack_mem(0x1100; Allocator smem)
 {
 	void*[256] buffer;
 	void*[] backtraces = backtrace::capture_current(&buffer);
