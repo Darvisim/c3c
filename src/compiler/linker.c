@@ -892,7 +892,7 @@ static void linker_setup_bsd(const char ***args_ref, Linker linker_type, bool is
 			add_plain_arg("--dynamic-linker=/libexec/ld-elf.so.1");
 	}
 	linking_add_link(&compiler.linking, "c");
-	if (is_openbsd)
+	if (!is_netbsd)
 	{
 		linking_add_link(&compiler.linking, "execinfo");
 	}
