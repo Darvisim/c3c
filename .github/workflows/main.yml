@@ -775,7 +775,7 @@ jobs:
         shell: cpa.sh {0}
         run: |
           for i in 1 2 3; do
-            pkg install -y ninja cmake llvm${{ env.LLVM_RELEASE_VERSION_BSD }} bash && break || sleep 5
+            sudo pkg install -y ninja cmake llvm${{ env.LLVM_RELEASE_VERSION_BSD }} bash && break || sleep 5
           done
 
       - name: Build (Release)
