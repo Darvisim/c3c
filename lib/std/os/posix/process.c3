@@ -38,8 +38,10 @@ extern fn CInt getpid();
 extern fn CInt kill(Pid_t pid, CInt sig);
 extern fn Pid_t waitpid(Pid_t pid, CInt* stat_loc, int options);
 extern fn CInt raise(CInt sig);
-extern fn ZString* backtrace_symbols(void** buffer, CInt size);
-extern fn void backtrace_symbols_fd(void** buffer, CInt size, CInt fd);
+extern fn ZString* backtrace_symbols(void** buffer, CInt size) @feat(!BSD);
+extern fn ZString* backtrace_symbols(void** buffer, usz size) @feat(BSD);
+extern fn void backtrace_symbols_fd(void** buffer, CInt size, CInt fd) @feat(!BSD);
+extern fn CInt backtrace_symbols_fd(void** buffer, usz size, CInt fd) @feat(BSD);
 macro CInt wEXITSTATUS(CInt status) => (status & 0xff00) >> 8;
 macro CInt wTERMSIG(CInt status) => status & 0x7f;
 macro CInt wSTOPSIG(CInt status) => wEXITSTATUS(status);
@@ -58,7 +60,7 @@ const CInt WUNTRACES = 2;
 tlocal SigJmpBuf backtrace_jmpbuf @local;
 alias BacktraceFn = fn CInt(void** buffer, CInt size);
 
-extern fn CInt backtrace(void** buffer, CInt size) @feat(OPENBSD, NETBSD);
+extern fn usz backtrace(void** buffer, usz size) @feat(BSD);
 
 fn void install_signal_handler(CInt signal, SigActionFunction func)
 {
@@ -78,7 +80,7 @@ fn void install_signal_handler(CInt signal, SigActionFunction func)
     libc::sigaction(signal, &action, &old);
 }
 
-fn CInt backtrace(void** buffer, CInt size) @feat(!OPENBSD & !NETBSD)
+fn CInt backtrace(void** buffer, CInt size) @feat(!BSD)
 {
 	if (size < 1) return 0;
 	void* handle = libc::dlopen("libc.so.6", libc::RTLD_LAZY | libc::RTLD_NODELETE);
@@ -153,6 +155,49 @@ struct MContext_t  @feat(LINUX & AARCH64) @align(16)
 	char[4096] __reserved;
 }
 
+struct MContext_t  @feat(FREEBSD & X86_64) @align(16)
+{
+	long mc_onstack;
+	long mc_rdi;
+	long mc_rsi;
+ 	long mc_rdx;
+ 	long mc_rcx;
+ 	long mc_r8;
+	long mc_r9;
+	long mc_rax;
+	long mc_rbx;
+	long mc_rbp;
+	long mc_r10;
+	long mc_r11;
+	long mc_r12;
+	long mc_r13;
+	long mc_r14;
+	long mc_r15;
+	uint mc_trapno;
+	ushort mc_fs;
+	ushort mc_gs;
+	long mc_addr;
+	uint mc_flags;
+	ushort mc_es;
+	ushort mc_ds;
+	long mc_err;
+	long mc_rip;
+	long mc_cs;
+	long mc_rflags;
+	long mc_rsp;
+	long mc_ss;
+	long mc_len;
+	long mc_fpformat;
+	long mc_ownedfp;
+	long[64] mc_fpstate;
+	long mc_fsbase;
+	long mc_gsbase;
+	long mc_xfpustate;
+	long mc_xfpustate_len;
+	long mc_tlsbase;
+	long[3] mc_spare;
+}
+
 struct PosixUContext_t @feat(LINUX & X86_64)
 {
 	ulong            uc_flags;
@@ -164,7 +209,17 @@ struct PosixUContext_t @feat(LINUX & X86_64)
 	ulong[4]		 __ssp;
 }
 
-alias PosixUContext_t @feat(!DARWIN) @feat(!LINUX, !X86_64) = void;
+struct PosixUContext_t @feat(FREEBSD & X86_64)
+{
+	Sigset_t 		 uc_sigmask;
+	MContext_t 		 uc_mcontext;
+	PosixUContext_t* uc_link;
+	Stack_t			 uc_stack;
+	int				 uc_flags;
+	int[4]			 __spare__;
+}
+
+alias PosixUContext_t @feat(!DARWIN) @feat(!LINUX, !X86_64) @feat(!FREEBSD, !X86_64) = void;
 
 macro void* stack_instruction(PosixUContext_t* uc)
 {
@@ -178,10 +233,10 @@ macro void* stack_instruction(PosixUContext_t* uc)
 		$case env::LINUX && env::X86_64:
 			return (void*)uc.uc_mcontext.gregs[REG_RIP];
 /*		$case env::LINUX && env::AARCH64:
-			return (void*)uc.uc_mcontext.pc;
+			return (void*)uc.uc_mcontext.pc;*/
 		$case env::FREEBSD && env::X86_64:
-			return uc.uc_mcontext.mc_rip;
-		$case env::OPENBSD && env::X86_64:
+			return (void*)uc.uc_mcontext.mc_rip;
+/*		$case env::OPENBSD && env::X86_64:
 			return uc.sc_rip;
 		$case env::NETBSD:
 			uc.uc_mcontext.__gregs[_REG_RIP];*/
